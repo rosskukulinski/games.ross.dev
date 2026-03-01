@@ -1,6 +1,13 @@
 // Main Entry Point
 // Initializes all modules and sets up the application
 
+const INPUT_MODE_KEY = 'guess-the-drawing-input-mode';
+
+function getSelectedMode() {
+    const checked = document.querySelector('input[name="input-mode"]:checked');
+    return checked ? checked.value : 'speak';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize UI first
     UI.init();
@@ -22,8 +29,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize game logic
     Game.init();
 
+    // Load saved input mode preference from localStorage
+    const savedMode = localStorage.getItem(INPUT_MODE_KEY) || 'speak';
+    const modeInputs = document.querySelectorAll('input[name="input-mode"]');
+    modeInputs.forEach(input => {
+        input.checked = input.value === savedMode;
+        input.addEventListener('change', () => {
+            if (input.checked) {
+                localStorage.setItem(INPUT_MODE_KEY, input.value);
+            }
+        });
+    });
+
     // Set up button handlers
     UI.onStartClick(() => {
+        Game.inputMode = getSelectedMode();
         Game.start();
     });
 

@@ -444,6 +444,55 @@ body {
     }
 }
 
+/* Mode Selector */
+.mode-selector {
+    text-align: center;
+    font-size: 1.1rem;
+    color: var(--pencil-gray);
+    width: 100%;
+}
+
+.mode-selector > p {
+    margin-bottom: 12px;
+}
+
+.mode-options {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.mode-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 3px solid var(--sketch-line);
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+    box-shadow: 3px 3px 0 var(--sketch-line);
+}
+
+.mode-option:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0 var(--sketch-line);
+}
+
+.mode-option:has(input:checked) {
+    background: var(--pencil-gray);
+    color: white;
+    transform: translate(3px, 3px);
+    box-shadow: none;
+}
+
+.mode-option input[type="radio"] {
+    display: none;
+}
+
 /* Animations for screen transitions */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }

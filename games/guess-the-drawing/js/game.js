@@ -15,6 +15,7 @@ const Game = {
 
     usedDrawings: [],
     isMicActive: false,
+    inputMode: 'speak', // 'speak' or 'type' - set from main.js before start()
 
     init() {
         this.reset();
@@ -87,9 +88,23 @@ const Game = {
         UI.hideFeedback();
         UI.updateRound(this.data.currentRound);
         UI.resetTimer();
-        UI.clearGuessDisplay();
+        UI.clearGuessDisplay(this.inputMode);
         UI.setMicActive(false);
         this.isMicActive = false;
+
+        // Auto-start input based on mode
+        if (this.inputMode === 'speak') {
+            Audio.resume();
+            const started = Speech.startListening();
+            if (started) {
+                UI.setMicActive(true);
+                this.isMicActive = true;
+            } else {
+                UI.showTextFallback();
+            }
+        } else {
+            UI.showTypingInput();
+        }
 
         // Start drawing animation
         Drawing.startDrawing(this.data.currentDrawing, () => {
@@ -115,23 +130,7 @@ const Game = {
 
     toggleMic() {
         if (this.state !== 'PLAYING') return;
-
-        if (this.isMicActive) {
-            Speech.stopListening();
-            UI.setMicActive(false);
-            this.isMicActive = false;
-        } else {
-            Audio.resume(); // Ensure audio context is ready
-            const started = Speech.startListening();
-            if (started) {
-                UI.setMicActive(true);
-                this.isMicActive = true;
-                UI.updateGuessDisplay('Listening...');
-            } else {
-                // Speech not supported, show text fallback
-                UI.showTextFallback();
-            }
-        }
+        if (this.inputMode === 'speak') return; // mic is always on in speak mode
     },
 
     checkGuess(spokenText) {
@@ -160,6 +159,7 @@ const Game = {
         Drawing.stopDrawing();
         UI.setMicActive(false);
         this.isMicActive = false;
+        if (this.inputMode === 'type') UI.hideTypingInput();
 
         // Update score
         this.data.stars += 1;
@@ -185,6 +185,7 @@ const Game = {
         Drawing.stopDrawing();
         UI.setMicActive(false);
         this.isMicActive = false;
+        if (this.inputMode === 'type') UI.hideTypingInput();
 
         // Update score (minimum 0 stars)
         this.data.stars = Math.max(0, this.data.stars - 2);

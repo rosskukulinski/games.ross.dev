@@ -16,8 +16,20 @@
             <h1 class="title">Guess the Drawing</h1>
             <div class="instructions">
                 <p>A pencil will draw a picture.</p>
-                <p>Say what you see into the microphone!</p>
-                <p>You have 30 seconds to guess.</p>
+                <p>Guess what it is in 30 seconds!</p>
+            </div>
+            <div class="mode-selector">
+                <p>How do you want to answer?</p>
+                <div class="mode-options">
+                    <label class="mode-option">
+                        <input type="radio" name="input-mode" id="mode-speak" value="speak" checked>
+                        <span>🎤 Say it</span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="input-mode" id="mode-type" value="type">
+                        <span>⌨️ Type it</span>
+                    </label>
+                </div>
             </div>
             <div class="scoring-info">
                 <p><span class="star-icon">&#9733;</span> +1 star for correct guess</p>

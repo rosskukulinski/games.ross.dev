@@ -116,8 +116,12 @@ const UI = {
         }
     },
 
-    clearGuessDisplay() {
-        this.elements.guessDisplay.textContent = 'Press the microphone and say what you see...';
+    clearGuessDisplay(inputMode = 'speak') {
+        if (inputMode === 'type') {
+            this.elements.guessDisplay.textContent = 'Type your guess below';
+        } else {
+            this.elements.guessDisplay.textContent = 'Listening...';
+        }
         this.elements.guessDisplay.classList.remove('has-text');
     },
 
@@ -130,6 +134,20 @@ const UI = {
     hideTextFallback() {
         this.elements.textFallback.classList.add('hidden');
         this.elements.textFallback.value = '';
+    },
+
+    // Intentional typing mode (user chose to type)
+    showTypingInput() {
+        this.elements.textFallback.classList.remove('hidden');
+        this.elements.textFallback.value = '';
+        this.elements.micBtn.style.display = 'none';
+        this.elements.textFallback.focus();
+    },
+
+    hideTypingInput() {
+        this.elements.textFallback.classList.add('hidden');
+        this.elements.textFallback.value = '';
+        this.elements.micBtn.style.display = '';
     },
 
     // Feedback overlays
