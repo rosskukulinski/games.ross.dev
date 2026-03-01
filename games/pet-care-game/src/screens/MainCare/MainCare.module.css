@@ -1,0 +1,128 @@
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #e0f0ff 0%, #f0e8ff 100%);
+}
+
+.viewport {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  position: relative;
+}
+
+.heartCorner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+
+.loveFeedback {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #e0507a;
+  animation: floatUp 1.2s ease-out forwards;
+}
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+.releaseBtn {
+  position: absolute;
+  bottom: 8px;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #2d6a4f, #52b788);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: glow 2s ease-in-out infinite;
+}
+
+.retireBtn {
+  position: absolute;
+  bottom: 8px;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #e0507a, #FFD700);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  animation: goldenGlow 2s ease-in-out infinite;
+}
+
+.retireBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(255, 215, 0, 0.5);
+}
+
+.releaseBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(45, 106, 79, 0.4);
+}
+
+.bottomPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.actions::-webkit-scrollbar {
+  display: none;
+}
+
+.navBar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.navBtn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.navBtn:hover {
+  background: white;
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(82, 183, 136, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(82, 183, 136, 0.6); }
+}
+
+@keyframes goldenGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 215, 0, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+}

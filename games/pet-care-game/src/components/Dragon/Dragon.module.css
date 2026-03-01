@@ -1,0 +1,131 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  position: relative;
+}
+
+.dragon {
+  width: 100%;
+  max-width: 260px;
+  animation: idleBounce 2s ease-in-out infinite;
+}
+
+/* Mood animations */
+.mood_happy .dragon {
+  animation: happyBounce 1.2s ease-in-out infinite;
+}
+
+.mood_sleepy .dragon {
+  animation: sleepySway 3s ease-in-out infinite;
+}
+
+.mood_sad .dragon {
+  animation: sadDroop 2.5s ease-in-out infinite;
+}
+
+/* Activity animations — override mood */
+.activity_walking .dragon {
+  animation: walkCycle 4s ease-in-out infinite;
+}
+
+.activity_playing .dragon {
+  animation: playCycle 3s ease-in-out infinite;
+}
+
+.activity_sleeping .dragon {
+  animation: sleepRock 4s ease-in-out infinite;
+}
+
+.breathEffect {
+  animation: breathPulse 2s ease-in-out infinite;
+}
+
+/* Zzz particles */
+.zzzContainer {
+  position: absolute;
+  top: 10%;
+  right: 15%;
+  pointer-events: none;
+}
+
+.zzz1, .zzz2, .zzz3 {
+  position: absolute;
+  font-weight: 700;
+  color: #8b5cf6;
+  opacity: 0;
+}
+
+.zzz1 {
+  font-size: 1.2rem;
+  animation: zzzFloat 2s ease-in-out infinite;
+}
+
+.zzz2 {
+  font-size: 0.9rem;
+  left: 12px;
+  animation: zzzFloat 2s ease-in-out 0.5s infinite;
+}
+
+.zzz3 {
+  font-size: 1rem;
+  left: 6px;
+  animation: zzzFloat 2s ease-in-out 1s infinite;
+}
+
+/* --- Keyframes --- */
+
+@keyframes idleBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes happyBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes sleepySway {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-3px) rotate(-1deg); }
+  75% { transform: translateX(3px) rotate(1deg); }
+}
+
+@keyframes sadDroop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@keyframes walkCycle {
+  0% { transform: translateX(-40px); }
+  25% { transform: translateX(-20px) translateY(-6px); }
+  50% { transform: translateX(0px); }
+  75% { transform: translateX(20px) translateY(-6px); }
+  100% { transform: translateX(40px); }
+}
+
+@keyframes playCycle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-8deg) scale(1.05); }
+  40% { transform: rotate(8deg) scale(1.1); }
+  60% { transform: rotate(-5deg) scale(1.05); }
+  80% { transform: rotate(5deg) scale(1); }
+}
+
+@keyframes sleepRock {
+  0%, 100% { transform: translateY(4px) rotate(0deg); }
+  25% { transform: translateY(2px) rotate(-3deg); }
+  75% { transform: translateY(2px) rotate(3deg); }
+}
+
+@keyframes zzzFloat {
+  0% { opacity: 0; transform: translate(0, 0); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(10px, -30px); }
+}
+
+@keyframes breathPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}

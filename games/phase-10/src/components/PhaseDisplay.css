@@ -1,0 +1,81 @@
+.phase-display {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+}
+
+.phase-display h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: #333;
+  text-align: center;
+  border-bottom: 2px solid #1976d2;
+  padding-bottom: 8px;
+}
+
+.phase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phase-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+}
+
+.phase-number {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e0e0;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.75rem;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.phase-description {
+  flex: 1;
+  color: #555;
+}
+
+.phase-check {
+  color: #43a047;
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+/* Current phase */
+.phase-item.current {
+  background: #e3f2fd;
+}
+
+.phase-item.current .phase-number {
+  background: #1976d2;
+  color: white;
+}
+
+.phase-item.current .phase-description {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+/* Completed phase */
+.phase-item.completed .phase-number {
+  background: #43a047;
+  color: white;
+}
+
+.phase-item.completed .phase-description {
+  color: #43a047;
+}

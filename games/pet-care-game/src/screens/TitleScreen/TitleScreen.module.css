@@ -1,0 +1,90 @@
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.content {
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.titleArea {
+  margin-bottom: 24px;
+}
+
+.title, .title2 {
+  font-size: 3rem;
+  font-weight: 900;
+  color: white;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+  margin: 0;
+}
+
+.title2 {
+  color: #ffd700;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  margin-top: 8px;
+  font-weight: 500;
+  letter-spacing: 2px;
+}
+
+.dragonSilhouette {
+  margin: 32px 0;
+}
+
+.silhouette {
+  width: 180px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.continueBtn, .newGameBtn {
+  padding: 14px 48px;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  min-width: 200px;
+}
+
+.continueBtn {
+  background: white;
+  color: #764ba2;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.continueBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+
+.newGameBtn {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.newGameBtn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}

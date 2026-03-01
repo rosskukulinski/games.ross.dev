@@ -1,0 +1,127 @@
+.card {
+  width: 70px;
+  height: 100px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Georgia', serif;
+  font-weight: bold;
+  border: 2px solid #ddd;
+  transition: transform 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+
+.card-small {
+  width: 50px;
+  height: 72px;
+  font-size: 0.8em;
+}
+
+.card-clickable {
+  cursor: pointer;
+}
+
+.card-clickable:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.card-selected {
+  transform: translateY(-10px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  border-color: #4a90d9;
+}
+
+.card-corner {
+  position: absolute;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.card-corner-top {
+  top: 6px;
+  left: 6px;
+}
+
+.card-corner-bottom {
+  bottom: 6px;
+  right: 6px;
+  transform: rotate(180deg);
+}
+
+.card-center {
+  font-size: 32px;
+}
+
+.card-small .card-corner {
+  font-size: 11px;
+}
+
+.card-small .card-center {
+  font-size: 22px;
+}
+
+/* Colors */
+.card-red {
+  color: #d32f2f;
+  border-color: #d32f2f;
+}
+
+.card-blue {
+  color: #1976d2;
+  border-color: #1976d2;
+}
+
+.card-green {
+  color: #388e3c;
+  border-color: #388e3c;
+}
+
+.card-yellow {
+  color: #f9a825;
+  border-color: #f9a825;
+}
+
+.card-wild {
+  background: linear-gradient(135deg, #d32f2f 25%, #1976d2 25%, #1976d2 50%, #388e3c 50%, #388e3c 75%, #f9a825 75%);
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  border-color: #333;
+}
+
+.card-skip {
+  background: linear-gradient(135deg, #333 0%, #555 100%);
+  color: white;
+  border-color: #222;
+}
+
+/* Card back */
+.card-back {
+  background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+  border-color: #0d1642;
+}
+
+.card-back-pattern {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #5c6bc0;
+  font-size: 18px;
+}
+
+.card-back-pattern span:first-child {
+  font-size: 24px;
+  color: #7986cb;
+}
+
+.card-small .card-back-pattern {
+  font-size: 14px;
+}
+
+.card-small .card-back-pattern span:first-child {
+  font-size: 18px;
+}

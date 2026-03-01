@@ -1,0 +1,18 @@
+{
+  "name": "guess-the-drawing",
+  "version": "1.0.0",
+  "description": "A browser-based game where a pencil draws pictures and you guess what it is using voice input",
+  "scripts": {
+    "build": "node build.js",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rosskukulinski/guess-the-drawing.git"
+  },
+  "author": "Ross Kukulinski",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^4.60.0"
+  }
+}

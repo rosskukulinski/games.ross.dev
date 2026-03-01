@@ -1,0 +1,118 @@
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #87ceeb 0%, #90ee90 40%, #228b22 100%);
+}
+
+.intro, .results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+  padding: 24px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tip {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.startBtn {
+  margin-top: 16px;
+  padding: 14px 48px;
+  background: white;
+  color: #228b22;
+  border: none;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.startBtn:hover {
+  transform: scale(1.05);
+}
+
+.backLink {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font-size: 1.1rem;
+}
+
+.parkArea {
+  flex: 1;
+  position: relative;
+  margin: 8px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #90ee90 0%, #7ccd7c 100%);
+}
+
+.grass {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0, 100, 0, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(0, 100, 0, 0.1) 0%, transparent 50%);
+}
+
+.trashItem {
+  position: absolute;
+  font-size: 1.8rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s;
+  z-index: 2;
+  padding: 4px;
+}
+
+.trashItem:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+
+.trashItem:active {
+  transform: translate(-50%, -50%) scale(0.8);
+}
+
+.hidden {
+  opacity: 0.4;
+}
+
+.scoreDisplay {
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
+.rewardDisplay {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ffd700;
+}
+
+.perfect {
+  font-size: 1.1rem;
+  color: #ffd700;
+  font-weight: 700;
+}

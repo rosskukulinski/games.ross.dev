@@ -1,0 +1,10 @@
+{
+  "name": "games.ross.dev",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-all.js",
+    "dev": "node scripts/build-all.js && npx serve dist",
+    "serve": "npx serve dist",
+    "clean": "rm -rf dist"
+  }
+}

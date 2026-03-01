@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unicorn Dragon</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      overflow: hidden;
+      background: #000;
+    }
+    #game {
+      width: 100vw;
+      height: 100vh;
+    }
+    #hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px;
+    }
+    .health-container {
+      width: 200px;
+      height: 20px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    .health-bar {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #ff4444, #ff6666);
+      transition: width 0.3s ease;
+    }
+    .health-bar.warning {
+      background: linear-gradient(90deg, #ffaa00, #ffcc00);
+    }
+    .health-bar.critical {
+      background: linear-gradient(90deg, #ff0000, #ff4444);
+      animation: pulse 0.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .score-container {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .combo {
+      color: #ffdd00;
+      margin-left: 15px;
+      animation: combo-pop 0.3s ease;
+    }
+    .combo.hidden { display: none; }
+    @keyframes combo-pop {
+      0% { transform: scale(1.5); }
+      100% { transform: scale(1); }
+    }
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.7);
+      border-radius: 50%;
+    }
+    .crosshair::before,
+    .crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255,255,255,0.7);
+    }
+    .crosshair::before {
+      width: 2px;
+      height: 8px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .crosshair::after {
+      width: 8px;
+      height: 2px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .hud-bottom {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+    }
+    .mount-info {
+      background: rgba(0,0,0,0.5);
+      padding: 10px 15px;
+      border-radius: 8px;
+    }
+    .mount-name {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .mount-slots {
+      display: flex;
+      gap: 8px;
+    }
+    .mount-slot {
+      width: 32px;
+      height: 32px;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .mount-slot.active {
+      background: rgba(100,200,255,0.4);
+      border-color: #64c8ff;
+    }
+    .trick-notification {
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px;
+      font-weight: bold;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .trick-notification.show {
+      opacity: 1;
+    }
+    .trick-name {
+      color: #ffdd00;
+      display: block;
+    }
+    .trick-score {
+      color: #00ff88;
+      font-size: 24px;
+    }
+    .controls-hint {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-size: 12px;
+      opacity: 0.7;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="hud">
+    <div class="hud-top">
+      <div class="health-container">
+        <div class="health-bar" id="health-bar"></div>
+      </div>
+      <div class="score-container">
+        <span id="score">0</span>
+        <span id="combo" class="combo hidden">x1</span>
+      </div>
+    </div>
+    <div class="crosshair"></div>
+    <div class="hud-bottom">
+      <div class="mount-info">
+        <div class="mount-name" id="mount-name">Celestial Unicorn</div>
+        <div class="mount-slots">
+          <div class="mount-slot active" data-slot="1">1</div>
+          <div class="mount-slot" data-slot="2">2</div>
+          <div class="mount-slot" data-slot="3">3</div>
+          <div class="mount-slot" data-slot="4">4</div>
+        </div>
+      </div>
+    </div>
+    <div class="trick-notification" id="trick-notification">
+      <span class="trick-name"></span>
+      <span class="trick-score"></span>
+    </div>
+    <div class="controls-hint">
+      WASD - Move | Space/Ctrl - Up/Down | Mouse - Aim | Click - Shoot | Q - Trick | 1-4 - Switch Mount
+    </div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

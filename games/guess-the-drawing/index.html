@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Guess the Drawing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- Start Screen -->
+        <div id="start-screen" class="screen">
+            <h1 class="title">Guess the Drawing</h1>
+            <div class="instructions">
+                <p>A pencil will draw a picture.</p>
+                <p>Say what you see into the microphone!</p>
+                <p>You have 30 seconds to guess.</p>
+            </div>
+            <div class="scoring-info">
+                <p><span class="star-icon">&#9733;</span> +1 star for correct guess</p>
+                <p><span class="penalty">-2 stars</span> if time runs out</p>
+            </div>
+            <button id="start-btn" class="btn btn-start">Start Game</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen hidden">
+            <header class="game-header">
+                <div class="star-counter">
+                    <span class="star-icon">&#9733;</span>
+                    <span id="star-count">0</span>
+                </div>
+                <div class="round-counter">
+                    Round <span id="round-number">1</span>/10
+                </div>
+            </header>
+
+            <div class="canvas-area">
+                <canvas id="game-canvas"></canvas>
+                <div class="pencil" id="pencil">
+                    <svg viewBox="0 0 24 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Pencil body -->
+                        <rect x="4" y="0" width="16" height="60" fill="#f4d03f"/>
+                        <rect x="4" y="0" width="16" height="60" fill="url(#pencilGradient)"/>
+                        <!-- Metal band -->
+                        <rect x="3" y="55" width="18" height="8" fill="#c0c0c0"/>
+                        <rect x="3" y="57" width="18" height="2" fill="#a0a0a0"/>
+                        <!-- Eraser -->
+                        <rect x="5" y="63" width="14" height="10" rx="2" fill="#e8a0a0"/>
+                        <!-- Wood tip -->
+                        <polygon points="4,0 20,0 12,-15" fill="#d4a574"/>
+                        <!-- Graphite tip -->
+                        <polygon points="10,0 14,0 12,-8" fill="#333"/>
+                        <defs>
+                            <linearGradient id="pencilGradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stop-color="rgba(0,0,0,0.1)"/>
+                                <stop offset="50%" stop-color="rgba(255,255,255,0.2)"/>
+                                <stop offset="100%" stop-color="rgba(0,0,0,0.1)"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="timer-container">
+                    <div class="timer" id="timer">0:30</div>
+                </div>
+
+                <button class="mic-button" id="mic-btn" aria-label="Start voice input">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                </button>
+
+                <div class="guess-area">
+                    <div class="guess-display" id="guess-display">
+                        Press the microphone and say what you see...
+                    </div>
+                    <input type="text" id="text-fallback" class="text-fallback hidden" placeholder="Type your guess...">
+                </div>
+            </div>
+
+            <!-- Feedback overlay -->
+            <div id="feedback-overlay" class="feedback-overlay hidden">
+                <div class="feedback-content">
+                    <div id="feedback-icon" class="feedback-icon"></div>
+                    <div id="feedback-text" class="feedback-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Screen -->
+        <div id="end-screen" class="screen hidden">
+            <h1 class="title">End of Game</h1>
+
+            <div class="results">
+                <div class="result-stars">
+                    <span id="final-stars">0</span>
+                    <span class="star-icon large">&#9733;</span>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="correct-count">0</span>
+                        <span class="stat-label">correct</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="timeout-count">0</span>
+                        <span class="stat-label">ran out of time</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="play-again-btn" class="btn btn-start">Play Again</button>
+        </div>
+    </div>
+
+    <script src="js/paths.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/timer.js"></script>
+    <script src="js/drawing.js"></script>
+    <script src="js/speech.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

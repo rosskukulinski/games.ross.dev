@@ -1,0 +1,455 @@
+/* Guess the Drawing - Styles */
+/* Paper/Sketch Aesthetic */
+
+:root {
+    --paper-color: #f5f0e6;
+    --paper-lines: #e0dbd1;
+    --pencil-gray: #4a4a4a;
+    --sketch-line: #333;
+    --star-gold: #f4d03f;
+    --success-green: #27ae60;
+    --error-red: #e74c3c;
+    --mic-active: #e74c3c;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Patrick Hand', cursive;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+/* Game Container - Paper Effect */
+.game-container {
+    background: var(--paper-color);
+    border-radius: 8px;
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.1),
+        0 8px 16px rgba(0,0,0,0.15),
+        inset 0 0 80px rgba(0,0,0,0.03);
+    padding: 24px;
+    max-width: 480px;
+    width: 100%;
+    min-height: 600px;
+    position: relative;
+    /* Paper texture effect */
+    background-image:
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 27px,
+            var(--paper-lines) 27px,
+            var(--paper-lines) 28px
+        );
+}
+
+/* Screens */
+.screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100%;
+}
+
+.screen.hidden {
+    display: none;
+}
+
+/* Typography */
+.title {
+    font-size: 2.5rem;
+    color: var(--sketch-line);
+    text-align: center;
+    margin-bottom: 24px;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+}
+
+/* Start Screen */
+#start-screen {
+    justify-content: center;
+    gap: 24px;
+    padding: 20px 0;
+}
+
+.instructions {
+    text-align: center;
+    font-size: 1.3rem;
+    color: var(--pencil-gray);
+    line-height: 1.8;
+}
+
+.scoring-info {
+    text-align: center;
+    font-size: 1.2rem;
+    color: var(--pencil-gray);
+    border: 2px dashed var(--pencil-gray);
+    border-radius: 8px;
+    padding: 16px 24px;
+    margin: 8px 0;
+}
+
+.scoring-info p {
+    margin: 8px 0;
+}
+
+.star-icon {
+    color: var(--star-gold);
+    font-size: 1.4em;
+    vertical-align: middle;
+}
+
+.star-icon.large {
+    font-size: 3rem;
+}
+
+.penalty {
+    color: var(--error-red);
+    font-weight: bold;
+}
+
+/* Buttons */
+.btn {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.5rem;
+    padding: 16px 48px;
+    border: 3px solid var(--sketch-line);
+    border-radius: 12px;
+    background: white;
+    color: var(--sketch-line);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 4px 4px 0 var(--sketch-line);
+}
+
+.btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--sketch-line);
+}
+
+.btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+}
+
+/* Game Screen */
+#game-screen {
+    gap: 16px;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 8px;
+}
+
+.star-counter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.8rem;
+    color: var(--sketch-line);
+}
+
+.round-counter {
+    font-size: 1.2rem;
+    color: var(--pencil-gray);
+}
+
+/* Canvas Area */
+.canvas-area {
+    background: white;
+    border: 3px solid var(--sketch-line);
+    border-radius: 8px;
+    width: 100%;
+    aspect-ratio: 4/3;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+}
+
+#game-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Pencil */
+.pencil {
+    position: absolute;
+    width: 24px;
+    height: 80px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+    transform-origin: 12px 0;
+    transition: opacity 0.3s;
+    filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
+}
+
+.pencil svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.timer-container {
+    display: flex;
+    justify-content: center;
+}
+
+.timer {
+    font-size: 2.2rem;
+    color: var(--pencil-gray);
+    border: 3px solid var(--sketch-line);
+    border-radius: 8px;
+    padding: 4px 20px;
+    background: white;
+    min-width: 100px;
+    text-align: center;
+}
+
+.timer.warning {
+    color: var(--error-red);
+    border-color: var(--error-red);
+    animation: pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+/* Microphone Button */
+.mic-button {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 3px solid var(--sketch-line);
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    color: var(--pencil-gray);
+}
+
+.mic-button svg {
+    width: 36px;
+    height: 36px;
+}
+
+.mic-button:hover {
+    background: #f0f0f0;
+}
+
+.mic-button.active {
+    background: var(--mic-active);
+    border-color: var(--mic-active);
+    color: white;
+    animation: mic-pulse 1.5s ease-in-out infinite;
+}
+
+.mic-button.active:hover {
+    background: #c0392b;
+}
+
+@keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+    50% { box-shadow: 0 0 0 15px rgba(231, 76, 60, 0); }
+}
+
+/* Guess Area */
+.guess-area {
+    width: 100%;
+}
+
+.guess-display {
+    font-size: 1.3rem;
+    min-height: 2.5em;
+    border: 2px dashed var(--pencil-gray);
+    border-radius: 8px;
+    text-align: center;
+    padding: 12px;
+    color: var(--pencil-gray);
+    background: rgba(255,255,255,0.5);
+}
+
+.guess-display.has-text {
+    color: var(--sketch-line);
+    font-size: 1.5rem;
+}
+
+.text-fallback {
+    width: 100%;
+    font-family: 'Patrick Hand', cursive;
+    font-size: 1.3rem;
+    padding: 12px;
+    border: 2px solid var(--sketch-line);
+    border-radius: 8px;
+    text-align: center;
+    margin-top: 8px;
+}
+
+.text-fallback.hidden {
+    display: none;
+}
+
+/* Feedback Overlay */
+.feedback-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(245, 240, 230, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: 8px;
+}
+
+.feedback-overlay.hidden {
+    display: none;
+}
+
+.feedback-content {
+    text-align: center;
+}
+
+.feedback-icon {
+    font-size: 5rem;
+    margin-bottom: 16px;
+}
+
+.feedback-icon.correct::before {
+    content: '✓';
+    color: var(--success-green);
+}
+
+.feedback-icon.timeout::before {
+    content: '⏱';
+    color: var(--error-red);
+}
+
+.feedback-text {
+    font-size: 1.8rem;
+    color: var(--sketch-line);
+}
+
+.feedback-text .answer {
+    display: block;
+    font-size: 2rem;
+    margin-top: 8px;
+    color: var(--pencil-gray);
+}
+
+/* End Screen */
+#end-screen {
+    justify-content: center;
+    gap: 32px;
+    padding: 40px 0;
+}
+
+.results {
+    text-align: center;
+}
+
+.result-stars {
+    font-size: 4rem;
+    color: var(--sketch-line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.stats {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    font-size: 1.4rem;
+    color: var(--pencil-gray);
+}
+
+.stat-value {
+    font-size: 2rem;
+    color: var(--sketch-line);
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+    body {
+        padding: 10px;
+    }
+
+    .game-container {
+        padding: 16px;
+        min-height: auto;
+    }
+
+    .title {
+        font-size: 2rem;
+    }
+
+    .instructions {
+        font-size: 1.1rem;
+    }
+
+    .btn {
+        font-size: 1.3rem;
+        padding: 12px 36px;
+    }
+
+    .timer {
+        font-size: 1.8rem;
+    }
+
+    .mic-button {
+        width: 60px;
+        height: 60px;
+    }
+
+    .mic-button svg {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* Animations for screen transitions */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.screen:not(.hidden) {
+    animation: fadeIn 0.3s ease-out;
+}

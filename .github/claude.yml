@@ -1,0 +1,5 @@
+# Claude Code GitHub integration
+# Allows assigning Claude to issues and mentioning in PRs
+direct_prompt: |
+  You are working on the games.ross.dev monorepo.
+  Read CLAUDE.md for project context before starting work.

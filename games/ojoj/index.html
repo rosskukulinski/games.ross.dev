@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Racing Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Main Menu -->
+        <div id="menu-overlay" class="overlay">
+            <h1>Car Racing</h1>
+            <p>Race against 4 opponents! Most lives wins!</p>
+            <button id="start-btn">START</button>
+            <div class="controls-info">
+                <h3>Controls:</h3>
+                <p><span class="key">Arrow Right</span> / <span class="key">D</span> - Accelerate</p>
+                <p><span class="key">Arrow Left</span> / <span class="key">A</span> - Slow Down</p>
+                <p><span class="key">Arrow Up</span> / <span class="key">W</span> - Upper Lane</p>
+                <p><span class="key">Arrow Down</span> / <span class="key">S</span> - Lower Lane</p>
+            </div>
+        </div>
+
+        <!-- Car Selection Screen -->
+        <div id="car-select-overlay" class="overlay hidden">
+            <h1>Choose Your Car</h1>
+            <div class="car-options">
+                <div class="car-option" data-car="SPEED">
+                    <div class="car-preview car-speed"></div>
+                    <h3>Speed Demon</h3>
+                    <p>Goes super fast!</p>
+                </div>
+                <div class="car-option" data-car="SHIELD">
+                    <div class="car-preview car-shield"></div>
+                    <h3>Shield Car</h3>
+                    <p>Auto-saves from hits!</p>
+                </div>
+                <div class="car-option" data-car="CHOMPER">
+                    <div class="car-preview car-chomper"></div>
+                    <h3>Chomper</h3>
+                    <p>Eat other cars!</p>
+                </div>
+            </div>
+            <button id="race-btn" class="hidden">RACE!</button>
+        </div>
+    </div>
+
+    <script src="js/constants.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/collision.js"></script>
+    <script src="js/obstacles.js"></script>
+    <script src="js/powerups.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/ai-player.js"></script>
+    <script src="js/level.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

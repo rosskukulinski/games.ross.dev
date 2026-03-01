@@ -1,0 +1,98 @@
+.screen {
+  min-height: 100dvh;
+  padding: 24px 16px;
+  background: linear-gradient(180deg, #fff8e1 0%, #ffe0b2 100%);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.title {
+  font-size: 1.5rem;
+  color: #333;
+  margin: 0;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.gameIcon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+}
+
+.gameInfo {
+  flex: 1;
+}
+
+.gameName {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.gameDesc {
+  font-size: 0.8rem;
+  color: #666;
+  margin: 0 0 4px;
+}
+
+.reward {
+  font-size: 0.75rem;
+  color: #92700c;
+  font-weight: 600;
+}
+
+.playArrow {
+  font-size: 1.2rem;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+.backBtn {
+  display: block;
+  margin: 24px auto 0;
+  padding: 10px 32px;
+  background: none;
+  border: 2px solid #aaa;
+  border-radius: 20px;
+  color: #666;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.backBtn:hover {
+  border-color: #e76f51;
+  color: #e76f51;
+}

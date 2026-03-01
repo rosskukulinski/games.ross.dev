@@ -1,0 +1,273 @@
+.game-board {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+  display: flex;
+  padding: 20px;
+  gap: 20px;
+}
+
+.sidebar-left {
+  flex-shrink: 0;
+}
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Message area */
+.message-area {
+  text-align: center;
+}
+
+.game-message {
+  background: rgba(255, 193, 7, 0.9);
+  color: #333;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+
+.turn-indicator {
+  color: white;
+  font-size: 1.1rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Bots area */
+.bots-area {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.bot-area {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 150px;
+  text-align: center;
+  transition: background 0.3s;
+}
+
+.bot-area.active {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.bot-name {
+  color: white;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.bot-info {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.bot-cards {
+  display: flex;
+  justify-content: center;
+  gap: -15px;
+  margin-left: 15px;
+}
+
+.bot-cards .card {
+  margin-left: -15px;
+}
+
+.more-cards {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  margin-left: 4px;
+  align-self: center;
+}
+
+/* Center area */
+.center-area {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  padding: 20px;
+}
+
+.deck-pile,
+.discard-pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-pile.clickable,
+.discard-pile.clickable {
+  cursor: pointer;
+}
+
+.deck-pile.clickable:hover .card,
+.discard-pile.clickable:hover .card {
+  transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.pile-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.empty-pile {
+  width: 70px;
+  height: 100px;
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Laid phases */
+.laid-phase,
+.player-laid-phase {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.player-laid-phase {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.laid-phase-label {
+  color: white;
+  font-weight: bold;
+  width: 100%;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.laid-group {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.bot-area .laid-phase {
+  margin-top: 8px;
+}
+
+.bot-area .laid-group {
+  padding: 4px;
+}
+
+/* Player area */
+.player-area {
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.player-hand {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+}
+
+.lay-btn {
+  background: linear-gradient(135deg, #43a047, #2e7d32);
+  color: white;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+}
+
+.discard-btn {
+  background: linear-gradient(135deg, #f57c00, #e65100);
+  color: white;
+  box-shadow: 0 4px 12px rgba(230, 81, 0, 0.3);
+}
+
+.selection-hint {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* Laid groups display */
+.laid-groups {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Hittable groups */
+.laid-group.hittable {
+  cursor: pointer;
+  border: 2px solid #4caf50;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.5);
+  position: relative;
+  animation: pulse-hit 1s infinite;
+}
+
+.laid-group.hittable:hover {
+  background: rgba(76, 175, 80, 0.3);
+  transform: scale(1.02);
+}
+
+.hit-indicator {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #4caf50;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+@keyframes pulse-hit {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(76, 175, 80, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.8);
+  }
+}

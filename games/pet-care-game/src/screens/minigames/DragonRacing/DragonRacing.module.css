@@ -1,0 +1,162 @@
+.screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 40%, #92400e 100%);
+}
+
+.intro, .results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: white;
+  padding: 24px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tip { font-size: 0.85rem; opacity: 0.8; }
+
+.startBtn {
+  margin-top: 16px;
+  padding: 14px 48px;
+  background: white;
+  color: #92400e;
+  border: none;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.startBtn:hover { transform: scale(1.05); }
+
+.backLink {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.hud {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font-size: 1.1rem;
+}
+
+.track {
+  flex: 1;
+  position: relative;
+  margin: 8px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #c4a35a;
+  min-height: 150px;
+}
+
+.ground {
+  position: absolute;
+  bottom: 0;
+  width: 300%;
+  height: 40%;
+  background: repeating-linear-gradient(
+    90deg,
+    #a8884a 0px,
+    #b89a5a 20px,
+    #a8884a 40px
+  );
+  animation: scrollGround 2s linear infinite;
+}
+
+@keyframes scrollGround {
+  from { transform: translateX(0); }
+  to { transform: translateX(-40px); }
+}
+
+.dragonRunner {
+  position: absolute;
+  bottom: 40%;
+  font-size: 3rem;
+  transition: left 0.1s;
+  animation: dragonBob 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes dragonBob {
+  from { transform: translateY(0); }
+  to { transform: translateY(-8px); }
+}
+
+.finishLine {
+  position: absolute;
+  right: 8%;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: repeating-linear-gradient(
+    180deg,
+    white 0px,
+    white 8px,
+    #333 8px,
+    #333 16px
+  );
+}
+
+.speedBar {
+  position: relative;
+  margin: 8px 16px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.speedFill {
+  height: 100%;
+  background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e);
+  border-radius: 12px;
+  transition: width 0.1s;
+}
+
+.speedLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.tapBtn {
+  margin: 12px 16px 24px;
+  padding: 24px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 1.3rem;
+  font-weight: 900;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.05s;
+}
+
+.tapBtn:active {
+  transform: scale(0.95);
+}
+
+.scoreDisplay { font-size: 1.8rem; font-weight: 900; }
+.rewardDisplay { font-size: 2rem; font-weight: 900; color: #ffd700; }

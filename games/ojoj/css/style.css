@@ -1,0 +1,222 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    font-family: 'Arial', sans-serif;
+}
+
+#game-container {
+    position: relative;
+    border: 4px solid #333;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+#gameCanvas {
+    display: block;
+    background: #90EE90;
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 10;
+}
+
+.overlay.hidden {
+    display: none;
+}
+
+.overlay h1 {
+    font-size: 56px;
+    margin-bottom: 10px;
+    color: #FFD700;
+    text-shadow: 3px 3px 6px #000;
+    letter-spacing: 4px;
+}
+
+.overlay > p {
+    font-size: 18px;
+    margin-bottom: 30px;
+    color: #ccc;
+}
+
+#start-btn {
+    padding: 18px 60px;
+    font-size: 28px;
+    font-weight: bold;
+    background: linear-gradient(180deg, #4CAF50, #388E3C);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+#start-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.6);
+}
+
+#start-btn:active {
+    transform: scale(1.02);
+}
+
+.controls-info {
+    margin-top: 35px;
+    padding: 20px 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.controls-info h3 {
+    margin-bottom: 15px;
+    color: #FFD700;
+    font-size: 18px;
+    text-align: center;
+}
+
+.controls-info p {
+    margin: 8px 0;
+    font-size: 14px;
+    color: #ddd;
+}
+
+.controls-info .key {
+    display: inline-block;
+    background: #444;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 13px;
+    border: 1px solid #666;
+}
+
+/* Car Selection Screen */
+.car-options {
+    display: flex;
+    gap: 30px;
+    margin: 30px 0;
+}
+
+.car-option {
+    background: rgba(255, 255, 255, 0.1);
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    width: 180px;
+}
+
+.car-option:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-5px);
+}
+
+.car-option.selected {
+    border-color: #FFD700;
+    background: rgba(255, 215, 0, 0.2);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+.car-preview {
+    width: 100px;
+    height: 50px;
+    margin: 0 auto 15px;
+    border-radius: 10px;
+    position: relative;
+}
+
+/* Car colors */
+.car-speed {
+    background: linear-gradient(180deg, #E53935, #B71C1C);
+    box-shadow: 0 4px 0 #7f0000;
+}
+
+.car-shield {
+    background: linear-gradient(180deg, #1E88E5, #0D47A1);
+    box-shadow: 0 4px 0 #002171;
+}
+
+.car-chomper {
+    background: linear-gradient(180deg, #43A047, #1B5E20);
+    box-shadow: 0 4px 0 #003300;
+}
+
+/* Add wheels to car previews */
+.car-preview::before,
+.car-preview::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: #333;
+    border-radius: 50%;
+    bottom: -8px;
+}
+
+.car-preview::before {
+    left: 15px;
+}
+
+.car-preview::after {
+    right: 15px;
+}
+
+.car-option h3 {
+    color: #FFD700;
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.car-option p {
+    color: #ccc;
+    font-size: 14px;
+}
+
+#race-btn {
+    padding: 18px 60px;
+    font-size: 28px;
+    font-weight: bold;
+    background: linear-gradient(180deg, #FF9800, #E65100);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 20px;
+}
+
+#race-btn:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 25px rgba(255, 152, 0, 0.6);
+}
+
+#race-btn.hidden {
+    display: none;
+}
