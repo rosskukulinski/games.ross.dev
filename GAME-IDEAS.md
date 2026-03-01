@@ -4,7 +4,7 @@ New game ideas for the Family Game Arcade. Check off each game as it gets built 
 
 ---
 
-- [ ] **Balloon Pop Blitz** — A fast-paced clicking/tapping game where colorful balloons float up the screen and players must pop them before they escape. Different balloon colors are worth different points, and some special balloons grant power-ups (slow motion, multi-pop explosions). A missed balloon costs a life; lose three lives and the game ends. Great for all ages with increasing difficulty over time.
+- [x] **Balloon Pop Blitz** — A fast-paced clicking/tapping game where colorful balloons float up the screen and players must pop them before they escape. Different balloon colors are worth different points, and some special balloons grant power-ups (slow motion, multi-pop explosions). A missed balloon costs a life; lose three lives and the game ends. Great for all ages with increasing difficulty over time.
 
 - [ ] **Memory Match Zoo** — A classic card-matching memory game with an animal theme. Players flip over pairs of cards to find matching animals. Features multiple difficulty levels (4x4, 6x6, 8x8 grids), a move counter, a timer, and a star rating based on performance. Includes fun animal sound effects when matches are found and gentle animations for card flips.
 
