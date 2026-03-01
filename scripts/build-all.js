@@ -14,6 +14,7 @@ const games = [
   'balloon-pop-blitz',
   'guess-the-drawing',
   'hanyverse',
+  'kpop-rythm-tap',
   'number-line-monster',
   'ojoj',
   'pet-care-game',

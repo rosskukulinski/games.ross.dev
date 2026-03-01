@@ -19,6 +19,7 @@ games.ross.dev/
 |------|-------------|-----------|-------|
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
+| kpop-rythm-tap | K-Pop Rhythm Tap | React + Vite + Canvas + Web Audio | `vite build` |
 | number-line-monster | Monster Hunt | Static (HTML/CSS/JS) | copy only |
 | ojoj | OJOJ Racing | Static (HTML/CSS/JS) | copy only |
 | pet-care-game | Dragon Keeper | React + TS + Zustand + Vite | `tsc -b && vite build` |

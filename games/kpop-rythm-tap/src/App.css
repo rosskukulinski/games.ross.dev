@@ -1,0 +1,471 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0a0015;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  color: #fff;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 440px;
+  padding: 10px 8px;
+}
+
+/* === SONG SELECT === */
+
+.title {
+  font-size: 1.8rem;
+  background: linear-gradient(135deg, #FF69B4, #BF40FF, #00D4FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.song-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.song-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  color: #fff;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.song-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(191, 64, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.song-card:active {
+  transform: scale(0.98);
+}
+
+.song-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.song-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.song-diff {
+  font-size: 0.8rem;
+  color: #FFD700;
+  letter-spacing: 2px;
+}
+
+.song-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grade {
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.grade-S { color: #FFD700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.6); }
+.grade-A { color: #39FF14; }
+.grade-B { color: #00D4FF; }
+.grade-C { color: #FF9900; }
+.grade-D { color: #FF4444; }
+
+.hs-val {
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.no-score {
+  color: #555;
+  font-size: 1.2rem;
+}
+
+.controls-hint {
+  margin-top: 20px;
+  text-align: center;
+  color: #555;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+/* === DIFFICULTY PICKER === */
+
+.difficulty-picker {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.diff-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  color: #fff;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.diff-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.diff-btn:active {
+  transform: scale(0.98);
+}
+
+.diff-active.diff-easy {
+  border-color: #39FF14;
+  background: rgba(57, 255, 20, 0.1);
+}
+
+.diff-active.diff-medium {
+  border-color: #FFD700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.diff-active.diff-hard {
+  border-color: #FF4444;
+  background: rgba(255, 68, 68, 0.1);
+}
+
+.diff-label {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.diff-easy .diff-label { color: #39FF14; }
+.diff-medium .diff-label { color: #FFD700; }
+.diff-hard .diff-label { color: #FF4444; }
+
+.diff-desc {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.difficulty-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+/* === LOADING === */
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  color: #aaa;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #BF40FF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* === HUD === */
+
+.hud {
+  display: flex;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  width: 100%;
+  max-width: 400px;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.stat {
+  text-align: center;
+  min-width: 52px;
+}
+
+.sl {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.sv {
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  min-height: 24px;
+  line-height: 1.3;
+}
+
+.combo-stat .sv {
+  color: #FFD700;
+}
+
+.pause-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #aaa;
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.pause-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* === PROGRESS BAR === */
+
+.progress-bar {
+  width: 100%;
+  max-width: 400px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(to right, #FF69B4, #BF40FF);
+  border-radius: 2px;
+  transition: width 0.3s linear;
+}
+
+/* === CANVAS === */
+
+.wrap {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+}
+
+.cvs {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  touch-action: none;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* === OVERLAY (pause) === */
+
+.ov {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 0, 21, 0.85);
+  border-radius: 12px;
+}
+
+.ov-inner {
+  text-align: center;
+  color: #fff;
+  padding: 24px 20px;
+}
+
+.ov-inner h1 {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.pause-song {
+  color: #aaa;
+  margin-bottom: 20px;
+}
+
+/* === RESULTS === */
+
+.results {
+  text-align: center;
+  padding: 30px 20px;
+  width: 100%;
+}
+
+.results-title {
+  font-size: 1.6rem;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #FF69B4, #BF40FF);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.results-grade {
+  font-size: 4rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.results-score {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.new-hs {
+  color: #FFD700;
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.results-accuracy {
+  color: #aaa;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.results-combo {
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+}
+
+.results-breakdown {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.bd-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: 0.9rem;
+}
+
+.bd-label {
+  font-weight: bold;
+}
+
+.bd-val {
+  color: #ccc;
+  min-width: 40px;
+  text-align: right;
+}
+
+.results-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* === BUTTONS === */
+
+.btn {
+  background: linear-gradient(135deg, #BF40FF, #FF69B4);
+  color: #fff;
+  border: none;
+  padding: 13px 40px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border-radius: 30px;
+  cursor: pointer;
+  margin-top: 6px;
+  box-shadow: 0 4px 16px rgba(191, 64, 255, 0.4);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(191, 64, 255, 0.55);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: none;
+}
