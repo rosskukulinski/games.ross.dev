@@ -14,34 +14,32 @@ jobs:
         with:
           node-version: 22
 
-      - name: Restore build manifest
+      - name: Restore build cache
         uses: actions/cache@v4
         with:
-          path: .build-cache.json
-          key: build-manifest-${{ github.ref_name }}
-          restore-keys: build-manifest-
+          path: |
+            .build-cache.json
+            dist
+          key: build-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ github.ref_name }}-
+            build-main-
+            build-
 
       - name: Restore game dependencies
         uses: actions/cache@v4
         with:
           path: |
+            games/balloon-pop-blitz/node_modules
             games/guess-the-drawing/node_modules
             games/hanyverse/node_modules
             games/pet-care-game/node_modules
             games/phase-10/node_modules
             games/sir-name-alot/node_modules
+            games/treasure-hunt-island/node_modules
             games/unicorn-dragon/node_modules
           key: deps-${{ hashFiles('games/*/package-lock.json') }}
           restore-keys: deps-
-
-      - name: Restore dist outputs
-        uses: actions/cache@v4
-        with:
-          path: dist
-          key: dist-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            dist-${{ github.ref_name }}-
-            dist-
 
       - name: Build all games
         run: node scripts/build-all.js
