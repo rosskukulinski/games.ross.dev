@@ -5,6 +5,7 @@
     "build": "node scripts/build-all.js",
     "dev": "node scripts/build-all.js && npx serve dist",
     "serve": "npx serve dist",
+    "build:force": "node scripts/build-all.js --force",
     "clean": "rm -rf dist"
   }
 }
