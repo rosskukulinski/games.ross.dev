@@ -8,6 +8,7 @@ const DIST_DIR = path.join(ROOT, 'dist');
 const LANDING_DIR = path.join(ROOT, 'landing');
 
 const games = [
+  'balloon-pop-blitz',
   'guess-the-drawing',
   'hanyverse',
   'ojoj',
