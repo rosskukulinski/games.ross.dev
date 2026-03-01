@@ -345,15 +345,6 @@ export default function App() {
         </div>
       </div>
 
-      {pu && (
-        <div className="pu-wrap">
-          <span className="pu-label">{pu === 'slow' ? '⏱️ SLOW MOTION' : '💥 MULTI-POP'}</span>
-          <div className="pu-track">
-            <div className="pu-fill" style={{ width: `${puPct * 100}%` }} />
-          </div>
-        </div>
-      )}
-
       <div className="wrap">
         <canvas
           ref={cvs}
@@ -362,6 +353,14 @@ export default function App() {
           className="cvs"
           onClick={e => handlePop(e.clientX, e.clientY)}
         />
+        {pu && (
+          <div className="pu-wrap">
+            <span className="pu-label">{pu === 'slow' ? '⏱️ SLOW MOTION' : '💥 MULTI-POP'}</span>
+            <div className="pu-track">
+              <div className="pu-fill" style={{ width: `${puPct * 100}%` }} />
+            </div>
+          </div>
+        )}
 
         {phase === 'idle' && (
           <div className="ov">

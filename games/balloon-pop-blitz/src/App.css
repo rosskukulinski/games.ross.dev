@@ -56,9 +56,13 @@ body {
 
 /* Power-up bar */
 .pu-wrap {
-  width: 100%;
-  max-width: 400px;
-  margin-bottom: 6px;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: 90%;
+  max-width: 380px;
   text-align: center;
 }
 
