@@ -141,10 +141,10 @@ const DRAWINGS = {
             {
                 type: 'arc',
                 centerX: 200,
-                centerY: 250,
+                centerY: 280,
                 radius: 150,
                 startAngle: Math.PI,
-                endAngle: 0,
+                endAngle: Math.PI * 2,
                 strokeColor: '#FF0000',
                 strokeWidth: 10,
                 pointCount: 60
@@ -153,10 +153,10 @@ const DRAWINGS = {
             {
                 type: 'arc',
                 centerX: 200,
-                centerY: 250,
+                centerY: 280,
                 radius: 130,
                 startAngle: Math.PI,
-                endAngle: 0,
+                endAngle: Math.PI * 2,
                 strokeColor: '#FF7F00',
                 strokeWidth: 10,
                 pointCount: 55
@@ -165,10 +165,10 @@ const DRAWINGS = {
             {
                 type: 'arc',
                 centerX: 200,
-                centerY: 250,
+                centerY: 280,
                 radius: 110,
                 startAngle: Math.PI,
-                endAngle: 0,
+                endAngle: Math.PI * 2,
                 strokeColor: '#FFFF00',
                 strokeWidth: 10,
                 pointCount: 50
@@ -177,10 +177,10 @@ const DRAWINGS = {
             {
                 type: 'arc',
                 centerX: 200,
-                centerY: 250,
+                centerY: 280,
                 radius: 90,
                 startAngle: Math.PI,
-                endAngle: 0,
+                endAngle: Math.PI * 2,
                 strokeColor: '#00FF00',
                 strokeWidth: 10,
                 pointCount: 45
@@ -189,10 +189,10 @@ const DRAWINGS = {
             {
                 type: 'arc',
                 centerX: 200,
-                centerY: 250,
+                centerY: 280,
                 radius: 70,
                 startAngle: Math.PI,
-                endAngle: 0,
+                endAngle: Math.PI * 2,
                 strokeColor: '#0000FF',
                 strokeWidth: 10,
                 pointCount: 40
@@ -201,10 +201,10 @@ const DRAWINGS = {
             {
                 type: 'arc',
                 centerX: 200,
-                centerY: 250,
+                centerY: 280,
                 radius: 50,
                 startAngle: Math.PI,
-                endAngle: 0,
+                endAngle: Math.PI * 2,
                 strokeColor: '#8B00FF',
                 strokeWidth: 10,
                 pointCount: 35
