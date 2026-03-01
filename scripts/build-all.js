@@ -14,6 +14,7 @@ const games = [
   'balloon-pop-blitz',
   'guess-the-drawing',
   'hanyverse',
+  'number-line-monster',
   'ojoj',
   'pet-care-game',
   'phase-10',
@@ -21,7 +22,7 @@ const games = [
   'unicorn-dragon',
 ];
 
-const staticGames = ['ojoj'];
+const staticGames = ['number-line-monster', 'ojoj'];
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.DS_Store', '.wrangler', '.playwright-mcp', '.claude']);
 

@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monster Hunt - Number Line Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #2d1f3d 0%, #1a472a 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+        }
+
+        .score-display {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        .target-display {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #6b21a8;
+            margin-bottom: 40px;
+        }
+
+        .target-label {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .number-line-container {
+            position: relative;
+            padding: 40px 0;
+            margin-bottom: 30px;
+        }
+
+        .number-line {
+            position: relative;
+            height: 12px;
+            background: #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 0 40px;
+        }
+
+        .number-line:hover {
+            background: #d0d0d0;
+        }
+
+        .number-line.disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .endpoint {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: bold;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .endpoint.left {
+            left: 0;
+        }
+
+        .endpoint.right {
+            right: 0;
+        }
+
+        .marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .marker::after {
+            content: attr(data-value);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9rem;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .marker.guess {
+            background: #3498db;
+            border: 3px solid #2980b9;
+        }
+
+        .marker.guess::after {
+            color: #3498db;
+            top: 30px;
+        }
+
+        .marker.actual {
+            background: #6b21a8;
+            border: 3px solid #581c87;
+        }
+
+        .marker.actual::after {
+            color: #6b21a8;
+        }
+
+        .feedback {
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .feedback-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .feedback-message {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .feedback.success .feedback-icon {
+            animation: celebrate 0.5s ease-in-out;
+        }
+
+        .feedback.success.perfect .feedback-icon {
+            animation: celebrate-perfect 1s ease-in-out;
+        }
+
+        .feedback.success.perfect .feedback-message {
+            font-size: 1.4rem;
+            color: #f1c40f;
+        }
+
+        .feedback.success .feedback-message {
+            color: #27ae60;
+        }
+
+        .feedback.fail .feedback-message {
+            color: #e74c3c;
+        }
+
+        @keyframes celebrate {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.3) rotate(-10deg); }
+            50% { transform: scale(1.5); }
+            75% { transform: scale(1.3) rotate(10deg); }
+        }
+
+        @keyframes celebrate-perfect {
+            0%, 100% { transform: scale(1); }
+            10% { transform: scale(1.5) rotate(-15deg); }
+            20% { transform: scale(1.8) rotate(15deg); }
+            30% { transform: scale(2) rotate(-10deg); }
+            40% { transform: scale(2.2) rotate(10deg); }
+            50% { transform: scale(2.5); }
+            60% { transform: scale(2.2) rotate(-10deg); }
+            70% { transform: scale(2) rotate(10deg); }
+            80% { transform: scale(1.5) rotate(-5deg); }
+            90% { transform: scale(1.2) rotate(5deg); }
+        }
+
+        .confetti {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            animation: confetti-fall 1.5s ease-out forwards;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(300px) rotate(720deg);
+            }
+        }
+
+        .confetti-piece.perfect {
+            width: 15px;
+            height: 15px;
+            animation: confetti-fall-perfect 2.5s ease-out forwards;
+        }
+
+        @keyframes confetti-fall-perfect {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translateY(200px) rotate(540deg) scale(1.5);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(500px) rotate(1080deg) scale(0.5);
+            }
+        }
+
+        .next-btn {
+            background: #6b21a8;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .next-btn:hover {
+            background: #581c87;
+            transform: translateY(-2px);
+        }
+
+        .next-btn.visible {
+            display: inline-block;
+        }
+
+        .summary {
+            display: none;
+        }
+
+        .summary.visible {
+            display: block;
+        }
+
+        .summary h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+
+        .stat-value.correct {
+            color: #27ae60;
+        }
+
+        .stat-value.incorrect {
+            color: #e74c3c;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .perfect-stat {
+            color: #f1c40f;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 25px;
+        }
+
+        .perfect-stat .star {
+            font-size: 1.4rem;
+        }
+
+        .play-again-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .play-again-btn:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+        }
+
+        .game-content {
+            display: block;
+        }
+
+        .game-content.hidden {
+            display: none;
+        }
+
+        .instructions {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+
+        .level-select {
+            display: block;
+        }
+
+        .level-select.hidden {
+            display: none;
+        }
+
+        .level-select h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .level-select p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .level-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .level-btn {
+            background: #6b21a8;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+
+        .level-btn:hover {
+            background: #581c87;
+            transform: translateX(5px);
+        }
+
+        .level-btn .level-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .level-btn .level-desc {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Monster Hunt</h1>
+        <div class="score-display" id="score-display" style="display: none;">
+            Monster <span id="current-trial">1</span> of 20 | Caught: <span id="score">0</span>
+        </div>
+
+        <div class="level-select" id="level-select">
+            <h2>Choose your level</h2>
+            <p>How tricky should the monsters be?</p>
+            <div class="level-buttons">
+                <button class="level-btn" data-level="1">
+                    <div class="level-name">Level 1</div>
+                    <div class="level-desc">Number line from 0 to 20</div>
+                </button>
+                <button class="level-btn" data-level="2">
+                    <div class="level-name">Level 2</div>
+                    <div class="level-desc">Number line from 0 to 100</div>
+                </button>
+                <button class="level-btn" data-level="3">
+                    <div class="level-name">Level 3</div>
+                    <div class="level-desc">Number line from 0 to 1000</div>
+                </button>
+                <button class="level-btn" data-level="4">
+                    <div class="level-name">Level 4</div>
+                    <div class="level-desc">Mystery range - 100 spaces, random endpoints!</div>
+                </button>
+            </div>
+        </div>
+
+        <div class="game-content hidden" id="game-content">
+            <div class="target-label">The monster is hiding at:</div>
+            <div class="target-display" id="target-number">50</div>
+
+            <div class="number-line-container">
+                <span class="endpoint left" id="endpoint-left">0</span>
+                <div class="number-line" id="number-line">
+                    <div class="marker guess" id="guess-marker" style="display: none;"></div>
+                    <div class="marker actual" id="actual-marker" style="display: none;"></div>
+                </div>
+                <span class="endpoint right" id="endpoint-right">100</span>
+            </div>
+
+            <div class="feedback" id="feedback"></div>
+
+            <button class="next-btn" id="next-btn">Hunt next monster</button>
+
+            <p class="instructions" id="instructions">Click on the number line to catch the monster!</p>
+        </div>
+
+        <div class="summary" id="summary">
+            <h2>Hunt Complete!</h2>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value correct" id="final-correct">0</div>
+                    <div class="stat-label">Caught</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value incorrect" id="final-incorrect">0</div>
+                    <div class="stat-label">Escaped</div>
+                </div>
+            </div>
+            <div class="perfect-stat" id="perfect-stat">
+                <span class="star">&#11088;</span> <span id="final-perfect">0</span> perfect catches!
+            </div>
+            <button class="play-again-btn" id="play-again-btn">Hunt again</button>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_TRIALS = 20;
+
+        let currentTrial = 1;
+        let score = 0;
+        let perfectScore = 0;
+        let targetNumber = 0;
+        let targetNumbers = [];
+        let hasClicked = false;
+        let rangeMin = 0;
+        let rangeMax = 100;
+        let accuracyMargin = 5;
+
+        const numberLine = document.getElementById('number-line');
+        const targetDisplay = document.getElementById('target-number');
+        const guessMarker = document.getElementById('guess-marker');
+        const actualMarker = document.getElementById('actual-marker');
+        const feedback = document.getElementById('feedback');
+        const nextBtn = document.getElementById('next-btn');
+        const currentTrialDisplay = document.getElementById('current-trial');
+        const scoreDisplay = document.getElementById('score');
+        const scoreDisplayContainer = document.getElementById('score-display');
+        const gameContent = document.getElementById('game-content');
+        const summary = document.getElementById('summary');
+        const finalCorrect = document.getElementById('final-correct');
+        const finalIncorrect = document.getElementById('final-incorrect');
+        const finalPerfect = document.getElementById('final-perfect');
+        const perfectStat = document.getElementById('perfect-stat');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const instructions = document.getElementById('instructions');
+        const levelSelect = document.getElementById('level-select');
+        const endpointLeft = document.getElementById('endpoint-left');
+        const endpointRight = document.getElementById('endpoint-right');
+
+        function setLevel(level) {
+            switch(level) {
+                case 1:
+                    rangeMin = 0;
+                    rangeMax = 20;
+                    accuracyMargin = 2;
+                    numberLine.style.margin = '0 40px';
+                    break;
+                case 2:
+                    rangeMin = 0;
+                    rangeMax = 100;
+                    accuracyMargin = 5;
+                    numberLine.style.margin = '0 40px';
+                    break;
+                case 3:
+                    rangeMin = 0;
+                    rangeMax = 1000;
+                    accuracyMargin = 50;
+                    numberLine.style.margin = '0 55px';
+                    break;
+                case 4:
+                    rangeMin = Math.floor(Math.random() * 451) + 50;
+                    rangeMax = rangeMin + 100;
+                    accuracyMargin = 5;
+                    numberLine.style.margin = '0 45px';
+                    break;
+            }
+            endpointLeft.textContent = rangeMin;
+            endpointRight.textContent = rangeMax;
+        }
+
+        function generateAllTargets() {
+            const numbers = [];
+            const availableNumbers = [];
+
+            for (let i = rangeMin + 1; i < rangeMax; i++) {
+                availableNumbers.push(i);
+            }
+
+            for (let i = availableNumbers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [availableNumbers[i], availableNumbers[j]] = [availableNumbers[j], availableNumbers[i]];
+            }
+
+            for (let i = 0; i < TOTAL_TRIALS; i++) {
+                numbers.push(availableNumbers[i % availableNumbers.length]);
+            }
+
+            return numbers;
+        }
+
+        function startGame(level) {
+            setLevel(level);
+            currentTrial = 1;
+            score = 0;
+            perfectScore = 0;
+            hasClicked = false;
+            targetNumbers = generateAllTargets();
+            updateDisplay();
+            levelSelect.classList.add('hidden');
+            scoreDisplayContainer.style.display = 'block';
+            gameContent.classList.remove('hidden');
+            summary.classList.remove('visible');
+            nextTrial();
+        }
+
+        function showLevelSelect() {
+            levelSelect.classList.remove('hidden');
+            scoreDisplayContainer.style.display = 'none';
+            gameContent.classList.add('hidden');
+            summary.classList.remove('visible');
+        }
+
+        function nextTrial() {
+            targetNumber = targetNumbers[currentTrial - 1];
+            targetDisplay.textContent = targetNumber;
+            hasClicked = false;
+
+            guessMarker.style.display = 'none';
+            actualMarker.style.display = 'none';
+            feedback.innerHTML = '';
+            feedback.className = 'feedback';
+            nextBtn.classList.remove('visible');
+            numberLine.classList.remove('disabled');
+            instructions.style.visibility = 'visible';
+        }
+
+        function handleClick(event) {
+            if (hasClicked) return;
+            hasClicked = true;
+            numberLine.classList.add('disabled');
+            instructions.style.visibility = 'hidden';
+
+            const rect = numberLine.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+            const guessValue = Math.round(rangeMin + percentage * (rangeMax - rangeMin));
+
+            showResult(guessValue);
+        }
+
+        function showResult(guessValue) {
+            const range = rangeMax - rangeMin;
+            const guessPercentage = ((guessValue - rangeMin) / range) * 100;
+            const actualPercentage = ((targetNumber - rangeMin) / range) * 100;
+
+            guessMarker.style.left = guessPercentage + '%';
+            guessMarker.style.display = 'block';
+            guessMarker.setAttribute('data-value', 'Your guess: ' + guessValue);
+
+            actualMarker.style.left = actualPercentage + '%';
+            actualMarker.style.display = 'block';
+            actualMarker.setAttribute('data-value', 'Monster: ' + targetNumber);
+
+            const difference = Math.abs(guessValue - targetNumber);
+            const isCorrect = difference <= accuracyMargin;
+
+            if (isCorrect) {
+                score++;
+                const monsterEmojis = ['👹', '👺', '👻', '👾', '🧟', '🐉'];
+                const randomMonster = monsterEmojis[Math.floor(Math.random() * monsterEmojis.length)];
+                feedback.className = 'feedback success';
+
+                if (difference === 0) {
+                    perfectScore++;
+                    feedback.className = 'feedback success perfect';
+                    feedback.innerHTML = `
+                        <div class="feedback-icon">${randomMonster}</div>
+                        <div class="feedback-message">PERFECT! You caught the monster exactly!</div>
+                    `;
+                    createConfetti(true);
+                } else {
+                    feedback.innerHTML = `
+                        <div class="feedback-icon">${randomMonster}</div>
+                        <div class="feedback-message">You caught the monster!</div>
+                    `;
+                    createConfetti(false);
+                }
+            } else {
+                feedback.className = 'feedback fail';
+                feedback.innerHTML = `
+                    <div class="feedback-icon">&#128168;</div>
+                    <div class="feedback-message">The monster got away! You were ${difference} away.</div>
+                `;
+            }
+
+            updateDisplay();
+
+            if (currentTrial < TOTAL_TRIALS) {
+                nextBtn.textContent = 'Hunt next monster';
+                nextBtn.classList.add('visible');
+            } else {
+                nextBtn.textContent = 'See results';
+                nextBtn.classList.add('visible');
+            }
+        }
+
+        function updateDisplay() {
+            currentTrialDisplay.textContent = currentTrial;
+            scoreDisplay.textContent = score;
+        }
+
+        function createConfetti(isPerfect = false) {
+            const container = document.createElement('div');
+            container.className = 'confetti';
+            document.body.appendChild(container);
+
+            const colors = ['#6b21a8', '#581c87', '#27ae60', '#f1c40f', '#e74c3c', '#3498db'];
+            const pieceCount = isPerfect ? 100 : 30;
+            const duration = isPerfect ? 3000 : 2000;
+
+            for (let i = 0; i < pieceCount; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                if (isPerfect) {
+                    piece.classList.add('perfect');
+                }
+                piece.style.left = Math.random() * window.innerWidth + 'px';
+                piece.style.top = Math.random() * 200 + 'px';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDelay = Math.random() * (isPerfect ? 1 : 0.5) + 's';
+                container.appendChild(piece);
+            }
+
+            setTimeout(() => container.remove(), duration);
+        }
+
+        function showSummary() {
+            gameContent.classList.add('hidden');
+            summary.classList.add('visible');
+            finalCorrect.textContent = score;
+            finalIncorrect.textContent = TOTAL_TRIALS - score;
+            finalPerfect.textContent = perfectScore;
+            perfectStat.style.display = perfectScore > 0 ? 'block' : 'none';
+        }
+
+        numberLine.addEventListener('click', handleClick);
+
+        nextBtn.addEventListener('click', () => {
+            if (currentTrial >= TOTAL_TRIALS) {
+                showSummary();
+            } else {
+                currentTrial++;
+                updateDisplay();
+                nextTrial();
+            }
+        });
+
+        playAgainBtn.addEventListener('click', showLevelSelect);
+
+        document.querySelectorAll('.level-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const level = parseInt(btn.dataset.level);
+                startGame(level);
+            });
+        });
+    </script>
+</body>
+</html>
