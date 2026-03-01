@@ -14,14 +14,17 @@ const games = [
   'balloon-pop-blitz',
   'guess-the-drawing',
   'hanyverse',
+  'kpop-rythm-tap',
+  'number-line-monster',
   'ojoj',
   'pet-care-game',
   'phase-10',
   'sir-name-alot',
+  'treasure-hunt-island',
   'unicorn-dragon',
 ];
 
-const staticGames = ['ojoj'];
+const staticGames = ['number-line-monster', 'ojoj'];
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.DS_Store', '.wrangler', '.playwright-mcp', '.claude']);
 
