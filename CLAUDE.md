@@ -28,11 +28,14 @@ games.ross.dev/
 ## Commands
 
 ```bash
-npm run build    # Build all games + landing page into dist/
-npm run serve    # Serve dist/ locally
-npm run dev      # Build then serve
-npm run clean    # Remove dist/
+npm run build        # Build changed games + landing page into dist/
+npm run build:force  # Rebuild all games (ignore cache)
+npm run serve        # Serve dist/ locally
+npm run dev          # Build then serve
+npm run clean        # Remove dist/
 ```
+
+The build script uses content-hash caching (`.build-cache.json`, gitignored) to skip unchanged games. It hashes all source files in each game directory and only rebuilds when the hash changes, `dist/<game>/` is missing, or the build script itself changes. Dependency installs (`npm ci`) are also skipped when `package-lock.json` hasn't changed.
 
 ## Adding a New Game
 
