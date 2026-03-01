@@ -18,6 +18,7 @@ const games = [
   'pet-care-game',
   'phase-10',
   'sir-name-alot',
+  'treasure-hunt-island',
   'unicorn-dragon',
 ];
 
