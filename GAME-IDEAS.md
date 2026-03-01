@@ -14,7 +14,7 @@ New game ideas for the Family Game Arcade. Check off each game as it gets built 
 
 - [ ] **Color Mixer Lab** — An educational puzzle game where players combine primary colors to match a target color. Players are given red, blue, and yellow paint buckets and must mix the correct proportions to recreate the displayed color. Progresses from simple secondary colors to complex shades. Teaches color theory while being a fun challenge with a scoring system based on accuracy.
 
-- [ ] **Asteroid Dodger** — A side-scrolling (or top-down) space survival game where the player pilots a small spaceship through an asteroid field. The ship moves up/down (or in all directions) to dodge incoming asteroids of varying sizes and speeds. Collect fuel cells to stay alive and shields for temporary invincibility. The longer you survive, the higher your score. Retro pixel-art style.
+- [x] **Asteroid Dodger** — A side-scrolling (or top-down) space survival game where the player pilots a small spaceship through an asteroid field. The ship moves up/down (or in all directions) to dodge incoming asteroids of varying sizes and speeds. Collect fuel cells to stay alive and shields for temporary invincibility. The longer you survive, the higher your score. Retro pixel-art style.
 
 - [ ] **Stack Tower** — A precision stacking game where blocks slide horizontally across the screen and the player taps/clicks to drop each block. If the block doesn't align perfectly with the one below, the overhanging portion gets sliced off, making subsequent blocks smaller. The game ends when the block becomes too small to stack. Simple, addictive, and satisfying with smooth animations and a height-based score.
 
