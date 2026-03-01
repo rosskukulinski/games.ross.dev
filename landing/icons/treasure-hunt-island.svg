@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Island base -->
+  <ellipse cx="50" cy="72" rx="38" ry="14" fill="#f2d16b"/>
+  <!-- Grass -->
+  <ellipse cx="50" cy="68" rx="30" ry="10" fill="#5cb85c"/>
+  <!-- Palm tree trunk -->
+  <path d="M42 68 Q40 48 44 30" stroke="#8B4513" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- Palm leaves -->
+  <path d="M44 30 Q56 22 62 28" stroke="#2d7a2d" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M44 30 Q32 20 26 26" stroke="#2d7a2d" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M44 30 Q48 18 54 20" stroke="#3a9a3a" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M44 30 Q36 16 30 20" stroke="#3a9a3a" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Treasure chest -->
+  <rect x="54" y="58" width="20" height="12" rx="2" fill="#8B4513"/>
+  <rect x="52" y="54" width="24" height="6" rx="2" fill="#a0522d"/>
+  <rect x="62" y="56" width="4" height="8" rx="1" fill="#f1c40f"/>
+  <!-- X mark -->
+  <path d="M64 42 L70 48 M70 42 L64 48" stroke="#c0392b" stroke-width="3" stroke-linecap="round"/>
+  <!-- Water -->
+  <path d="M8 80 Q16 76 24 80 Q32 84 40 80 Q48 76 56 80 Q64 84 72 80 Q80 76 88 80" stroke="#2389da" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M4 86 Q12 82 20 86 Q28 90 36 86 Q44 82 52 86 Q60 90 68 86 Q76 82 84 86 Q92 90 96 86" stroke="#2389da" stroke-width="2" fill="none" opacity="0.4"/>
+</svg>
