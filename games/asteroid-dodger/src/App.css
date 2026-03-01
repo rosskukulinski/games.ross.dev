@@ -1,0 +1,151 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #06060f;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh;
+  font-family: monospace;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.game-container {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-canvas {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  aspect-ratio: 400 / 700;
+  image-rendering: pixelated;
+  border: 2px solid #1a1a3a;
+  box-shadow: 0 0 30px rgba(68, 204, 255, 0.1);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 15, 0.88);
+  z-index: 10;
+  padding: 20px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: bold;
+  color: #44ccff;
+  text-shadow: 0 0 20px rgba(68, 204, 255, 0.5);
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+
+.gameover-title {
+  color: #ff4444;
+  text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+}
+
+.subtitle {
+  color: #7788aa;
+  font-size: 13px;
+  margin-bottom: 28px;
+  letter-spacing: 2px;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #aabbcc;
+  font-size: 13px;
+}
+
+.legend-icon {
+  width: 22px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.ship-icon { color: #ccccdd; }
+.fuel-icon { color: #00cc44; }
+.shield-icon { color: #44ccff; }
+
+.high-score {
+  color: #aaffaa;
+  font-size: 14px;
+  margin-bottom: 16px;
+  letter-spacing: 2px;
+}
+
+.final-score {
+  font-size: 22px;
+  color: #ffffff;
+  margin-bottom: 12px;
+  letter-spacing: 3px;
+}
+
+.new-best {
+  color: #ffcc00;
+  font-size: 16px;
+  margin-bottom: 8px;
+  animation: pulse 0.6s ease-in-out infinite alternate;
+  letter-spacing: 3px;
+}
+
+@keyframes pulse {
+  from { opacity: 0.7; transform: scale(1); }
+  to { opacity: 1; transform: scale(1.05); }
+}
+
+.start-btn {
+  background: linear-gradient(180deg, #2266aa, #1144aa);
+  color: #ffffff;
+  border: 2px solid #44ccff;
+  padding: 12px 40px;
+  font-size: 18px;
+  font-family: monospace;
+  font-weight: bold;
+  letter-spacing: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.2s, transform 0.1s;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.start-btn:hover {
+  background: linear-gradient(180deg, #3377bb, #2255bb);
+}
+
+.start-btn:active {
+  transform: scale(0.96);
+}
+
+.touch-hint {
+  color: #445566;
+  font-size: 11px;
+  margin-top: 16px;
+  letter-spacing: 1px;
+}

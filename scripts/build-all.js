@@ -11,6 +11,7 @@ const MANIFEST_PATH = path.join(ROOT, '.build-cache.json');
 const SCRIPT_PATH = __filename;
 
 const games = [
+  'asteroid-dodger',
   'balloon-pop-blitz',
   'guess-the-drawing',
   'hanyverse',

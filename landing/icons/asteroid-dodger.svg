@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Space background -->
+  <rect width="100" height="100" fill="#0a0a1a" rx="12"/>
+  <!-- Stars -->
+  <circle cx="15" cy="20" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="80" cy="15" r="1.2" fill="#fff" opacity="0.5"/>
+  <circle cx="45" cy="10" r="0.8" fill="#fff" opacity="0.7"/>
+  <circle cx="90" cy="45" r="1" fill="#fff" opacity="0.4"/>
+  <circle cx="10" cy="70" r="0.8" fill="#fff" opacity="0.5"/>
+  <circle cx="75" cy="85" r="1" fill="#fff" opacity="0.6"/>
+  <!-- Ship body -->
+  <rect x="15" y="44" width="24" height="12" fill="#ccccdd" rx="1"/>
+  <!-- Ship nose -->
+  <polygon points="39,44 47,50 39,56" fill="#eeeeff"/>
+  <!-- Cockpit -->
+  <rect x="31" y="47" width="5" height="6" fill="#44ccff" rx="1"/>
+  <!-- Wings -->
+  <rect x="20" y="39" width="14" height="4" fill="#8888aa"/>
+  <rect x="20" y="57" width="14" height="4" fill="#8888aa"/>
+  <!-- Wing tips -->
+  <rect x="20" y="39" width="3" height="3" fill="#ff4444"/>
+  <rect x="20" y="58" width="3" height="3" fill="#ff4444"/>
+  <!-- Engine flame -->
+  <rect x="8" y="47" width="7" height="6" fill="#ff6622" rx="1"/>
+  <rect x="10" y="48" width="4" height="4" fill="#ffcc00"/>
+  <!-- Asteroid 1 (large) -->
+  <polygon points="72,35 82,28 88,35 85,45 75,46 68,40" fill="#6e6358" stroke="#9e9585" stroke-width="1"/>
+  <!-- Asteroid 2 (medium) -->
+  <polygon points="60,70 67,65 73,70 70,77 62,76" fill="#5a504a" stroke="#9e9585" stroke-width="1"/>
+  <!-- Asteroid 3 (small) -->
+  <polygon points="85,62 90,58 94,63 89,67" fill="#8a7e6b" stroke="#9e9585" stroke-width="0.8"/>
+  <!-- Fuel cell -->
+  <rect x="52" y="22" width="8" height="8" fill="#00cc44" rx="1"/>
+  <rect x="54" y="20" width="4" height="12" fill="#aaffaa" opacity="0.5"/>
+  <rect x="50" y="24" width="12" height="4" fill="#aaffaa" opacity="0.5"/>
+</svg>
