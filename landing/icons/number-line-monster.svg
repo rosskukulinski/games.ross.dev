@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <rect width="80" height="80" rx="16" fill="#f3e8ff"/>
+  <!-- number line -->
+  <rect x="10" y="48" width="60" height="4" rx="2" fill="#6b21a8"/>
+  <rect x="10" y="44" width="4" height="12" rx="1" fill="#6b21a8"/>
+  <rect x="66" y="44" width="4" height="12" rx="1" fill="#6b21a8"/>
+  <rect x="38" y="46" width="4" height="8" rx="1" fill="#6b21a8"/>
+  <!-- monster face -->
+  <circle cx="40" cy="28" r="14" fill="#6b21a8"/>
+  <circle cx="35" cy="25" r="3" fill="white"/>
+  <circle cx="45" cy="25" r="3" fill="white"/>
+  <circle cx="35" cy="26" r="1.5" fill="#1a1a2e"/>
+  <circle cx="45" cy="26" r="1.5" fill="#1a1a2e"/>
+  <path d="M34 33 Q40 38 46 33" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- horns -->
+  <polygon points="30,18 28,8 34,16" fill="#581c87"/>
+  <polygon points="50,18 52,8 46,16" fill="#581c87"/>
+</svg>
