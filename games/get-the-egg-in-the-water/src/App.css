@@ -1,0 +1,235 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.game-wrapper {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Canvas */
+.canvas-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.canvas-container canvas {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  border-radius: 12px;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.play-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.5;
+  text-align: center;
+}
+
+/* Overlays */
+.overlay {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Title */
+.title-screen .title-egg {
+  font-size: 64px;
+  margin-bottom: 12px;
+  animation: bounce 1.5s ease infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+.title-screen h1 {
+  font-size: 2.2rem;
+  line-height: 1.15;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  font-size: 1rem;
+  opacity: 0.7;
+  margin-bottom: 1.5rem;
+  line-height: 1.4;
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-block;
+  padding: 12px 36px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #333;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 15px rgba(255, 165, 0, 0.3);
+}
+
+.btn-primary:hover {
+  transform: scale(1.05);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  display: inline-block;
+  padding: 10px 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50px;
+  background: transparent;
+  color: #eee;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* Level Select */
+.level-select h2 {
+  font-size: 1.6rem;
+  margin-bottom: 1.2rem;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.level-btn {
+  aspect-ratio: 1;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #eee;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: transform 0.15s, background 0.15s;
+  position: relative;
+}
+
+.level-btn:not(.locked):hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.level-btn.locked {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.level-num {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.level-stars {
+  font-size: 0.6rem;
+  color: #FFD700;
+  letter-spacing: 1px;
+}
+
+.lock-icon {
+  font-size: 0.8rem;
+  position: absolute;
+  bottom: 4px;
+}
+
+/* Win/Lose */
+.win-screen .win-emoji,
+.lose-screen .lose-emoji {
+  font-size: 56px;
+  margin-bottom: 8px;
+}
+
+.win-screen h2 {
+  font-size: 1.8rem;
+  color: #FFD700;
+  margin-bottom: 6px;
+}
+
+.lose-screen h2 {
+  font-size: 1.8rem;
+  color: #FF6B6B;
+  margin-bottom: 6px;
+}
+
+.result-stars {
+  font-size: 2.4rem;
+  color: #FFD700;
+  letter-spacing: 6px;
+  margin: 12px 0;
+}
+
+.star-hint {
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
+.lose-hint {
+  font-size: 0.9rem;
+  opacity: 0.6;
+  margin-top: 8px;
+}

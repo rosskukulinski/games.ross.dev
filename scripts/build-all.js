@@ -13,6 +13,7 @@ const SCRIPT_PATH = __filename;
 const games = [
   'asteroid-dodger',
   'balloon-pop-blitz',
+  'get-the-egg-in-the-water',
   'guess-the-drawing',
   'hanyverse',
   'kpop-rythm-tap',
