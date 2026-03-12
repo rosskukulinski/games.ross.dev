@@ -1071,11 +1071,11 @@ const DRAWINGS = {
         name: 'Cloud',
         acceptedAnswers: ['cloud', 'a cloud', 'the cloud', 'clouds'],
         paths: [
-            { type: 'arc', centerX: 110, centerY: 205, radius: 28, startAngle: Math.PI, endAngle: 0, strokeColor: '#888', strokeWidth: 3, pointCount: 30 },
-            { type: 'arc', centerX: 155, centerY: 182, radius: 35, startAngle: Math.PI, endAngle: 0, strokeColor: '#888', strokeWidth: 3, pointCount: 35 },
-            { type: 'arc', centerX: 200, centerY: 168, radius: 42, startAngle: Math.PI, endAngle: 0, strokeColor: '#888', strokeWidth: 3, pointCount: 40 },
-            { type: 'arc', centerX: 248, centerY: 180, radius: 35, startAngle: Math.PI, endAngle: 0, strokeColor: '#888', strokeWidth: 3, pointCount: 35 },
-            { type: 'arc', centerX: 290, centerY: 205, radius: 28, startAngle: Math.PI, endAngle: 0, strokeColor: '#888', strokeWidth: 3, pointCount: 30 },
+            { type: 'arc', centerX: 110, centerY: 205, radius: 28, startAngle: Math.PI, endAngle: Math.PI * 2, strokeColor: '#888', strokeWidth: 3, pointCount: 30 },
+            { type: 'arc', centerX: 155, centerY: 205, radius: 35, startAngle: Math.PI, endAngle: Math.PI * 2, strokeColor: '#888', strokeWidth: 3, pointCount: 35 },
+            { type: 'arc', centerX: 200, centerY: 205, radius: 42, startAngle: Math.PI, endAngle: Math.PI * 2, strokeColor: '#888', strokeWidth: 3, pointCount: 40 },
+            { type: 'arc', centerX: 248, centerY: 205, radius: 35, startAngle: Math.PI, endAngle: Math.PI * 2, strokeColor: '#888', strokeWidth: 3, pointCount: 35 },
+            { type: 'arc', centerX: 290, centerY: 205, radius: 28, startAngle: Math.PI, endAngle: Math.PI * 2, strokeColor: '#888', strokeWidth: 3, pointCount: 30 },
             { type: 'polyline', points: [{x:82,y:205},{x:318,y:205}], strokeColor: '#888', strokeWidth: 3 }
         ]
     },
