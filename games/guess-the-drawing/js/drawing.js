@@ -173,20 +173,27 @@ const Drawing = {
         let index = 0;
         let lastPoint = null;
 
-        // Calculate speed to complete drawing in ~15 seconds at 60fps
-        // Total frames = 15 * 60 = 900
-        const totalFrames = 900;
-        const pointsPerFrame = Math.max(1, Math.ceil(points.length / totalFrames));
+        // Time-based animation: complete drawing in ~20 seconds regardless of point count
+        const targetDuration = 20000; // ms
+        const startTime = performance.now();
 
-        const animate = () => {
+        const animate = (timestamp) => {
             if (!this.isDrawing) return;
 
-            // Draw multiple points per frame for speed
-            for (let i = 0; i < pointsPerFrame && index < points.length; i++, index++) {
+            // Determine how far along we should be based on elapsed time
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(elapsed / targetDuration, 1);
+            const targetIndex = Math.floor(progress * points.length);
+
+            let lastNonLiftPoint = null;
+
+            // Draw all points up to targetIndex
+            while (index <= targetIndex && index < points.length) {
                 const point = points[index];
+                index++;
 
                 if (point.lift) {
-                    lastPoint = null;
+                    lastPoint = point;
                     continue;
                 }
 
@@ -208,11 +215,12 @@ const Drawing = {
                 point.scaledX = scaledX;
                 point.scaledY = scaledY;
                 lastPoint = point;
+                lastNonLiftPoint = point;
+            }
 
-                // Update pencil position on last point of this batch
-                if (i === pointsPerFrame - 1 || index === points.length - 1) {
-                    this.updatePencil(point, lastPoint);
-                }
+            // Update pencil to last drawn position
+            if (lastNonLiftPoint) {
+                this.updatePencil(lastNonLiftPoint, lastNonLiftPoint);
             }
 
             if (index < points.length && this.isDrawing) {

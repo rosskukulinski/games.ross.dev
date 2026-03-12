@@ -59,23 +59,32 @@ const Speech = {
         let finalTranscript = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-
             if (event.results[i].isFinal) {
-                finalTranscript += transcript;
+                finalTranscript += event.results[i][0].transcript;
             } else {
-                interimTranscript += transcript;
+                interimTranscript += event.results[i][0].transcript;
             }
         }
 
-        // Update interim display
+        // Update display with top alternative
         if (this.onInterimCallback && (interimTranscript || finalTranscript)) {
             this.onInterimCallback(interimTranscript || finalTranscript);
         }
 
-        // Check final result
-        if (finalTranscript && this.onResultCallback) {
-            this.onResultCallback(finalTranscript);
+        // Check all alternatives for final results (not just the top one)
+        if (this.onResultCallback) {
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    for (let j = 0; j < event.results[i].length; j++) {
+                        this.onResultCallback(event.results[i][j].transcript);
+                    }
+                }
+            }
+        }
+
+        // Also check interim transcripts to catch answers before a session restart
+        if (interimTranscript && this.onResultCallback) {
+            this.onResultCallback(interimTranscript);
         }
     },
 

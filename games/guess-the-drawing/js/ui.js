@@ -196,7 +196,7 @@ const UI = {
     },
 
     onTextInput(callback) {
-        this.elements.textFallback.addEventListener('keypress', (e) => {
+        this.elements.textFallback.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 callback(e.target.value);
                 e.target.value = '';
