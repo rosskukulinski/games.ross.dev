@@ -32,6 +32,11 @@ SONG_IDS = [
     'strategy',
     'love-maybe',
     'path',
+    'best-day',
+    'zoo',
+    'shake-it-off',
+    'chicken-banana',
+    'better-when-im-dancing',
 ]
 
 
