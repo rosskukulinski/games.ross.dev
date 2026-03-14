@@ -30,13 +30,56 @@ function percentile(arr, p) {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
 }
 
+// Generate a playable BPM-based beatmap when no analyzed data is available.
+// Notes are placed on the beat grid with lane assignments via seeded RNG.
+function generateProceduralBeatmap(song, difficulty) {
+  const bpm = song.bpm || 120;
+  const offset = song.offset || 0.5;
+  const rng = mulberry32(hashString(song.id + difficulty));
+  const beat = 60.0 / bpm;
+  const maxDuration = 240; // generate up to 4 min; game stops at actual audio end
+
+  // Subdivision: easy = quarter notes, medium = 8th notes, hard = 8th + 16th
+  const subdivisions = difficulty === 'easy' ? [0] : difficulty === 'hard' ? [0, 0.5, 0.75] : [0, 0.5];
+
+  const notes = [];
+  let lastLane = -1;
+  let sameLaneCount = 0;
+
+  for (let t = offset; t < maxDuration; t = Math.round((t + beat) * 10000) / 10000) {
+    for (const sub of subdivisions) {
+      const noteTime = Math.round((t + sub * beat) * 10000) / 10000;
+      if (noteTime >= maxDuration) break;
+      // On easy, only place notes on beat (sub=0)
+      // On medium/hard, occasionally skip off-beats
+      if (sub !== 0 && rng() < 0.35) continue;
+
+      let lane = Math.floor(rng() * 4);
+      if (lane === lastLane && sameLaneCount >= 2) {
+        let attempts = 0;
+        while (lane === lastLane && attempts < 10) {
+          lane = Math.floor(rng() * 4);
+          attempts++;
+        }
+      }
+      if (lane === lastLane) sameLaneCount++;
+      else sameLaneCount = 1;
+      lastLane = lane;
+
+      notes.push({ time: noteTime, lane, hit: false, judged: false });
+    }
+  }
+
+  return notes;
+}
+
 export function generateBeatmap(song, difficulty = 'medium') {
   const { id } = song;
   const data = beatmaps[id];
 
   if (!data) {
-    // Fallback: no beatmap data available
-    return [];
+    // Fallback: generate procedural BPM-based notes until analyze-songs.py is run
+    return generateProceduralBeatmap(song, difficulty);
   }
 
   const events = data.events;
