@@ -22,11 +22,12 @@ const games = [
   'phase-10',
   'sir-name-alot',
   'skee-ball',
+  'sudoku',
   'treasure-hunt-island',
   'unicorn-dragon',
 ];
 
-const staticGames = ['number-line-monster', 'ojoj'];
+const staticGames = ['number-line-monster', 'ojoj', 'sudoku'];
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.DS_Store', '.wrangler', '.playwright-mcp', '.claude']);
 
