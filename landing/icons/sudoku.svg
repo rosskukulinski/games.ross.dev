@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Background -->
+  <rect width="100" height="100" rx="20" fill="#4361ee"/>
+  <!-- 3x3 Sudoku grid -->
+  <g fill="none" stroke="white" stroke-linecap="round">
+    <!-- Thin inner lines -->
+    <line x1="18" y1="40" x2="82" y2="40" stroke-width="1.2" opacity="0.6"/>
+    <line x1="18" y1="60" x2="82" y2="60" stroke-width="1.2" opacity="0.6"/>
+    <line x1="40" y1="18" x2="40" y2="82" stroke-width="1.2" opacity="0.6"/>
+    <line x1="60" y1="18" x2="60" y2="82" stroke-width="1.2" opacity="0.6"/>
+    <!-- Outer border -->
+    <rect x="18" y="18" width="64" height="64" rx="4" stroke-width="3"/>
+  </g>
+  <!-- Sample numbers in cells -->
+  <text font-family="Arial,sans-serif" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="central">
+    <tspan x="29" y="29" font-size="13">4</tspan>
+    <tspan x="71" y="29" font-size="13">9</tspan>
+    <tspan x="50" y="50" font-size="13">5</tspan>
+    <tspan x="29" y="71" font-size="13">7</tspan>
+    <tspan x="71" y="71" font-size="13">2</tspan>
+  </text>
+  <!-- Highlighted center cell -->
+  <rect x="40" y="40" width="20" height="20" rx="2" fill="white" opacity="0.2"/>
+</svg>

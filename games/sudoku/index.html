@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sudoku</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Mode Select Screen -->
+    <div id="mode-select" class="screen active">
+      <div class="logo">
+        <div class="logo-icon">🔢</div>
+        <h1>Sudoku</h1>
+      </div>
+      <p class="subtitle">Choose your difficulty</p>
+      <div class="mode-grid">
+        <button class="mode-card beginner-card" onclick="startGame('beginner')">
+          <div class="mode-emoji">🌱</div>
+          <div class="mode-name">Beginner</div>
+          <div class="mode-details">3×3 Grid</div>
+          <div class="mode-age">Ages 4+</div>
+        </button>
+        <button class="mode-card easy-card" onclick="startGame('easy')">
+          <div class="mode-emoji">⭐</div>
+          <div class="mode-name">Easy</div>
+          <div class="mode-details">9×9 · Many hints</div>
+          <div class="mode-age">Beginner-friendly</div>
+        </button>
+        <button class="mode-card medium-card" onclick="startGame('medium')">
+          <div class="mode-emoji">⭐⭐</div>
+          <div class="mode-name">Medium</div>
+          <div class="mode-details">9×9 · Some hints</div>
+          <div class="mode-age">Some experience</div>
+        </button>
+        <button class="mode-card hard-card" onclick="startGame('hard')">
+          <div class="mode-emoji">⭐⭐⭐</div>
+          <div class="mode-name">Hard</div>
+          <div class="mode-details">9×9 · Few hints</div>
+          <div class="mode-age">Expert challenge</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+      <div class="top-bar">
+        <button class="icon-btn" onclick="showModeSelect()" title="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M19 12H5M12 5l-7 7 7 7"/>
+          </svg>
+        </button>
+        <div class="game-stats">
+          <div class="stat-box">
+            <div class="stat-val" id="mistakes-display">0</div>
+            <div class="stat-lbl">Mistakes</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="timer-display">0:00</div>
+            <div class="stat-lbl">Time</div>
+          </div>
+        </div>
+        <button class="icon-btn" onclick="newGame()" title="New Game">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mode-badge" id="mode-badge"></div>
+
+      <div id="board-wrap">
+        <div id="board"></div>
+      </div>
+
+      <div id="controls">
+        <div class="action-row" id="action-row">
+          <button class="action-btn" onclick="undoMove()" title="Undo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M3 7v6h6"/>
+              <path d="M3 13C4.5 9 8 6 12 6a9 9 0 0 1 0 18 9 9 0 0 1-8-5"/>
+            </svg>
+            Undo
+          </button>
+          <button class="action-btn" onclick="eraseCell()" title="Erase">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M20 20H7L3 16l9-14 8 12-3 4z"/>
+              <path d="M6.5 17.5l5.5-8.5"/>
+            </svg>
+            Erase
+          </button>
+          <button class="action-btn" id="notes-btn" onclick="toggleNotes()" title="Notes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Notes
+          </button>
+        </div>
+        <div id="numpad"></div>
+      </div>
+    </div>
+
+    <!-- Win Overlay -->
+    <div id="win-screen">
+      <div class="win-content">
+        <div class="win-emoji" id="win-emoji">🎉</div>
+        <h2 id="win-title">Puzzle Solved!</h2>
+        <div class="win-stats-row">
+          <div class="win-stat">
+            <div class="win-stat-val" id="win-time">—</div>
+            <div class="win-stat-lbl">Time</div>
+          </div>
+          <div class="win-stat">
+            <div class="win-stat-val" id="win-mistakes">0</div>
+            <div class="win-stat-lbl">Mistakes</div>
+          </div>
+        </div>
+        <button class="primary-btn" onclick="newGame()">Play Again</button>
+        <button class="secondary-btn" onclick="showModeSelect()">Change Mode</button>
+      </div>
+    </div>
+
+  </div>
+  <script src="sudoku.js"></script>
+</body>
+</html>
