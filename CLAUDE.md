@@ -17,7 +17,9 @@ games.ross.dev/
 
 | Slug | Display Name | Tech Stack | Build |
 |------|-------------|-----------|-------|
+| connect-four | Connect Four | Static (HTML/CSS/JS) | copy only |
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
+| hangman | Word Guess | Static (HTML/CSS/JS) | copy only |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
 | kpop-rythm-tap | K-Pop Rhythm Tap | React + Vite + Canvas + Web Audio | `vite build` |
 | number-line-monster | Monster Hunt | Static (HTML/CSS/JS) | copy only |
@@ -25,6 +27,7 @@ games.ross.dev/
 | pet-care-game | Dragon Keeper | React + TS + Zustand + Vite | `tsc -b && vite build` |
 | phase-10 | Phase 10 | React + Vite | `vite build` |
 | sir-name-alot | Sir-Name-Alot | Vue + Vite | `vite build` |
+| tic-tac-toe | Tic-Tac-Toe | Static (HTML/CSS/JS) | copy only |
 | unicorn-dragon | Unicorn Dragon | Three.js + TS + Vite | `tsc && vite build` |
 
 ## Commands
