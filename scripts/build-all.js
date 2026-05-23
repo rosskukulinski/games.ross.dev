@@ -13,7 +13,9 @@ const SCRIPT_PATH = __filename;
 const games = [
   'asteroid-dodger',
   'balloon-pop-blitz',
+  'connect-four',
   'guess-the-drawing',
+  'hangman',
   'hanyverse',
   'kpop-rythm-tap',
   'number-line-monster',
@@ -23,11 +25,12 @@ const games = [
   'sir-name-alot',
   'skee-ball',
   'sudoku',
+  'tic-tac-toe',
   'treasure-hunt-island',
   'unicorn-dragon',
 ];
 
-const staticGames = ['number-line-monster', 'ojoj', 'sudoku'];
+const staticGames = ['connect-four', 'hangman', 'number-line-monster', 'ojoj', 'sudoku', 'tic-tac-toe'];
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.DS_Store', '.wrangler', '.playwright-mcp', '.claude']);
 

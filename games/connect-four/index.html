@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Connect Four</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Mode Select Screen -->
+    <div id="mode-select" class="screen active">
+      <div class="logo">
+        <div class="logo-icon">🔴🟡</div>
+        <h1>Connect Four</h1>
+      </div>
+      <p class="subtitle">Line up four to win!</p>
+      <div class="mode-grid">
+        <button class="mode-card two-player-card" onclick="startGame('two')">
+          <div class="mode-emoji">👫</div>
+          <div class="mode-name">2 Players</div>
+          <div class="mode-details">Take turns on one device</div>
+        </button>
+        <button class="mode-card easy-card" onclick="startGame('easy')">
+          <div class="mode-emoji">🤖</div>
+          <div class="mode-name">vs Computer</div>
+          <div class="mode-details">Easy — good for beginners</div>
+        </button>
+        <button class="mode-card hard-card" onclick="startGame('hard')">
+          <div class="mode-emoji">🧠</div>
+          <div class="mode-name">vs Computer</div>
+          <div class="mode-details">Hard — plans ahead</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+      <div class="top-bar">
+        <button class="icon-btn" onclick="showModeSelect()" title="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M19 12H5M12 5l-7 7 7 7"/>
+          </svg>
+        </button>
+        <div class="scoreboard">
+          <div class="score-box score-red">
+            <div class="score-mark">🔴</div>
+            <div class="score-val" id="score-red">0</div>
+          </div>
+          <div class="score-box score-yellow">
+            <div class="score-mark">🟡</div>
+            <div class="score-val" id="score-yellow">0</div>
+          </div>
+        </div>
+        <button class="icon-btn" onclick="newRound()" title="New Round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="turn-badge" id="turn-badge">🔴's turn</div>
+
+      <div id="board-wrap">
+        <div id="drop-row"></div>
+        <div id="board"></div>
+      </div>
+    </div>
+
+    <!-- Win Overlay -->
+    <div id="win-screen">
+      <div class="win-content">
+        <div class="win-emoji" id="win-emoji">🎉</div>
+        <h2 id="win-title">Red wins!</h2>
+        <button class="primary-btn" onclick="newRound()">Play Again</button>
+        <button class="secondary-btn" onclick="showModeSelect()">Change Mode</button>
+      </div>
+    </div>
+
+  </div>
+  <script src="connect-four.js"></script>
+</body>
+</html>

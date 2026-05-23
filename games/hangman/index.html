@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Word Guess</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Category Select Screen -->
+    <div id="mode-select" class="screen active">
+      <div class="logo">
+        <div class="logo-icon">🔤</div>
+        <h1>Word Guess</h1>
+      </div>
+      <p class="subtitle">Pick a topic and guess the word!</p>
+      <div class="mode-grid">
+        <button class="mode-card" style="border-color:#fca5a5" onclick="startGame('Animals')">
+          <div class="mode-emoji">🐾</div>
+          <div class="mode-name">Animals</div>
+        </button>
+        <button class="mode-card" style="border-color:#fcd34d" onclick="startGame('Food')">
+          <div class="mode-emoji">🍎</div>
+          <div class="mode-name">Food</div>
+        </button>
+        <button class="mode-card" style="border-color:#93c5fd" onclick="startGame('Colors')">
+          <div class="mode-emoji">🌈</div>
+          <div class="mode-name">Colors</div>
+        </button>
+        <button class="mode-card" style="border-color:#6ee7b7" onclick="startGame('Things')">
+          <div class="mode-emoji">🧸</div>
+          <div class="mode-name">Things</div>
+        </button>
+        <button class="mode-card" style="border-color:#c4b5fd" onclick="startGame('Mixed')">
+          <div class="mode-emoji">🎲</div>
+          <div class="mode-name">Surprise Me!</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+      <div class="top-bar">
+        <button class="icon-btn" onclick="showModeSelect()" title="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M19 12H5M12 5l-7 7 7 7"/>
+          </svg>
+        </button>
+        <div class="category-badge" id="category-badge">Animals</div>
+        <button class="icon-btn" onclick="newRound()" title="New Word">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="mood">
+        <div class="mood-face" id="mood-face">😄</div>
+        <div class="hearts" id="hearts"></div>
+      </div>
+
+      <div class="word" id="word"></div>
+
+      <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <!-- End Overlay -->
+    <div id="win-screen">
+      <div class="win-content">
+        <div class="win-emoji" id="win-emoji">🎉</div>
+        <h2 id="win-title">You got it!</h2>
+        <p class="reveal" id="reveal"></p>
+        <button class="primary-btn" onclick="newRound()">Play Again</button>
+        <button class="secondary-btn" onclick="showModeSelect()">Change Topic</button>
+      </div>
+    </div>
+
+  </div>
+  <script src="hangman.js"></script>
+</body>
+</html>
