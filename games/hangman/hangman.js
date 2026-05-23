@@ -2,6 +2,7 @@
 
 const MAX_WRONG = 6;
 const MOODS = ['😄', '🙂', '😐', '😟', '😨', '😢', '😵'];
+const KEY_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 
 const WORDS = {
   Animals: ['CAT', 'DOG', 'LION', 'TIGER', 'BEAR', 'ZEBRA', 'MONKEY', 'RABBIT', 'HORSE', 'PANDA', 'FROG', 'SNAKE', 'WHALE', 'SHARK', 'PENGUIN', 'GIRAFFE', 'ELEPHANT', 'DOLPHIN', 'TURTLE', 'KOALA'],
@@ -68,16 +69,21 @@ function renderWord() {
 
 function renderKeyboard() {
   keyboardEl.innerHTML = '';
-  for (const ch of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-    const key = document.createElement('button');
-    key.className = 'key';
-    key.textContent = ch;
-    if (guessed.has(ch)) {
-      key.disabled = true;
-      key.classList.add(word.includes(ch) ? 'correct' : 'wrong');
+  for (const row of KEY_ROWS) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'key-row';
+    for (const ch of row) {
+      const key = document.createElement('button');
+      key.className = 'key';
+      key.textContent = ch;
+      if (guessed.has(ch)) {
+        key.disabled = true;
+        key.classList.add(word.includes(ch) ? 'correct' : 'wrong');
+      }
+      key.addEventListener('click', () => guess(ch));
+      rowEl.appendChild(key);
     }
-    key.addEventListener('click', () => guess(ch));
-    keyboardEl.appendChild(key);
+    keyboardEl.appendChild(rowEl);
   }
 }
 

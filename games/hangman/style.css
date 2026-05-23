@@ -130,22 +130,29 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* ── Keyboard ── */
+/* ── Keyboard (QWERTY) ── */
 .keyboard {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 7px;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--key-gap);
   max-width: 480px;
   margin: 0 auto;
+  --key-gap: clamp(4px, 1.2vw, 7px);
+  --key-w: clamp(26px, 7.8vw, 42px);
+}
+.key-row {
+  display: flex;
+  justify-content: center;
+  gap: var(--key-gap);
 }
 .key {
-  width: 42px;
-  height: 50px;
+  width: var(--key-w);
+  height: calc(var(--key-w) * 1.2);
   border: none;
   border-radius: 10px;
   background: var(--surface);
-  font-size: 20px;
+  font-size: clamp(15px, 4.6vw, 20px);
   font-weight: 700;
   font-family: inherit;
   text-transform: uppercase;
@@ -160,7 +167,6 @@ body {
 .key:disabled { cursor: default; }
 
 @media (max-width: 380px) {
-  .key { width: 38px; height: 46px; font-size: 18px; }
   .letter-slot { width: 34px; height: 50px; font-size: 32px; }
 }
 
