@@ -21,6 +21,7 @@ games.ross.dev/
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
 | hangman | Word Guess | Static (HTML/CSS/JS) | copy only |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
+| kingdom-bloom | Kingdom Bloom | React + Vite | `vite build` |
 | kpop-rythm-tap | K-Pop Rhythm Tap | React + Vite + Canvas + Web Audio | `vite build` |
 | number-line-monster | Monster Hunt | Static (HTML/CSS/JS) | copy only |
 | ojoj | OJOJ Racing | Static (HTML/CSS/JS) | copy only |

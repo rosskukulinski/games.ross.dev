@@ -17,6 +17,7 @@ const games = [
   'guess-the-drawing',
   'hangman',
   'hanyverse',
+  'kingdom-bloom',
   'kpop-rythm-tap',
   'number-line-monster',
   'ojoj',
