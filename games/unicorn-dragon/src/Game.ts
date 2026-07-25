@@ -165,6 +165,10 @@ export class Game {
       if (killed) {
         this.score += 500
         this.dragonsDefeated++
+        // Killing a dragon patches you up. Now that dragons fight back, this
+        // is the only way to recover — without it a long run always ends in
+        // an unwinnable slide toward game over.
+        this.health = Math.min(100, this.health + 20)
         this.showNotification(enemy.config.name + ' DEFEATED!', '+500')
         this.updateHUD()
         this.audio.kill()
@@ -478,6 +482,15 @@ export class Game {
       }
       // Living dragons patrol slowly and track the player with the head.
       dragon.updateFlight(delta, mount.position)
+
+      // ...and breathe at the player once they're close and in the head's arc.
+      const action = dragon.tryAttack(delta, mount.position)
+      if (action?.kind === 'windup') {
+        this.audio.roar()
+      } else if (action?.kind === 'fire') {
+        this.combatSystem.enemyFire(action.position, action.direction, dragon.getBreathConfig())
+        this.effects.burst(action.position.clone(), [dragon.config.glowColor, 0xffffff], 16, 11, 0.45, 0.4)
+      }
       return true
     })
 

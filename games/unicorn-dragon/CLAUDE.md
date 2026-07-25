@@ -149,8 +149,27 @@ combo, tricks, kills, dragon count, mount, speed, position and live projectiles.
 - No runtime network requests other than the local GLB. No texture files.
 - Keep `tsc` strict-clean (`noUnusedLocals`/`noUnusedParameters` are on).
 
+## Dragon attacks (v2.1)
+Dragons now breathe at the player. `Dragon.tryAttack(delta, target)` is called
+each frame from the Game loop after `updateFlight` and returns a `DragonAction`:
+`windup` on the frame the telegraph starts (Game plays the roar), `fire` on the
+frame the breath launches (Game calls `CombatSystem.enemyFire`).
+
+Tuned to stay fair for young players — do not "balance" these away casually:
+- A dragon only fires when the player is inside `attackRange` (60–70) **and**
+  its head has swung to within 0.5 rad of them, so you are never sniped from
+  off-screen or from behind.
+- Every shot is preceded by a **0.8s wind-up**: the jaw yawns open and the
+  emissive glow swells and pulses. That telegraph is the dodge window.
+- Breath travels at 32–44 vs the player's bolts at 80, aims at where the player
+  *is* (never leads the target), and carries a small random scatter.
+- `attackInterval` is 4.5–6.5s per type, jittered ±20%, and the initial timer is
+  randomised so the three dragons never breathe in unison.
+- Damage comes from each dragon's own v1 stat (15/20/25) via
+  `getBreathConfig()`.
+- **Killing a dragon heals +20** (capped at 100) — the only recovery in the
+  game, and what keeps a long run from becoming an unwinnable slide.
+
 ## Possible next steps
-- Dragon AI that actually attacks (they currently never fire; `enemyFire()` in
-  CombatSystem is wired but unused)
 - Per-mount special abilities (E key)
 - Wave/difficulty progression and a persistent high score

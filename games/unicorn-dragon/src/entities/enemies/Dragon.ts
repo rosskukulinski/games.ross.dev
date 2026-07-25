@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { getSparkTexture } from '../../fx/textures'
+import type { ProjectileConfig } from '../projectiles/Projectile'
 
 export interface DragonConfig {
   name: string
@@ -15,7 +16,16 @@ export interface DragonConfig {
   scale: number
   /** Element flavour drives the aura particle behaviour. */
   element: 'fire' | 'frost' | 'shadow'
+  /** Seconds between breath attacks. Deliberately slow — kids play this. */
+  attackInterval: number
+  /** Beyond this distance the dragon ignores the player entirely. */
+  attackRange: number
 }
+
+/** What a dragon wants to do this frame (see {@link Dragon.tryAttack}). */
+export type DragonAction =
+  | { kind: 'windup' }
+  | { kind: 'fire'; position: THREE.Vector3; direction: THREE.Vector3 }
 
 /**
  * Procedural articulated dragon: a serpentine spine of tapering segments
@@ -52,6 +62,11 @@ export class Dragon extends THREE.Group {
   private patrolPhase = Math.random() * Math.PI * 2
   private patrolRadius = 5 + Math.random() * 4
   private headYaw = 0
+  /** Staggered so the three dragons never breathe in unison. */
+  private attackTimer = 3 + Math.random() * 4
+  /** Counts down during the telegraph; the shot leaves at zero. */
+  private windupTimer = 0
+  private readonly WINDUP = 0.8
 
   constructor(config: DragonConfig) {
     super()
@@ -426,6 +441,17 @@ export class Dragon extends THREE.Group {
     this.head.rotation.x = Math.sin(this.swimPhase * 0.45) * 0.09
     this.jaw.rotation.x = Math.PI / 2 + 0.12 + Math.sin(this.swimPhase * 0.9) * 0.1
 
+    // Attack telegraph: the jaw yawns open and the glow swells so a player
+    // can see the breath coming and dodge it.
+    if (this.windupTimer > 0) {
+      const charge = 1 - this.windupTimer / this.WINDUP
+      this.jaw.rotation.x += charge * 0.75
+      const pulse = 2.6 + charge * 3.4 + Math.sin(this.windupTimer * 40) * 0.4
+      this.glowMaterial.color.copy(new THREE.Color(this.config.glowColor).multiplyScalar(pulse))
+    } else {
+      this.glowMaterial.color.copy(new THREE.Color(this.config.glowColor).multiplyScalar(2.6))
+    }
+
     // Body bob follows the flap.
     this.position.y += Math.sin(this.wingPhase) * delta * 1.6
 
@@ -498,6 +524,77 @@ export class Dragon extends THREE.Group {
     this.deathTime = 0
   }
 
+  /**
+   * Breath-attack pacing. Call once per frame after {@link updateFlight}.
+   *
+   * A dragon only attacks when the player is inside `attackRange` AND its head
+   * is actually pointed at them, so you are never sniped from off-screen. Each
+   * shot is preceded by a visible {@link WINDUP} telegraph.
+   *
+   * @returns `windup` on the frame the telegraph starts, `fire` on the frame
+   * the breath launches, otherwise `null`.
+   */
+  tryAttack(delta: number, target: THREE.Vector3): DragonAction | null {
+    if (this.isDead) {
+      this.windupTimer = 0
+      return null
+    }
+
+    // Mid-telegraph: keep charging, then breathe.
+    if (this.windupTimer > 0) {
+      this.windupTimer -= delta
+      if (this.windupTimer > 0) return null
+
+      this.windupTimer = 0
+      this.attackTimer = this.config.attackInterval * (0.8 + Math.random() * 0.4)
+
+      const position = this.getFirePosition()
+      const direction = target.clone().sub(position).normalize()
+      // Aim at where the player is *now*, never where they're heading, and
+      // scatter the shot slightly — a dead-accurate dragon is no fun to dodge.
+      direction.x += (Math.random() - 0.5) * 0.06
+      direction.y += (Math.random() - 0.5) * 0.06
+      direction.z += (Math.random() - 0.5) * 0.06
+      return { kind: 'fire', position, direction: direction.normalize() }
+    }
+
+    if (this.position.distanceTo(target) > this.config.attackRange) return null
+
+    // Only breathe when the head has actually swung onto the player.
+    const toTarget = Math.atan2(target.x - this.position.x, target.z - this.position.z)
+    let aimError = toTarget - (this.rotation.y + this.headYaw)
+    while (aimError > Math.PI) aimError -= Math.PI * 2
+    while (aimError < -Math.PI) aimError += Math.PI * 2
+    if (Math.abs(aimError) > 0.5) return null
+
+    this.attackTimer -= delta
+    if (this.attackTimer > 0) return null
+
+    this.windupTimer = this.WINDUP
+    return { kind: 'windup' }
+  }
+
+  /**
+   * Breath projectile for this dragon. Damage comes from the dragon's own
+   * stats; speeds are well under the player's bolts so the shots stay
+   * dodgeable.
+   */
+  getBreathConfig(): ProjectileConfig {
+    const base = {
+      damage: this.config.damage,
+      color: this.config.glowColor,
+      lifetime: 4
+    }
+    switch (this.config.element) {
+      case 'fire':
+        return { ...base, speed: 38, size: 0.5 }
+      case 'frost':
+        return { ...base, speed: 32, size: 0.55 }
+      default:
+        return { ...base, speed: 44, size: 0.4 }
+    }
+  }
+
   /** Head/mouth world position (breath attacks, death burst origin). */
   getFirePosition(): THREE.Vector3 {
     const out = new THREE.Vector3(0, -0.06, 1.75)
@@ -521,7 +618,9 @@ export const DRAGON_TYPES: Record<string, DragonConfig> = {
     bellyColor: 0xffc48a,
     glowColor: 0xff9d2e,
     scale: 1.35,
-    element: 'fire'
+    element: 'fire',
+    attackInterval: 5.5,
+    attackRange: 65
   },
   'frost-wyrm': {
     name: 'Frost Wyrm',
@@ -532,7 +631,9 @@ export const DRAGON_TYPES: Record<string, DragonConfig> = {
     bellyColor: 0xe4f8ff,
     glowColor: 0x7fe9ff,
     scale: 1.6,
-    element: 'frost'
+    element: 'frost',
+    attackInterval: 6.5,
+    attackRange: 60
   },
   'shadow-dragon': {
     name: 'Shadow Dragon',
@@ -543,6 +644,8 @@ export const DRAGON_TYPES: Record<string, DragonConfig> = {
     bellyColor: 0x8f74d4,
     glowColor: 0xc07dff,
     scale: 1.2,
-    element: 'shadow'
+    element: 'shadow',
+    attackInterval: 4.5,
+    attackRange: 70
   }
 }
