@@ -2,188 +2,392 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#c98fd6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%A6%84%3C/text%3E%3C/svg%3E">
   <title>Unicorn Dragon</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --glass: rgba(255, 255, 255, 0.14);
+      --glass-strong: rgba(255, 255, 255, 0.24);
+      --stroke: rgba(255, 255, 255, 0.4);
+      --ink: #fff6fb;
+      --gold: #ffd76a;
+      --mint: #8bffc9;
     }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       overflow: hidden;
-      background: #000;
+      background: #201436;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
-    #game {
-      width: 100vw;
-      height: 100vh;
-    }
-    #hud {
+    #game { width: 100vw; height: 100vh; }
+    canvas { display: block; }
+
+    #speed-lines {
       position: fixed;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
       pointer-events: none;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      color: white;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+      z-index: 2;
     }
+
+    #vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 3;
+      opacity: 0;
+      background: radial-gradient(ellipse at center,
+        rgba(255, 40, 70, 0) 45%,
+        rgba(255, 40, 70, 0.55) 100%);
+    }
+    #vignette.flash { animation: vignette-flash 0.55s ease-out; }
+    @keyframes vignette-flash {
+      0% { opacity: 0; }
+      15% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    #hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+      color: var(--ink);
+      text-shadow: 0 2px 6px rgba(40, 10, 60, 0.6);
+    }
+
+    .panel {
+      background: var(--glass);
+      backdrop-filter: blur(14px) saturate(1.4);
+      -webkit-backdrop-filter: blur(14px) saturate(1.4);
+      border: 1px solid var(--stroke);
+      border-radius: 16px;
+      box-shadow: 0 8px 28px rgba(50, 15, 70, 0.35), inset 0 1px 0 rgba(255,255,255,0.35);
+    }
+
     .hud-top {
       display: flex;
       justify-content: space-between;
-      padding: 20px;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 18px clamp(14px, 3vw, 28px);
+    }
+
+    .health-panel { padding: 10px 14px; min-width: 210px; }
+    .health-label {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.85;
+      margin-bottom: 6px;
     }
     .health-container {
-      width: 200px;
-      height: 20px;
-      background: rgba(0,0,0,0.5);
-      border-radius: 10px;
+      width: 100%;
+      height: 14px;
+      background: rgba(30, 8, 45, 0.45);
+      border-radius: 999px;
       overflow: hidden;
-      border: 2px solid rgba(255,255,255,0.3);
+      border: 1px solid rgba(255,255,255,0.25);
     }
     .health-bar {
       height: 100%;
       width: 100%;
-      background: linear-gradient(90deg, #ff4444, #ff6666);
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ff7ab5, #ffd76a);
+      box-shadow: 0 0 14px rgba(255, 150, 200, 0.7);
       transition: width 0.3s ease;
     }
-    .health-bar.warning {
-      background: linear-gradient(90deg, #ffaa00, #ffcc00);
-    }
+    .health-bar.warning { background: linear-gradient(90deg, #ffae4a, #ffe27a); }
     .health-bar.critical {
-      background: linear-gradient(90deg, #ff0000, #ff4444);
+      background: linear-gradient(90deg, #ff3b5c, #ff8a6a);
       animation: pulse 0.5s infinite;
     }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .score-panel {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px;
     }
-    .score-container {
-      font-size: 24px;
-      font-weight: bold;
+    .score-label {
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+    #score {
+      font-size: clamp(20px, 3.4vw, 28px);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: var(--gold);
     }
     .combo {
-      color: #ffdd00;
-      margin-left: 15px;
+      color: var(--mint);
+      font-size: clamp(15px, 2.6vw, 20px);
+      font-weight: 800;
       animation: combo-pop 0.3s ease;
     }
     .combo.hidden { display: none; }
-    @keyframes combo-pop {
-      0% { transform: scale(1.5); }
-      100% { transform: scale(1); }
+    @keyframes combo-pop { 0% { transform: scale(1.6); } 100% { transform: scale(1); } }
+
+    .icon-btn {
+      pointer-events: auto;
+      cursor: pointer;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      border-radius: 14px;
+      transition: transform 0.15s ease, background 0.15s ease;
     }
+    .icon-btn:hover { transform: translateY(-2px); background: var(--glass-strong); }
+    .icon-btn.muted { opacity: 0.55; }
+
     .crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 20px;
-      height: 20px;
-      border: 2px solid rgba(255,255,255,0.7);
+      width: 26px;
+      height: 26px;
+      border: 2px solid rgba(255,255,255,0.65);
       border-radius: 50%;
+      box-shadow: 0 0 12px rgba(255,255,255,0.35), inset 0 0 8px rgba(255,255,255,0.25);
     }
-    .crosshair::before,
-    .crosshair::after {
+    .crosshair::before, .crosshair::after {
       content: '';
       position: absolute;
-      background: rgba(255,255,255,0.7);
-    }
-    .crosshair::before {
-      width: 2px;
-      height: 8px;
-      top: 50%;
-      left: 50%;
+      background: rgba(255,255,255,0.85);
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
     }
-    .crosshair::after {
-      width: 8px;
-      height: 2px;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-    .hud-bottom {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-    }
-    .mount-info {
-      background: rgba(0,0,0,0.5);
-      padding: 10px 15px;
-      border-radius: 8px;
-    }
+    .crosshair::before { width: 2px; height: 10px; }
+    .crosshair::after { width: 10px; height: 2px; }
+
+    .hud-bottom { position: absolute; bottom: 18px; left: clamp(14px, 3vw, 28px); }
+    .mount-info { padding: 12px 14px; }
     .mount-name {
-      font-size: 14px;
-      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 10px;
     }
-    .mount-slots {
-      display: flex;
-      gap: 8px;
-    }
+    .mount-slots { display: flex; gap: 8px; }
     .mount-slot {
-      width: 32px;
-      height: 32px;
-      background: rgba(255,255,255,0.2);
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 4px;
+      pointer-events: auto;
+      width: 38px;
+      height: 38px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 11px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 14px;
-      font-weight: bold;
+      font-weight: 700;
+      transition: all 0.18s ease;
     }
     .mount-slot.active {
-      background: rgba(100,200,255,0.4);
-      border-color: #64c8ff;
+      background: linear-gradient(160deg, rgba(255,180,230,0.55), rgba(140,200,255,0.4));
+      border-color: #fff;
+      box-shadow: 0 0 18px rgba(255, 170, 230, 0.65);
+      transform: translateY(-3px);
     }
+
     .trick-notification {
       position: absolute;
-      top: 30%;
+      top: 26%;
       left: 50%;
-      transform: translateX(-50%);
-      font-size: 32px;
-      font-weight: bold;
+      transform: translateX(-50%) scale(0.9);
       text-align: center;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.25s ease, transform 0.25s ease;
     }
     .trick-notification.show {
       opacity: 1;
+      transform: translateX(-50%) scale(1);
+      animation: trick-pop 0.45s cubic-bezier(.2,1.6,.4,1);
+    }
+    @keyframes trick-pop {
+      0% { transform: translateX(-50%) scale(0.55); }
+      70% { transform: translateX(-50%) scale(1.12); }
+      100% { transform: translateX(-50%) scale(1); }
     }
     .trick-name {
-      color: #ffdd00;
       display: block;
+      font-size: clamp(26px, 5.5vw, 44px);
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      background: linear-gradient(90deg, #ff8ad0, #ffd76a, #8bffc9, #7fc7ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 3px 10px rgba(60,10,80,0.7));
     }
     .trick-score {
-      color: #00ff88;
-      font-size: 24px;
+      font-size: clamp(18px, 3vw, 26px);
+      font-weight: 800;
+      color: var(--mint);
     }
+
     .controls-hint {
       position: absolute;
-      bottom: 20px;
-      right: 20px;
-      font-size: 12px;
-      opacity: 0.7;
+      bottom: 18px;
+      right: clamp(14px, 3vw, 28px);
+      font-size: 11px;
+      line-height: 1.7;
+      opacity: 0.82;
       text-align: right;
+      padding: 10px 14px;
+      max-width: 46vw;
     }
+    .controls-hint b { color: var(--gold); font-weight: 700; }
+
+    /* Loading + game-over overlays */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(70,30,100,0.55), rgba(20,8,35,0.88));
+      color: var(--ink);
+      text-align: center;
+    }
+    .overlay.hidden { display: none; }
+    .overlay-card { padding: 30px 38px; pointer-events: auto; }
+    .overlay-title {
+      font-size: clamp(26px, 6vw, 42px);
+      font-weight: 900;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #ff8ad0, #ffd76a);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .overlay-sub { font-size: 14px; opacity: 0.9; margin-bottom: 6px; }
+    .overlay-score {
+      font-size: clamp(30px, 7vw, 48px);
+      font-weight: 900;
+      color: var(--gold);
+      margin: 10px 0 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .btn {
+      pointer-events: auto;
+      cursor: pointer;
+      margin-top: 18px;
+      padding: 12px 30px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #3a1147;
+      background: linear-gradient(160deg, #ffd8ef, #ffd76a);
+      border: none;
+      border-radius: 999px;
+      box-shadow: 0 8px 22px rgba(255, 160, 210, 0.4);
+      transition: transform 0.15s ease;
+      font-family: inherit;
+    }
+    .btn:hover { transform: translateY(-2px) scale(1.03); }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 16px;
+      border: 4px solid rgba(255,255,255,0.25);
+      border-top-color: #ffd76a;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Touch controls (shown only on coarse-pointer devices) */
+    #touch-controls { display: none; position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+    #joystick-zone {
+      pointer-events: auto;
+      position: absolute;
+      left: 18px;
+      bottom: 96px;
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.32);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #joystick-knob {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 4px 14px rgba(60,20,80,0.4);
+    }
+    .touch-btn {
+      pointer-events: auto;
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.36);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      text-shadow: 0 2px 5px rgba(40,10,60,0.6);
+    }
+    .touch-btn.pressed { background: rgba(255,220,240,0.5); transform: scale(0.94); }
+    #btn-fire { right: 22px; bottom: 108px; width: 86px; height: 86px; font-size: 15px; }
+    #btn-trick { right: 118px; bottom: 168px; width: 64px; height: 64px; }
+    #btn-up { right: 124px; bottom: 86px; width: 58px; height: 58px; }
+    #btn-down { right: 22px; bottom: 34px; width: 58px; height: 58px; }
   </style>
 </head>
 <body>
   <div id="game"></div>
+  <canvas id="speed-lines"></canvas>
+  <div id="vignette"></div>
+
   <div id="hud">
     <div class="hud-top">
-      <div class="health-container">
-        <div class="health-bar" id="health-bar"></div>
+      <div class="health-panel panel">
+        <div class="health-label">Health</div>
+        <div class="health-container">
+          <div class="health-bar" id="health-bar"></div>
+        </div>
       </div>
-      <div class="score-container">
-        <span id="score">0</span>
-        <span id="combo" class="combo hidden">x1</span>
+      <div style="display:flex; gap:10px; align-items:flex-start;">
+        <div class="score-panel panel">
+          <span class="score-label">Score</span>
+          <span id="score">0</span>
+          <span id="combo" class="combo hidden">x1</span>
+        </div>
+        <div class="icon-btn panel" id="mute-btn" title="Mute">🔊</div>
       </div>
     </div>
+
     <div class="crosshair"></div>
+
     <div class="hud-bottom">
-      <div class="mount-info">
+      <div class="mount-info panel">
         <div class="mount-name" id="mount-name">Celestial Unicorn</div>
         <div class="mount-slots">
           <div class="mount-slot active" data-slot="1">1</div>
@@ -193,14 +397,45 @@
         </div>
       </div>
     </div>
+
     <div class="trick-notification" id="trick-notification">
       <span class="trick-name"></span>
       <span class="trick-score"></span>
     </div>
-    <div class="controls-hint">
-      WASD - Move | Space/Ctrl - Up/Down | Mouse - Aim | Click - Shoot | Q - Trick | 1-4 - Switch Mount
+
+    <div class="controls-hint panel">
+      <b>WASD</b> fly · <b>Space/Ctrl</b> climb/dive · <b>Mouse</b> aim<br>
+      <b>Click</b> magic bolt · <b>Q</b> somersault · <b>1-4</b> swap mount<br>
+      Fly under the bridge for a free flip!
     </div>
   </div>
+
+  <div id="touch-controls">
+    <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    <div class="touch-btn" id="btn-fire">FIRE</div>
+    <div class="touch-btn" id="btn-trick">TRICK</div>
+    <div class="touch-btn" id="btn-up">▲</div>
+    <div class="touch-btn" id="btn-down">▼</div>
+  </div>
+
+  <div class="overlay" id="loading">
+    <div class="overlay-card panel">
+      <div class="spinner"></div>
+      <div class="overlay-title">Unicorn Dragon</div>
+      <div class="overlay-sub">Saddling up…</div>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="game-over">
+    <div class="overlay-card panel">
+      <div class="overlay-title">Game Over</div>
+      <div class="overlay-sub">Final score</div>
+      <div class="overlay-score" id="final-score">0</div>
+      <div class="overlay-sub" id="final-stats"></div>
+      <button class="btn" id="restart-btn">Fly Again</button>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

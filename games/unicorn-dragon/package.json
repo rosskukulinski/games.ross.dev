@@ -9,8 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "^0.170.0",
-    "yuka": "^0.7.8"
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "@types/three": "^0.170.0",

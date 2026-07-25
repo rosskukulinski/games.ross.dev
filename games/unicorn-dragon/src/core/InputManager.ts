@@ -15,6 +15,10 @@ export class InputManager {
   private mousePosition = { x: 0, y: 0 }
   private mouseDelta = { x: 0, y: 0 }
   private isPointerLocked = false
+  /** Touch overlay state, OR-merged into getState(). */
+  touch: Partial<InputState> = {}
+  /** Fired on any user gesture (used to unlock audio). */
+  onGesture?: () => void
 
   constructor() {
     this.state = this.getDefaultState()
@@ -24,8 +28,19 @@ export class InputManager {
     window.addEventListener('mousemove', this.onMouseMove.bind(this))
     window.addEventListener('mousedown', this.onMouseDown.bind(this))
     window.addEventListener('mouseup', this.onMouseUp.bind(this))
-    window.addEventListener('click', this.requestPointerLock.bind(this))
+    window.addEventListener('click', this.onClick.bind(this))
+    window.addEventListener('touchstart', () => this.onGesture?.(), { passive: true })
     document.addEventListener('pointerlockchange', this.onPointerLockChange.bind(this))
+  }
+
+  private onClick(e: MouseEvent) {
+    this.onGesture?.()
+    // Only lock the pointer when clicking the 3D canvas itself, so HUD
+    // buttons (mute, restart, touch controls) stay usable.
+    const target = e.target as HTMLElement | null
+    if (target && (target.tagName === 'CANVAS' || target.id === 'game')) {
+      this.requestPointerLock()
+    }
   }
 
   private getDefaultState(): InputState {
@@ -43,6 +58,8 @@ export class InputManager {
   }
 
   private requestPointerLock() {
+    // Skip pointer lock on touch-primary devices.
+    if (window.matchMedia('(pointer: coarse)').matches) return
     if (!this.isPointerLocked) {
       document.body.requestPointerLock()
     }
@@ -148,7 +165,18 @@ export class InputManager {
   }
 
   getState(): InputState {
-    return { ...this.state }
+    const t = this.touch
+    return {
+      accelerate: this.state.accelerate || !!t.accelerate,
+      brake: this.state.brake || !!t.brake,
+      turnLeft: this.state.turnLeft || !!t.turnLeft,
+      turnRight: this.state.turnRight || !!t.turnRight,
+      pitchUp: this.state.pitchUp || !!t.pitchUp,
+      pitchDown: this.state.pitchDown || !!t.pitchDown,
+      fire: this.state.fire || !!t.fire,
+      trick: this.state.trick || !!t.trick,
+      switchMount: this.state.switchMount ?? t.switchMount ?? null,
+    }
   }
 
   getMouseDelta() {
@@ -163,5 +191,6 @@ export class InputManager {
 
   resetOneTimeInputs() {
     this.state.switchMount = null
+    this.touch.switchMount = null
   }
 }

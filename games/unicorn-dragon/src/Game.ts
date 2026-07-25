@@ -2,18 +2,30 @@ import * as THREE from 'three'
 import { SceneManager } from './core/SceneManager'
 import { InputManager } from './core/InputManager'
 import { CameraController } from './core/CameraController'
+import { TouchControls } from './core/TouchControls'
+import { GameAudio } from './core/Audio'
 import { Mount } from './entities/mounts/Mount'
 import { Unicorn } from './entities/mounts/Unicorn'
 import { Pony } from './entities/mounts/Pony'
+import { loadHorseTemplate } from './entities/mounts/HorseModel'
 import { MOUNTS } from './config/mounts'
 import { CombatSystem } from './systems/CombatSystem'
 import { Dragon, DRAGON_TYPES } from './entities/enemies/Dragon'
+import { World } from './world/World'
+import { Effects, Ribbon, SpeedLines } from './fx/Effects'
+
+const RAINBOW = [0xff5d7a, 0xffa53d, 0xffe94a, 0x5ce87a, 0x4ad9ff, 0x8f7bff, 0xef7bff]
 
 export class Game {
   private sceneManager: SceneManager
   private inputManager: InputManager
   private cameraController: CameraController
   private combatSystem: CombatSystem
+  private world: World
+  private effects: Effects
+  private audio: GameAudio
+  private speedLines: SpeedLines
+  private trickRibbon: Ribbon
 
   private mounts: Mount[] = []
   private currentMountIndex = 0
@@ -21,6 +33,10 @@ export class Game {
 
   private clock: THREE.Clock
   private isRunning = false
+  /** True once init() has finished and the loop is rendering. */
+  ready = false
+  /** Set when the GLB loaded successfully (exposed for smoke tests). */
+  modelLoaded = false
 
   // HUD elements
   private healthBar: HTMLElement
@@ -29,12 +45,20 @@ export class Game {
   private mountNameDisplay: HTMLElement
   private trickNotification: HTMLElement
   private mountSlots: NodeListOf<Element>
+  private vignette: HTMLElement
+  private muteButton: HTMLElement
+  private gameOverPanel: HTMLElement
+  private loadingPanel: HTMLElement | null
 
   // Game state
   private health = 100
   private score = 0
   private combo = 1
   private comboTimer = 0
+  private tricksLanded = 0
+  private dragonsDefeated = 0
+  private ribbonTimer = 0
+  private tmpVec = new THREE.Vector3()
 
   constructor() {
     this.clock = new THREE.Clock()
@@ -46,6 +70,10 @@ export class Game {
     this.mountNameDisplay = document.getElementById('mount-name')!
     this.trickNotification = document.getElementById('trick-notification')!
     this.mountSlots = document.querySelectorAll('.mount-slot')
+    this.vignette = document.getElementById('vignette')!
+    this.muteButton = document.getElementById('mute-btn')!
+    this.gameOverPanel = document.getElementById('game-over')!
+    this.loadingPanel = document.getElementById('loading')
   }
 
   async init() {
@@ -55,6 +83,14 @@ export class Game {
     this.sceneManager = new SceneManager(container)
     this.inputManager = new InputManager()
     this.cameraController = new CameraController(this.sceneManager.camera)
+    this.audio = new GameAudio()
+    this.inputManager.onGesture = () => this.audio.ensure()
+    new TouchControls(this.inputManager)
+    this.effects = new Effects(this.sceneManager.scene)
+    this.speedLines = new SpeedLines(document.getElementById('speed-lines') as HTMLCanvasElement)
+
+    // Load the animated horse model before building mounts.
+    this.modelLoaded = await loadHorseTemplate()
 
     // Create mounts
     this.createMounts()
@@ -63,21 +99,39 @@ export class Game {
     this.combatSystem = new CombatSystem(this.sceneManager.scene)
     this.setupCombatCallbacks()
 
-    // Add ground reference plane
-    this.addGroundReference()
+    // Static world: cloud sea, floating islands, fantasy bridge.
+    this.world = new World(this.sceneManager.scene)
 
-    // Add some floating islands for visual reference
-    this.addFloatingIslands()
-
-    // Add a bridge to fly under
-    this.addBridge()
+    // Rainbow ribbon that streams from the tail during tricks.
+    this.trickRibbon = this.effects.createRibbon(RAINBOW, 0.42, 26)
 
     // Spawn some dragons to fight
     this.spawnDragons()
 
+    this.setupUI()
+
+    this.loadingPanel?.classList.add('hidden')
+
     // Start game loop
     this.isRunning = true
+    this.ready = true
+    this.updateHUD()
     this.gameLoop()
+  }
+
+  private setupUI() {
+    this.muteButton.addEventListener('click', e => {
+      e.stopPropagation()
+      this.audio.ensure()
+      this.audio.setMuted(!this.audio.muted)
+      this.muteButton.textContent = this.audio.muted ? '🔇' : '🔊'
+      this.muteButton.classList.toggle('muted', this.audio.muted)
+    })
+
+    document.getElementById('restart-btn')!.addEventListener('click', e => {
+      e.stopPropagation()
+      window.location.reload()
+    })
   }
 
   private createMounts() {
@@ -104,129 +158,53 @@ export class Game {
     this.updateMountUI()
   }
 
-  private addGroundReference() {
-    // Semi-transparent ground plane for spatial reference
-    const groundGeometry = new THREE.PlaneGeometry(1000, 1000)
-    const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x228833,
-      transparent: true,
-      opacity: 0.3,
-      side: THREE.DoubleSide
-    })
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial)
-    ground.rotation.x = -Math.PI / 2
-    ground.position.y = 0
-    ground.receiveShadow = true
-    this.sceneManager.scene.add(ground)
-
-    // Grid helper
-    const grid = new THREE.GridHelper(1000, 50, 0x444444, 0x444444)
-    grid.position.y = 0.1
-    const gridMaterial = grid.material as THREE.Material
-    gridMaterial.transparent = true
-    gridMaterial.opacity = 0.2
-    this.sceneManager.scene.add(grid)
-  }
-
-  private addFloatingIslands() {
-    const islandMaterial = new THREE.MeshStandardMaterial({
-      color: 0x556644,
-      roughness: 0.9
-    })
-
-    const islandPositions = [
-      [100, 20, 100],
-      [-80, 40, 150],
-      [150, 60, -50],
-      [-120, 30, -100],
-      [50, 50, -150]
-    ]
-
-    islandPositions.forEach(pos => {
-      const size = 15 + Math.random() * 20
-      const island = new THREE.Mesh(
-        new THREE.DodecahedronGeometry(size, 1),
-        islandMaterial
-      )
-      island.position.set(pos[0], pos[1], pos[2])
-      island.scale.y = 0.5
-      island.castShadow = true
-      island.receiveShadow = true
-      this.sceneManager.scene.add(island)
-
-      // Add some grass/trees on top
-      const grassMaterial = new THREE.MeshStandardMaterial({ color: 0x33aa44 })
-      const grass = new THREE.Mesh(
-        new THREE.ConeGeometry(size * 0.6, size * 0.3, 8),
-        grassMaterial
-      )
-      grass.position.set(pos[0], pos[1] + size * 0.4, pos[2])
-      this.sceneManager.scene.add(grass)
-    })
-  }
-
-  private addBridge() {
-    // Stone bridge to fly under
-    const bridgeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x888888,
-      roughness: 0.8
-    })
-
-    // Bridge arch
-    const archGeometry = new THREE.TorusGeometry(15, 3, 8, 16, Math.PI)
-    const arch = new THREE.Mesh(archGeometry, bridgeMaterial)
-    arch.position.set(0, 20, 80)
-    arch.rotation.y = Math.PI / 2
-    arch.castShadow = true
-    arch.receiveShadow = true
-    this.sceneManager.scene.add(arch)
-
-    // Bridge deck
-    const deckGeometry = new THREE.BoxGeometry(40, 2, 8)
-    const deck = new THREE.Mesh(deckGeometry, bridgeMaterial)
-    deck.position.set(0, 35, 80)
-    deck.castShadow = true
-    deck.receiveShadow = true
-    this.sceneManager.scene.add(deck)
-
-    // Pillars
-    const pillarGeometry = new THREE.CylinderGeometry(2, 2.5, 35, 8)
-    const pillarLeft = new THREE.Mesh(pillarGeometry, bridgeMaterial)
-    pillarLeft.position.set(-15, 17.5, 80)
-    pillarLeft.castShadow = true
-    this.sceneManager.scene.add(pillarLeft)
-
-    const pillarRight = new THREE.Mesh(pillarGeometry, bridgeMaterial)
-    pillarRight.position.set(15, 17.5, 80)
-    pillarRight.castShadow = true
-    this.sceneManager.scene.add(pillarRight)
-  }
-
   private setupCombatCallbacks() {
     this.combatSystem.onEnemyHit = (enemy, damage) => {
+      this.audio.hit()
       const killed = enemy.takeDamage(damage)
       if (killed) {
         this.score += 500
-        this.showKillNotification(enemy.config.name)
+        this.dragonsDefeated++
+        this.showNotification(enemy.config.name + ' DEFEATED!', '+500')
         this.updateHUD()
-        // Remove from dragons array
-        this.dragons = this.dragons.filter(d => d !== enemy)
-        // Respawn after delay
+        this.audio.kill()
+        this.cameraController.addShake(0.35)
+        // Dramatic death burst at the dragon.
+        this.effects.burst(enemy.position.clone(), enemy.config.glowColor, 60, 26, 1.1, 0.9, 6)
+        this.effects.burst(
+          enemy.position.clone(),
+          [0xffffff, enemy.config.bellyColor],
+          26,
+          14,
+          0.8,
+          0.6
+        )
+        // Respawn after delay (the dead dragon keeps tumbling meanwhile).
         setTimeout(() => this.spawnSingleDragon(), 3000)
       }
     }
 
-    this.combatSystem.onPlayerHit = (damage) => {
+    this.combatSystem.onPlayerHit = damage => {
       this.health = Math.max(0, this.health - damage)
       this.updateHUD()
+      this.audio.playerHit()
+      this.cameraController.addShake(0.5)
+      this.flashVignette()
       if (this.health <= 0) {
         this.gameOver()
       }
     }
 
-    this.combatSystem.onHitEffect = (effect) => {
-      this.spawnHitParticles(effect.position, effect.color)
+    this.combatSystem.onHitEffect = effect => {
+      this.effects.burst(effect.position, [effect.color, 0xffffff], 22, 16, 0.5, 0.5)
     }
+  }
+
+  private flashVignette() {
+    this.vignette.classList.remove('flash')
+    // Force reflow so the animation can retrigger.
+    void this.vignette.offsetWidth
+    this.vignette.classList.add('flash')
   }
 
   private spawnDragons() {
@@ -242,13 +220,14 @@ export class Game {
     positions.forEach((pos, i) => {
       const typeKey = types[i % types.length]
       const dragon = new Dragon(DRAGON_TYPES[typeKey])
-      dragon.position.copy(pos)
+      dragon.setAnchor(pos)
       this.dragons.push(dragon)
       this.sceneManager.scene.add(dragon)
     })
   }
 
   private spawnSingleDragon() {
+    if (!this.isRunning) return
     const types = Object.keys(DRAGON_TYPES)
     const typeKey = types[Math.floor(Math.random() * types.length)]
     const dragon = new Dragon(DRAGON_TYPES[typeKey])
@@ -257,75 +236,27 @@ export class Game {
     const mount = this.getCurrentMount()
     const angle = Math.random() * Math.PI * 2
     const distance = 80 + Math.random() * 40
-    dragon.position.set(
-      mount.position.x + Math.cos(angle) * distance,
-      30 + Math.random() * 40,
-      mount.position.z + Math.sin(angle) * distance
+    dragon.setAnchor(
+      new THREE.Vector3(
+        mount.position.x + Math.cos(angle) * distance,
+        30 + Math.random() * 40,
+        mount.position.z + Math.sin(angle) * distance
+      )
     )
 
     this.dragons.push(dragon)
     this.sceneManager.scene.add(dragon)
+    this.audio.roar()
   }
 
-  private spawnHitParticles(position: THREE.Vector3, color: number) {
-    // Simple particle burst
-    const particleCount = 15
-    const geometry = new THREE.BufferGeometry()
-    const positions = new Float32Array(particleCount * 3)
-    const velocities: THREE.Vector3[] = []
-
-    for (let i = 0; i < particleCount; i++) {
-      positions[i * 3] = position.x
-      positions[i * 3 + 1] = position.y
-      positions[i * 3 + 2] = position.z
-      velocities.push(new THREE.Vector3(
-        (Math.random() - 0.5) * 20,
-        (Math.random() - 0.5) * 20,
-        (Math.random() - 0.5) * 20
-      ))
-    }
-
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-
-    const material = new THREE.PointsMaterial({
-      color,
-      size: 0.5,
-      transparent: true,
-      opacity: 1
-    })
-
-    const particles = new THREE.Points(geometry, material)
-    this.sceneManager.scene.add(particles)
-
-    // Animate particles
-    let lifetime = 0.5
-    const animate = () => {
-      lifetime -= 0.016
-      if (lifetime <= 0) {
-        this.sceneManager.scene.remove(particles)
-        return
-      }
-
-      const posArray = geometry.attributes.position.array as Float32Array
-      for (let i = 0; i < particleCount; i++) {
-        posArray[i * 3] += velocities[i].x * 0.016
-        posArray[i * 3 + 1] += velocities[i].y * 0.016
-        posArray[i * 3 + 2] += velocities[i].z * 0.016
-      }
-      geometry.attributes.position.needsUpdate = true
-      material.opacity = lifetime * 2
-
-      requestAnimationFrame(animate)
-    }
-    animate()
-  }
-
-  private showKillNotification(enemyName: string) {
+  private showNotification(name: string, score: string) {
     const nameEl = this.trickNotification.querySelector('.trick-name')!
     const scoreEl = this.trickNotification.querySelector('.trick-score')!
-    nameEl.textContent = enemyName + ' DEFEATED!'
-    scoreEl.textContent = '+500'
+    nameEl.textContent = name
+    scoreEl.textContent = score
 
+    this.trickNotification.classList.remove('show')
+    void (this.trickNotification as HTMLElement).offsetWidth
     this.trickNotification.classList.add('show')
     setTimeout(() => {
       this.trickNotification.classList.remove('show')
@@ -334,9 +265,12 @@ export class Game {
 
   private gameOver() {
     this.isRunning = false
-    alert(`Game Over! Final Score: ${this.score}`)
-    // Reload to restart
-    window.location.reload()
+    this.audio.gameOver()
+    document.getElementById('final-score')!.textContent = this.score.toLocaleString()
+    document.getElementById('final-stats')!.textContent =
+      `${this.tricksLanded} tricks landed · ${this.dragonsDefeated} dragons defeated`
+    this.gameOverPanel.classList.remove('hidden')
+    if (document.pointerLockElement) document.exitPointerLock()
   }
 
   private getCurrentMount(): Mount {
@@ -363,6 +297,15 @@ export class Game {
     this.currentMountIndex = newIndex
     this.cameraController.setTarget(newMount)
     this.updateMountUI()
+    this.audio.switchMount()
+    this.effects.burst(
+      newMount.position.clone(),
+      [newMount.config.accent, 0xffffff],
+      30,
+      12,
+      0.6,
+      0.5
+    )
   }
 
   private updateMountUI() {
@@ -388,27 +331,24 @@ export class Game {
 
   private triggerTrick(type: string) {
     const mount = this.getCurrentMount()
-    if (mount.startTrick(type)) {
-      // Will award points when trick completes
-    }
+    mount.startTrick(type)
   }
 
   private awardTrickPoints(trickName: string, basePoints: number) {
     const points = Math.floor(basePoints * this.combo)
     this.score += points
+    this.tricksLanded++
     this.combo = Math.min(this.combo + 0.5, 5)
     this.comboTimer = 3
 
-    // Show notification
-    const nameEl = this.trickNotification.querySelector('.trick-name')!
-    const scoreEl = this.trickNotification.querySelector('.trick-score')!
-    nameEl.textContent = trickName.toUpperCase() + '!'
-    scoreEl.textContent = '+' + points
+    this.showNotification(trickName.toUpperCase() + '!', '+' + points)
+    this.audio.trick(this.combo)
 
-    this.trickNotification.classList.add('show')
-    setTimeout(() => {
-      this.trickNotification.classList.remove('show')
-    }, 1500)
+    // Rainbow ribbon burst + sparkle explosion at the mount.
+    const mount = this.getCurrentMount()
+    this.effects.burst(mount.position.clone(), RAINBOW, 55, 20, 1.0, 0.55)
+    this.ribbonTimer = 1.2
+    this.cameraController.addShake(0.12)
 
     this.updateHUD()
   }
@@ -436,6 +376,53 @@ export class Game {
     }
   }
 
+  /** Debug/testing surface (window.__game). */
+  getState() {
+    const mount = this.getCurrentMount()
+    return {
+      ready: this.ready,
+      running: this.isRunning,
+      modelLoaded: this.modelLoaded,
+      health: this.health,
+      score: this.score,
+      combo: this.combo,
+      tricksLanded: this.tricksLanded,
+      dragonsDefeated: this.dragonsDefeated,
+      dragons: this.dragons.length,
+      mountIndex: this.currentMountIndex,
+      mountName: mount.config.name,
+      speed: mount.velocity.length(),
+      position: mount.position.toArray(),
+      projectiles: this.combatSystem.getProjectileCount(),
+    }
+  }
+
+  /** Debug helpers so smoke tests can drive the game deterministically. */
+  debugSwitchMount(index: number) {
+    this.switchMount(index)
+    this.getCurrentMount().updateMatrixWorld()
+    this.cameraController.snap()
+  }
+
+  debugTrick() {
+    if (!this.getCurrentMount().isPerformingTrick) this.triggerTrick('somersault')
+  }
+
+  /** Move the follow camera (screenshot harness only). */
+  debugCameraOffset(x: number, y: number, z: number) {
+    this.cameraController.offset.set(x, y, z)
+  }
+
+  /** Teleport + aim the mount (used by the screenshot harness). */
+  debugPlace(x: number, y: number, z: number, yaw: number) {
+    const mount = this.getCurrentMount()
+    mount.position.set(x, y, z)
+    mount.rotation.set(0, yaw, 0)
+    mount.velocity.set(0, 0, 0)
+    mount.updateMatrixWorld()
+    this.cameraController.snap()
+  }
+
   private gameLoop() {
     if (!this.isRunning) return
 
@@ -456,7 +443,9 @@ export class Game {
 
     // Check if trick just completed
     if (wasPerformingTrick && !mount.isPerformingTrick) {
-      this.awardTrickPoints('Flip', 100)
+      const name = mount.lastCompletedTrick === 'somersault' ? 'Somersault' : 'Flip'
+      mount.lastCompletedTrick = null
+      this.awardTrickPoints(name, 100)
     }
 
     // Check for bridge zone (auto-flip)
@@ -470,20 +459,51 @@ export class Game {
     }
 
     // Handle firing
-    this.combatSystem.playerFire(mount, input.fire)
+    if (this.combatSystem.playerFire(mount, input.fire)) {
+      this.audio.shoot()
+    }
 
     // Update combat system
     this.combatSystem.update(delta, this.dragons, mount)
 
-    // Update dragons
-    this.dragons.forEach(dragon => {
+    // Update dragons; retire the ones that have finished falling.
+    this.dragons = this.dragons.filter(dragon => {
       dragon.update(delta)
-      // Make dragons face player
-      dragon.lookAt(mount.position)
+      if (dragon.isDead) {
+        if (dragon.isFallFinished()) {
+          this.sceneManager.scene.remove(dragon)
+          return false
+        }
+        return true
+      }
+      // Living dragons patrol slowly and track the player with the head.
+      dragon.updateFlight(delta, mount.position)
+      return true
     })
 
-    // Update camera
+    // Ribbon trail from the tail while tricking / just after.
+    const speedRatio = mount.getSpeedRatio()
+    if (mount.isPerformingTrick) this.ribbonTimer = Math.max(this.ribbonTimer, 0.5)
+    mount.updateMatrixWorld()
+    this.trickRibbon.push(mount.getTailWorldPosition(this.tmpVec))
+    if (this.ribbonTimer > 0) {
+      this.ribbonTimer -= delta
+      this.trickRibbon.fadeTo(0.85)
+    } else {
+      this.trickRibbon.fadeTo(0)
+    }
+
+    // Camera + world + effects
+    this.cameraController.speedRatio = speedRatio
     this.cameraController.update(delta)
+    this.world.update(delta)
+    this.sceneManager.update(delta)
+    this.effects.update(delta)
+
+    // Speed lines + wind audio scale with velocity.
+    const rush = Math.max(0, (speedRatio - 0.55) / 0.45)
+    this.speedLines.render(rush, delta)
+    this.audio.setSpeed(speedRatio)
 
     // Update combo timer
     if (this.comboTimer > 0) {
