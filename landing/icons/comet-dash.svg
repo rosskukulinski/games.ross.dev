@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Deep space background -->
+  <rect width="100" height="100" fill="#0b0620" rx="12"/>
+  <!-- Stars -->
+  <circle cx="18" cy="15" r="1" fill="#fff" opacity="0.7"/>
+  <circle cx="82" cy="22" r="1.2" fill="#fff" opacity="0.5"/>
+  <circle cx="60" cy="10" r="0.8" fill="#fff" opacity="0.6"/>
+  <circle cx="12" cy="55" r="0.9" fill="#fff" opacity="0.4"/>
+  <circle cx="90" cy="60" r="1" fill="#fff" opacity="0.6"/>
+  <circle cx="30" cy="88" r="0.8" fill="#fff" opacity="0.5"/>
+  <!-- Neon track (perspective lanes) -->
+  <polygon points="35,100 65,100 56,58 44,58" fill="#141033"/>
+  <line x1="35" y1="100" x2="44" y2="58" stroke="#e838ff" stroke-width="2"/>
+  <line x1="65" y1="100" x2="56" y2="58" stroke="#e838ff" stroke-width="2"/>
+  <line x1="50" y1="100" x2="50" y2="58" stroke="#40e8ff" stroke-width="1" opacity="0.6"/>
+  <!-- Comet trail -->
+  <polygon points="50,62 38,92 50,80 62,92" fill="#40e8ff" opacity="0.35"/>
+  <polygon points="50,62 44,84 50,76 56,84" fill="#7df3ff" opacity="0.55"/>
+  <!-- Comet head -->
+  <circle cx="50" cy="58" r="9" fill="#40e8ff"/>
+  <circle cx="50" cy="58" r="6" fill="#c8fbff"/>
+  <circle cx="50" cy="58" r="3" fill="#ffffff"/>
+  <!-- Glow ring -->
+  <circle cx="50" cy="58" r="12" fill="none" stroke="#40e8ff" stroke-width="1.5" opacity="0.4"/>
+  <!-- Star pickups -->
+  <polygon points="26,34 28,39 33,39 29,42 31,47 26,44 21,47 23,42 19,39 24,39" fill="#ffd93b"/>
+  <polygon points="74,40 75.5,43.5 79,43.5 76.5,45.8 77.5,49.5 74,47.3 70.5,49.5 71.5,45.8 69,43.5 72.5,43.5" fill="#ffd93b" opacity="0.9"/>
+</svg>
