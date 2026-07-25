@@ -41,7 +41,32 @@ WebGPU note: as of Safari 26 (Sept 2025) WebGPU is available in all major browse
 
 ## Learnings from the experiments
 
-*(filled in after the builds)*
+All three shipped, verified with headless-Chromium screenshot loops (build → screenshot → look → iterate, 4 visual iterations each). Bundle sizes: Comet Dash 367 kB gzip, Neon Bricks 109 kB gzip, Robot Rally 180 kB gzip + 464 kB glb.
+
+### Babylon.js (Comet Dash)
+- Tree-shaking requires deep imports (`@babylonjs/core/Meshes/Builders/...`) **plus** non-obvious side-effect imports (`Animations/animatable`, `Layers/effectLayerSceneComponent`, ...) or features silently no-op. Even trimmed, floor is ~367 kB gzip — the heaviest of the three, but it buys scene graph, particles, glow, and post pipelines built-in.
+- PBR without an environment texture is a trap: metallic > ~0.5 under direct lights reads washed-out gray. For stylized scenes keep metallic low and lean on emissive + colored lights (or generate an env via ReflectionProbe).
+- `GlowLayer` is the best effort-to-payoff feature: one line makes every emissive material bloom. Tune `blurKernelSize` or small distant geometry floods into blobs.
+- Rich look achieved with zero custom shaders: ParticleSystem (stretched billboards), DefaultRenderingPipeline (FXAA/vignette/chromatic aberration), DynamicTexture canvas-painted skies, `Animation.CreateAndStartAnimation` + easings.
+
+### Three.js + glTF (Robot Rally)
+- **The GLB was the single highest-leverage asset**: 450 kB buys a rigged, animated, characterful protagonist; `AnimationMixer` crossfades (Idle/Run/Jump/Dance) took ~20 lines and instantly outclasses programmer art. Normalize scale from `Box3` at load.
+- Bloom thresholds live in HDR space: with ACES tonemapping, scene luminance exceeds 1.0, so UnrealBloom threshold must be >1 or lighting tweaks detonate the whole frame. Post order: RenderPass → Bloom → OutputPass → FXAA.
+- Two classic silent failures: shadow camera bounds need an explicit `updateProjectionMatrix()`, and a bright `scene.environment` (RoomEnvironment) can wash directional shadows into invisibility. Screenshot-diffing variants beats theorizing.
+- `mergeGeometries` + per-facet vertex colors + `flatShading` is a superb stylized-world pipeline: all decor in ~1 draw call, zero textures, palette lives in code.
+- Verify asset assumptions against the file (parse the glTF JSON chunk), not from memory.
+
+### PixiJS v8 + pixi-filters (Neon Bricks)
+- v8's chained Graphics API + `renderer.generateTexture()` makes an all-procedural art pipeline pleasant: everything is tintable white textures, zero asset files. Smallest bundle of the three (109 kB gzip) with WebGPU renderer lazy-loaded only if available.
+- Whole-stage `AdvancedBloomFilter` is the biggest visual win but needs tuning discipline (threshold ~0.38, bloomScale ~0.9) or bright sprites nuke to white.
+- Swapping `stage.filters` arrays per-frame (bloom ± RGBSplit ± Shockwave) is a clean event-driven pattern that avoids paying for idle filter passes.
+- v8's `ParticleContainer` requires `Particle` objects, not Sprites; a plain `Container` of pooled additive Sprites handled ~800 particles with far less friction.
+- Pixi's Ticker caps `deltaMS` at 100 ms — on slow renderers (headless CI) game time silently dilates, so tests must poll game state, never wall-clock.
+
+### Cross-cutting
+- Headless SwiftShader runs WebGL at a small fraction of real GPU speed — smoke tests should assert via debug hooks (`window.__game`) and game state, not wall-clock timing; screenshots still catch visual regressions.
+- The screenshot-and-look iteration loop caught every real visual bug (washed-out PBR, bloom flooding, dead shadows, unreadable geometry). It should be mandatory in the skill.
+- Synth-everything (audio, art where possible) keeps bundles small and licensing trivial; the one committed asset (CC0 glb) carried its LICENSE-ASSETS.md.
 
 ## Recommendations for the `/new-game` skill
 
