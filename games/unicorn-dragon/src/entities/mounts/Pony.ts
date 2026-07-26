@@ -1,127 +1,95 @@
 import * as THREE from 'three'
 import { Mount, MountConfig } from './Mount'
 import { InputState } from '../../core/InputManager'
+import { createHorseInstance, HorseInstance } from './HorseModel'
+import { getSparkTexture } from '../../fx/textures'
 
+/**
+ * Floating pony: same Horse.glb base scaled chubby and cute (no horn, no
+ * wings), riding a magic bubble with a glowing halo ring and sparkles.
+ * Movement is the v1 float behaviour, unchanged.
+ */
 export class Pony extends Mount {
   private floatHeight = 15
   private bobPhase = 0
   private bobAmplitude = 0.5
   private bobSpeed = 2
   private sparkles: THREE.Points
+  private horse: HorseInstance
+  private bubble: THREE.Mesh
+  private ring: THREE.Mesh
 
   constructor(config: MountConfig) {
     super(config)
-    this.createPlaceholderModel()
-  }
-
-  private createPlaceholderModel() {
-    const material = new THREE.MeshStandardMaterial({
-      color: this.config.color,
-      metalness: 0.2,
-      roughness: 0.8
-    })
-
-    // Body (rounder, cuter)
-    const body = new THREE.Mesh(
-      new THREE.SphereGeometry(0.8, 16, 16),
-      material
-    )
-    body.scale.set(1, 0.8, 1.3)
-    body.castShadow = true
-    this.add(body)
-
-    // Head
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 16, 16),
-      material
-    )
-    head.position.set(0, 0.4, 1)
-    head.castShadow = true
-    this.add(head)
-
-    // Snout
-    const snout = new THREE.Mesh(
-      new THREE.SphereGeometry(0.2, 8, 8),
-      material
-    )
-    snout.position.set(0, 0.2, 1.4)
-    snout.scale.set(1, 0.8, 1.2)
-    this.add(snout)
-
-    // Big cute eyes
-    const eyeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x222222,
-      metalness: 0.9,
-      roughness: 0.1
-    })
-    const eyeGeom = new THREE.SphereGeometry(0.12, 8, 8)
-
-    const eyeLeft = new THREE.Mesh(eyeGeom, eyeMaterial)
-    eyeLeft.position.set(-0.2, 0.55, 1.3)
-    this.add(eyeLeft)
-
-    const eyeRight = new THREE.Mesh(eyeGeom, eyeMaterial)
-    eyeRight.position.set(0.2, 0.55, 1.3)
-    this.add(eyeRight)
-
-    // Ears (floppy)
-    const earMaterial = material.clone()
-    const earGeom = new THREE.SphereGeometry(0.15, 8, 8)
-
-    const earLeft = new THREE.Mesh(earGeom, earMaterial)
-    earLeft.position.set(-0.35, 0.7, 0.85)
-    earLeft.scale.set(0.6, 1.2, 0.8)
-    this.add(earLeft)
-
-    const earRight = new THREE.Mesh(earGeom, earMaterial)
-    earRight.position.set(0.35, 0.7, 0.85)
-    earRight.scale.set(0.6, 1.2, 0.8)
-    this.add(earRight)
-
-    // Stubby legs
-    const legMaterial = material.clone()
-    const legGeom = new THREE.CylinderGeometry(0.12, 0.1, 0.4, 8)
-    const legPositions = [
-      [-0.35, -0.6, 0.4],
-      [0.35, -0.6, 0.4],
-      [-0.35, -0.6, -0.4],
-      [0.35, -0.6, -0.4]
-    ]
-    legPositions.forEach(pos => {
-      const leg = new THREE.Mesh(legGeom, legMaterial)
-      leg.position.set(pos[0], pos[1], pos[2])
-      leg.castShadow = true
-      this.add(leg)
-    })
-
-    // Fluffy tail
-    const tailMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffccdd,
-      metalness: 0.1,
-      roughness: 0.9
-    })
-    const tail = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3, 8, 8),
-      tailMaterial
-    )
-    tail.position.set(0, 0, -1)
-    this.add(tail)
-
-    // Fluffy mane
-    const mane = new THREE.Mesh(
-      new THREE.SphereGeometry(0.35, 8, 8),
-      tailMaterial
-    )
-    mane.position.set(0, 0.65, 0.6)
-    mane.scale.set(1.2, 1, 1.5)
-    this.add(mane)
-
-    // Magic sparkles around the pony
+    this.horse = createHorseInstance(config.color)
+    // Chubby, stubby proportions read as "pony" rather than "horse".
+    this.horse.group.scale.set(1.15, 0.92, 0.86)
+    this.add(this.horse.group)
+    this.buildAccessories()
     this.createSparkles()
   }
 
+  private buildAccessories() {
+    const head = this.horse.headAnchor
+    const tail = this.horse.tailAnchor
+    const fluffMaterial = new THREE.MeshStandardMaterial({
+      color: this.config.accent,
+      emissive: new THREE.Color(this.config.accent),
+      emissiveIntensity: 0.4,
+      roughness: 0.85,
+    })
+
+    // Big fluffy mane blobs running the neck crest.
+    const withers = this.horse.withersAnchor
+    for (let i = 0; i < 5; i++) {
+      const t = i / 4
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.19 - t * 0.03, 1), fluffMaterial)
+      blob.position.lerpVectors(
+        new THREE.Vector3(0, head.y - 0.06, head.z - 0.14),
+        withers,
+        t
+      )
+      blob.position.y += 0.05 * (1 - t)
+      blob.scale.set(0.7, 1, 1.2)
+      this.add(blob)
+    }
+
+    // Fluffy tail on the croup.
+    const tailPuff = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24, 1), fluffMaterial)
+    tailPuff.position.set(0, tail.y - 0.05, tail.z - 0.12)
+    tailPuff.scale.set(0.85, 1, 1.3)
+    this.add(tailPuff)
+
+    // Magic bubble it floats inside.
+    this.bubble = new THREE.Mesh(
+      new THREE.SphereGeometry(1.9, 24, 18),
+      new THREE.MeshStandardMaterial({
+        color: 0xffe4f4,
+        transparent: true,
+        opacity: 0.16,
+        roughness: 0.05,
+        metalness: 0.1,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+    )
+    this.bubble.position.y = 0.1
+    this.add(this.bubble)
+
+    // Glowing halo ring under the pony (HDR emissive -> blooms).
+    this.ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.5, 0.055, 8, 40),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color(this.config.accent).multiplyScalar(2.2),
+      })
+    )
+    this.ring.rotation.x = Math.PI / 2
+    this.ring.position.y = -1.15
+    this.add(this.ring)
+  }
+
   private createSparkles() {
-    const particleCount = 30
+    const particleCount = 34
     const positions = new Float32Array(particleCount * 3)
     const colors = new Float32Array(particleCount * 3)
 
@@ -130,10 +98,10 @@ export class Pony extends Mount {
       positions[i * 3 + 1] = (Math.random() - 0.5) * 2
       positions[i * 3 + 2] = (Math.random() - 0.5) * 3
 
-      // Pink/purple sparkles
-      colors[i * 3] = 0.8 + Math.random() * 0.2
-      colors[i * 3 + 1] = 0.5 + Math.random() * 0.3
-      colors[i * 3 + 2] = 0.8 + Math.random() * 0.2
+      // Pink/gold sparkles
+      colors[i * 3] = 0.9 + Math.random() * 0.1
+      colors[i * 3 + 1] = 0.6 + Math.random() * 0.35
+      colors[i * 3 + 2] = 0.75 + Math.random() * 0.25
     }
 
     const geometry = new THREE.BufferGeometry()
@@ -141,17 +109,34 @@ export class Pony extends Mount {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
 
     const material = new THREE.PointsMaterial({
-      size: 0.1,
+      size: 0.2,
+      map: getSparkTexture(),
       vertexColors: true,
       transparent: true,
-      opacity: 0.8
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     })
 
     this.sparkles = new THREE.Points(geometry, material)
     this.add(this.sparkles)
   }
 
+  getTailWorldPosition(out: THREE.Vector3): THREE.Vector3 {
+    out.copy(this.horse.tailAnchor)
+    out.z -= 0.3
+    return this.localToWorld(out)
+  }
+
   update(delta: number, input: InputState, mouseDelta: { x: number; y: number }) {
+    // Prancing animation, gentle and slow.
+    if (this.horse.action) {
+      this.horse.action.timeScale = 0.3 + this.getSpeedRatio() * 1.1
+    }
+    this.horse.mixer?.update(delta)
+    this.ring.rotation.z += delta * 1.4
+    this.bubble.rotation.y += delta * 0.3
+
     // Handle trick animation
     if (this.isPerformingTrick) {
       this.animateTrick(delta)

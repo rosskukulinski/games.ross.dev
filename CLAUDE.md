@@ -17,17 +17,25 @@ games.ross.dev/
 
 | Slug | Display Name | Tech Stack | Build |
 |------|-------------|-----------|-------|
+| asteroid-dodger | Asteroid Dodger | React + Vite | `vite build` |
+| balloon-pop-blitz | Balloon Pop Blitz | React + Vite | `vite build` |
+| comet-dash | Comet Dash | Babylon.js + TS + Vite | `vite build` |
 | connect-four | Connect Four | Static (HTML/CSS/JS) | copy only |
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
 | hangman | Word Guess | Static (HTML/CSS/JS) | copy only |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
 | kpop-rythm-tap | K-Pop Rhythm Tap | React + Vite + Canvas + Web Audio | `vite build` |
+| neon-bricks | Neon Bricks | PixiJS v8 + pixi-filters + TS + Vite | `vite build` |
 | number-line-monster | Monster Hunt | Static (HTML/CSS/JS) | copy only |
 | ojoj | OJOJ Racing | Static (HTML/CSS/JS) | copy only |
 | pet-care-game | Dragon Keeper | React + TS + Zustand + Vite | `tsc -b && vite build` |
 | phase-10 | Phase 10 | React + Vite | `vite build` |
+| robot-rally | Robot Rally | Three.js + glTF assets + TS + Vite | `vite build` |
 | sir-name-alot | Sir-Name-Alot | Vue + Vite | `vite build` |
+| skee-ball | Skee-Ball | React + Vite | `vite build` |
+| sudoku | Sudoku | Static (HTML/CSS/JS) | copy only |
 | tic-tac-toe | Tic-Tac-Toe | Static (HTML/CSS/JS) | copy only |
+| treasure-hunt-island | Treasure Hunt Island | React + Vite | `vite build` |
 | unicorn-dragon | Unicorn Dragon | Three.js + TS + Vite | `tsc && vite build` |
 
 ## Commands

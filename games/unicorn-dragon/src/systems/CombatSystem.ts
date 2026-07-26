@@ -42,11 +42,23 @@ export class CombatSystem {
       'player'
     )
 
-    this.projectiles.push(projectile)
-    this.scene.add(projectile)
+    this.spawn(projectile)
     this.fireCooldown = this.FIRE_RATE
 
     return true
+  }
+
+  /** Add a projectile plus its world-space trail to the scene. */
+  private spawn(projectile: Projectile) {
+    this.projectiles.push(projectile)
+    this.scene.add(projectile)
+    this.scene.add(projectile.getTrailObject())
+  }
+
+  /** Remove a projectile and its trail. */
+  private despawn(projectile: Projectile) {
+    this.scene.remove(projectile)
+    this.scene.remove(projectile.getTrailObject())
   }
 
   enemyFire(position: THREE.Vector3, direction: THREE.Vector3, config?: ProjectileConfig) {
@@ -57,8 +69,7 @@ export class CombatSystem {
       'enemy'
     )
 
-    this.projectiles.push(projectile)
-    this.scene.add(projectile)
+    this.spawn(projectile)
   }
 
   update(delta: number, enemies: Dragon[], playerMount: Mount) {
@@ -70,7 +81,7 @@ export class CombatSystem {
       const alive = projectile.update(delta)
 
       if (!alive) {
-        this.scene.remove(projectile)
+        this.despawn(projectile)
         return false
       }
 
@@ -78,6 +89,7 @@ export class CombatSystem {
       if (projectile.owner === 'player') {
         // Check against enemies
         for (const enemy of enemies) {
+          if (enemy.isDead) continue
           if (this.checkCollision(projectile, enemy)) {
             this.handleHit(projectile, enemy)
             return false
@@ -97,13 +109,15 @@ export class CombatSystem {
 
   private checkCollision(projectile: Projectile, target: THREE.Object3D): boolean {
     const distance = projectile.position.distanceTo(target.position)
-    const collisionRadius = projectile.getCollisionRadius() + 2 // Target radius ~2
+    const targetRadius =
+      target instanceof Dragon ? target.getCollisionRadius() : 2
+    const collisionRadius = projectile.getCollisionRadius() + targetRadius
     return distance < collisionRadius
   }
 
   private handleHit(projectile: Projectile, enemy: Dragon) {
     // Remove projectile
-    this.scene.remove(projectile)
+    this.despawn(projectile)
 
     // Spawn hit effect
     if (this.onHitEffect) {
@@ -122,7 +136,7 @@ export class CombatSystem {
 
   private handlePlayerHit(projectile: Projectile) {
     // Remove projectile
-    this.scene.remove(projectile)
+    this.despawn(projectile)
 
     // Spawn hit effect
     if (this.onHitEffect) {
@@ -144,7 +158,7 @@ export class CombatSystem {
   }
 
   clearAllProjectiles() {
-    this.projectiles.forEach(p => this.scene.remove(p))
+    this.projectiles.forEach(p => this.despawn(p))
     this.projectiles = []
   }
 }
