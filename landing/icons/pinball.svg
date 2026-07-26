@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <radialGradient id="pbPlanet" cx="38%" cy="34%" r="70%">
+      <stop offset="0%" stop-color="#9a78ff"/>
+      <stop offset="55%" stop-color="#5b39c8"/>
+      <stop offset="100%" stop-color="#241063"/>
+    </radialGradient>
+    <radialGradient id="pbBall" cx="36%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#c3d0ee"/>
+      <stop offset="100%" stop-color="#4d5876"/>
+    </radialGradient>
+    <linearGradient id="pbFelt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a2790"/>
+      <stop offset="100%" stop-color="#150d3c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- cabinet -->
+  <rect width="100" height="100" rx="12" fill="#0a0726"/>
+  <!-- playfield: arch over a straight body -->
+  <path d="M14 96 L14 52 A36 36 0 0 1 86 52 L86 96 Z" fill="url(#pbFelt)"/>
+  <path d="M14 96 L14 52 A36 36 0 0 1 86 52 L86 96" fill="none" stroke="#a678ff" stroke-width="2.6"/>
+  <!-- orbit lane -->
+  <path d="M21 52 A29 29 0 0 1 79 52" fill="none" stroke="#3fe8ff" stroke-width="1.8" opacity="0.85"/>
+  <!-- bulbs along the arch -->
+  <g fill="#ffeaa8">
+    <circle cx="18" cy="44" r="1.7"/><circle cx="23" cy="32" r="1.7"/>
+    <circle cx="32" cy="23" r="1.7"/><circle cx="44" cy="18" r="1.7"/>
+    <circle cx="56" cy="18" r="1.7"/><circle cx="68" cy="23" r="1.7"/>
+    <circle cx="77" cy="32" r="1.7"/><circle cx="82" cy="44" r="1.7"/>
+  </g>
+
+  <!-- star gate scoop -->
+  <circle cx="50" cy="33" r="7.5" fill="#0a0724" stroke="#dfe6ff" stroke-width="1.6"/>
+  <circle cx="50" cy="33" r="4" fill="#05030f"/>
+  <circle cx="50" cy="33" r="10" fill="none" stroke="#3fe8ff" stroke-width="1" opacity="0.75"/>
+
+  <!-- pop bumpers -->
+  <g>
+    <circle cx="34" cy="47" r="6.4" fill="#3a1f7a" stroke="#ff4f9d" stroke-width="1.6"/>
+    <circle cx="34" cy="47" r="2.6" fill="#ffd9f0"/>
+    <circle cx="66" cy="47" r="6.4" fill="#3a1f7a" stroke="#ff4f9d" stroke-width="1.6"/>
+    <circle cx="66" cy="47" r="2.6" fill="#ffd9f0"/>
+  </g>
+
+  <!-- ringed planet -->
+  <ellipse cx="50" cy="65" rx="20" ry="5.4" transform="rotate(-17 50 65)" fill="none" stroke="#ffc247" stroke-width="2.4" opacity="0.45"/>
+  <circle cx="50" cy="65" r="11.5" fill="url(#pbPlanet)"/>
+  <path d="M30 65 a20 5.4 -17 0 0 40 0" transform="rotate(-17 50 65)" fill="none" stroke="#ffcd6e" stroke-width="2.4"/>
+
+  <!-- drop targets -->
+  <rect x="16" y="52" width="5" height="13" rx="2.2" fill="#5fffa8"/>
+  <rect x="79" y="52" width="5" height="13" rx="2.2" fill="#3fe8ff"/>
+
+  <!-- ball with trail -->
+  <circle cx="57" cy="79" r="2" fill="#9fd4ff" opacity="0.3"/>
+  <circle cx="60" cy="74" r="1.4" fill="#9fd4ff" opacity="0.18"/>
+  <circle cx="53" cy="83" r="4.2" fill="url(#pbBall)"/>
+  <circle cx="51.6" cy="81.6" r="1.4" fill="#ffffff"/>
+
+  <!-- flippers -->
+  <g stroke-linecap="round">
+    <path d="M27 84 L40 91" stroke="#0a0626" stroke-width="8"/>
+    <path d="M73 84 L60 91" stroke="#0a0626" stroke-width="8"/>
+    <path d="M27 84 L40 91" stroke="#ffc247" stroke-width="5.4"/>
+    <path d="M73 84 L60 91" stroke="#ffc247" stroke-width="5.4"/>
+    <path d="M27 82.4 L40 89.4" stroke="#ff4f9d" stroke-width="1.8"/>
+    <path d="M73 82.4 L60 89.4" stroke="#ff4f9d" stroke-width="1.8"/>
+  </g>
+  <circle cx="27" cy="84" r="2" fill="#dfe6ff"/>
+  <circle cx="73" cy="84" r="2" fill="#dfe6ff"/>
+</svg>
