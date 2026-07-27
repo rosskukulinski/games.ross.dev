@@ -124,6 +124,27 @@ export const STANDUPS: TargetDef[] = [
 ];
 export const STANDUP_HALF = 30;
 
+/**
+ * Outlane kickbacks. Playtesting a passive player found 17 of 19 balls dying
+ * in the left outlane with only 3 flipper chances in the whole run — the table
+ * was killing the ball somewhere the player could never reach. Both outlanes
+ * now fire the ball back into play, so the centre drain is the real one.
+ */
+export const KICKBACK_L = { x: 200, y: 1268 };
+export const KICKBACK_R = { x: 2 * PF_CX - 200, y: 1268 };
+/**
+ * A ball past this depth and outside the flipper span is committed to an
+ * outlane. Fire it where it stands — an earlier version teleported it onto the
+ * kicker's own coordinates, which sat inside the outer wall, so the ball was
+ * shoved back out and drained anyway.
+ */
+export const KICKBACK_Y = 1250;
+// Reaches right up to the flipper's pivot. A narrower trigger left a ~20px
+// band between it and the bat where the ball slipped past unreachably —
+// which was most of the deaths in a passive-player run.
+export const KICKBACK_LX = 254;
+export const KICKBACK_RX = 2 * PF_CX - 254;
+
 export const SAUCER_X = 402;
 export const SAUCER_Y = 462;
 export const SAUCER_R = 32;
@@ -133,16 +154,18 @@ type Poly = [number, number][];
 
 export const WALL_LEFT: Poly = [
   [LEFT_X, ARCH_CY],
-  [LEFT_X, 980],
-  [104, 1152],
-  [148, 1292],
-  [186, APRON_Y + 20],
+  [LEFT_X, 894],
+  [126, 1044],
+  [150, 1160],
+  [174, 1292],
+  [192, APRON_Y + 20],
 ];
 export const WALL_RIGHT: Poly = [
-  [DIV_X, 980],
-  [2 * PF_CX - 104, 1152],
-  [2 * PF_CX - 148, 1292],
-  [2 * PF_CX - 186, APRON_Y + 20],
+  [DIV_X, 894],
+  [2 * PF_CX - 126, 1044],
+  [2 * PF_CX - 150, 1160],
+  [2 * PF_CX - 174, 1292],
+  [2 * PF_CX - 192, APRON_Y + 20],
 ];
 export const WALL_DIVIDER: Poly = [
   [DIV_X, DIV_TOP_Y],
@@ -498,12 +521,12 @@ function drawDecals(g: Graphics): void {
   for (const s of [1, -1] as const) {
     const mx = (x: number) => (s === 1 ? x : 2 * PF_CX - x);
     // outlane (drains) and inlane (feeds the flipper), traced between the rails
-    g.moveTo(mx(131), 1046).lineTo(mx(158), 1160).lineTo(mx(196), 1272).lineTo(mx(178), 1340)
-      .stroke({ width: 50, color: 0x412c96, alpha: 0.5, cap: 'round', join: 'round' });
+    g.moveTo(mx(162), 1046).lineTo(mx(180), 1160).lineTo(mx(200), 1272).lineTo(mx(196), 1330)
+      .stroke({ width: 42, color: 0x412c96, alpha: 0.5, cap: 'round', join: 'round' });
     g.moveTo(mx(238), 1066).lineTo(mx(242), 1152).lineTo(mx(258), 1214).lineTo(mx(292), 1248)
       .stroke({ width: 44, color: 0x3b2c9c, alpha: 0.6, cap: 'round', join: 'round' });
     laneArrow(g, mx(240), 1120, Math.PI / 2 + s * 0.06, C.gold, 0.32);
-    laneArrow(g, mx(150), 1140, Math.PI / 2 + s * 0.22, C.magenta, 0.3);
+    laneArrow(g, mx(174), 1130, Math.PI / 2 + s * 0.12, C.magenta, 0.3);
   }
 
   // target bank backing plates

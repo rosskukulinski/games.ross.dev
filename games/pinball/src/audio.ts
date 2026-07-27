@@ -170,6 +170,16 @@ class SynthAudio {
     this.noise(0.16, 0.13, 1400);
   }
 
+  /** Outlane kickback — a solenoid thump then a rising whoosh. */
+  kickback(): void {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tone(70, 0.12, { type: 'square', vol: 0.24, slideTo: 40, when: t });
+    this.noise(0.1, 0.2, 1200, t);
+    this.tone(240, 0.3, { type: 'sawtooth', vol: 0.15, slideTo: 900, when: t + 0.02 });
+    this.tone(480, 0.22, { type: 'triangle', vol: 0.1, slideTo: 1400, when: t + 0.04 });
+  }
+
   saucer(): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;

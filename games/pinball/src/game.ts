@@ -40,6 +40,11 @@ import {
   FLIP_RX,
   FLIP_UP,
   FLIP_Y,
+  KICKBACK_L,
+  KICKBACK_LX,
+  KICKBACK_R,
+  KICKBACK_RX,
+  KICKBACK_Y,
   H,
   LANE_FLOOR_Y,
   makeFeltTexture,
@@ -79,6 +84,7 @@ const MAX_SUBSTEPS = 14;
 
 const BALLS_PER_GAME = 3;
 const SAVER_TIME = 12;
+const KICKBACKS_PER_BALL = 2;
 const EXTRA_BALL_AT = 250000;
 
 const FONT = 'Arial Black, Arial Rounded MT Bold, Segoe UI, Helvetica, sans-serif';
@@ -205,6 +211,12 @@ export class Game {
   private saverT = 0;
   /** the ball saver arms once per ball, not once per launch */
   private saverPending = false;
+  /** kickback charges for the current ball — unlimited made the ball unloseable */
+  private kickCharges = 0;
+  private kickCool: [number, number] = [0, 0];
+  private kickFlash: [number, number] = [0, 0];
+  private kickG: Graphics[] = [];
+  private kickLamp: Sprite[] = [];
   private bankResetL = 0;
   private bankResetR = 0;
   private plungerPull = 0;
@@ -219,7 +231,7 @@ export class Game {
   private time = 0;
   private energy = 0;
   private ballEndT = 0;
-  private stats = { saucer: 0, banks: 0, multiballs: 0, rollSets: 0, bumps: 0, targets: 0 };
+  private stats = { saucer: 0, banks: 0, multiballs: 0, rollSets: 0, bumps: 0, targets: 0, kicks: 0, flipHits: 0, serves: 0, drainX: [] as number[] };
 
   // hud
   private scoreText!: Text;
@@ -637,6 +649,37 @@ export class Game {
     nameCard.position.set(186, APRON_Y + 46);
     nameCard.rotation = -0.04;
     this.hwLayer.addChild(nameCard);
+
+    // --- outlane kickbacks
+    for (const [i, k] of [KICKBACK_L, KICKBACK_R].entries()) {
+      const dir = i === 0 ? 1 : -1;
+      const glow = new Sprite(this.tex.glow);
+      glow.anchor.set(0.5);
+      glow.position.set(k.x, k.y);
+      glow.scale.set(1.3, 1.6);
+      glow.tint = C.orange;
+      glow.alpha = 0.3;
+      glow.blendMode = 'add';
+      this.lampLayer.addChild(glow);
+      this.kickLamp.push(glow);
+
+      const g = new Graphics();
+      g.position.set(k.x, k.y);
+      g.rotation = dir * 0.14;
+      // coil housing
+      g.roundRect(-19, -6, 38, 34, 9).fill({ color: 0x0b0728, alpha: 0.95 });
+      g.roundRect(-15, -2, 30, 26, 7).fill({ color: 0x4a3a9e, alpha: 1 });
+      for (let c = 0; c < 4; c++) {
+        g.moveTo(-15, 2 + c * 6).lineTo(15, 4 + c * 6)
+          .stroke({ width: 2.5, color: C.steel, alpha: 0.55 });
+      }
+      // upward arrow insert
+      g.poly([0, -40, 15, -18, 6, -18, 6, -6, -6, -6, -6, -18, -15, -18])
+        .fill({ color: C.orange, alpha: 0.95 })
+        .stroke({ width: 2, color: 0x2a1206, alpha: 0.8 });
+      this.hwLayer.addChild(g);
+      this.kickG.push(g);
+    }
 
     // --- plunger
     this.plungerG = new Graphics();
@@ -1126,7 +1169,7 @@ export class Game {
     this.multiball = false;
     this.spinCount = 0;
     this.bumperChain = 0;
-    this.stats = { saucer: 0, banks: 0, multiballs: 0, rollSets: 0, bumps: 0, targets: 0 };
+    this.stats = { saucer: 0, banks: 0, multiballs: 0, rollSets: 0, bumps: 0, targets: 0, kicks: 0, flipHits: 0, serves: 0, drainX: [] };
     for (const r of this.rollovers) r.lit = false;
     this.resetBank(this.targetsL, true);
     this.resetBank(this.targetsR, true);
@@ -1170,6 +1213,8 @@ export class Game {
     this.balls.push(b);
     this.state = 'launch';
     this.saverPending = true;
+    this.kickCharges = KICKBACKS_PER_BALL;
+    this.stats.serves++;
     this.plungerPull = 0;
     this.launchWait = 0;
     this.ballText.text = `BALL ${this.ballNum}`;
@@ -1422,6 +1467,17 @@ export class Game {
       if (b.y > DRAIN_Y - 30 && b.x < DIV_X) this.drainBall(i);
     }
 
+    // Outlane kickbacks: fire the ball back into play instead of losing it
+    // somewhere the flippers can never reach.
+    for (const b of this.balls) {
+      if (b.held || b.captured > 0) continue;
+      if (b.y < KICKBACK_Y || b.y > DRAIN_Y) continue;
+      if (b.x > DIV_X) continue; // shooter lane, not an outlane
+      const side: 0 | 1 | null = b.x < KICKBACK_LX ? 0 : b.x > KICKBACK_RX ? 1 : null;
+      if (side === null || this.kickCool[side] > 0 || this.kickCharges <= 0) continue;
+      this.fireKickback(b, side);
+    }
+
     // A ball that rolls back down the shooter lane gets handed to the plunger
     // again — otherwise a soft plunge would strand it there for good.
     if (this.state === 'play' && this.balls.length === 1) {
@@ -1486,9 +1542,15 @@ export class Game {
     }
 
     const cl = this.flipL.collide(b);
-    if (cl && cl.impact > 220) this.flipperFx(cl);
+    if (cl) {
+      this.stats.flipHits++;
+      if (cl.impact > 220) this.flipperFx(cl);
+    }
     const cr = this.flipR.collide(b);
-    if (cr && cr.impact > 220) this.flipperFx(cr);
+    if (cr) {
+      this.stats.flipHits++;
+      if (cr.impact > 220) this.flipperFx(cr);
+    }
 
     // rollovers
     for (const r of this.rollovers) {
@@ -1735,8 +1797,43 @@ export class Game {
     this.confetti();
   }
 
+  private fireKickback(b: Ball, side: 0 | 1): void {
+    const k = side === 0 ? KICKBACK_L : KICKBACK_R;
+    this.kickCool[side] = 0.6;
+    this.kickCharges--;
+    this.stats.kicks++;
+    this.kickFlash[side] = 1;
+    // Fire the ball from where it stands — never reposition it onto the
+    // kicker's own coordinates, which can sit inside the outer wall.
+    b.vx = (side === 0 ? -1 : 1) * 90;
+    b.vy = -1580;
+    audio.kickback();
+    this.addScore(1500, k.x, k.y - 70, C.orange);
+    this.shake(7);
+    this.flash(0.1);
+    if (this.kickCharges === 0) this.showBanner('LAST KICKBACK!', C.orange);
+    for (let n = 0; n < 22; n++) {
+      this.fxOver.spawn(n % 2 ? this.tex.spark : this.tex.dot, k.x, k.y, {
+        vx: (Math.random() - 0.5) * 320,
+        vy: -180 - Math.random() * 520,
+        life: 0.4 + Math.random() * 0.3,
+        tint: n % 3 === 0 ? C.goldPale : C.orange,
+        scaleFrom: 0.35 + Math.random() * 0.5,
+        scaleTo: 0,
+        drag: 1.6,
+        gravity: 400,
+      });
+    }
+    const g = this.kickG[side];
+    if (g) {
+      g.scale.set(1.3, 0.7);
+      tween(0.3, (p) => g.scale.set(1.3 - 0.3 * p, 0.7 + 0.3 * p), { ease: Ease.outBack });
+    }
+  }
+
   private drainBall(i: number): void {
     const b = this.balls[i];
+    if (this.stats.drainX.length < 200) this.stats.drainX.push(Math.round(b.x));
     const saved = this.saverT > 0;
     this.burst(b.x, Math.min(b.y, DRAIN_Y - 20), saved ? C.cyan : C.magenta, 16, 300);
     b.root.destroy({ children: true });
@@ -1811,6 +1908,19 @@ export class Game {
   // ---------------------------------------------------------- presentation
 
   private updatePresentation(dt: number): void {
+    for (let i = 0; i < 2; i++) {
+      if (this.kickCool[i] > 0) this.kickCool[i] = Math.max(0, this.kickCool[i] - dt);
+      if (this.kickFlash[i] > 0) this.kickFlash[i] = Math.max(0, this.kickFlash[i] - dt * 2.2);
+      const g = this.kickG[i];
+      if (g) {
+        g.alpha = this.kickCharges > 0
+          ? 0.8 + 0.2 * Math.sin(this.time * 3 + i) + this.kickFlash[i] * 0.6
+          : 0.3;
+      }
+      const lamp = this.kickLamp[i];
+      if (lamp) lamp.alpha = this.kickCharges > 0 ? 0.3 + this.kickFlash[i] * 0.7 : 0.06;
+    }
+
     // bumpers breathe, and flare when struck
     for (const bm of this.bumpers) {
       bm.lit = Math.max(0, bm.lit - dt * 3.4);

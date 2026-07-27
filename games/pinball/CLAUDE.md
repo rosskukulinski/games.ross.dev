@@ -53,12 +53,29 @@ These were all real bugs; the numbers matter.
   steep (~27°) and ends above the bat.
 - A soft plunge that doesn't clear the arch drops the ball back into the shooter
   lane; there's an explicit hand-back to the plunger so it can't strand.
+- **The outlanes were eating every ball.** A passive-player run measured 17 of
+  19 balls dying in the left outlane, where a flipper can never reach — the
+  left outlane mouth was 109 px against a 68 px inlane, backwards from a real
+  table, and the orbit returns the ball down the left every launch. Fixed by
+  pulling the outer walls in and adding kickbacks. Flipper contacts went from
+  near zero to ~40 per ball.
+- A kickback must fire the ball **from where it stands**. Teleporting it onto
+  the kicker's own coordinates put it inside the outer wall, so it was shoved
+  back out and drained anyway — 97 kicks produced 97 outlane drains.
+- The kickback trigger has to reach all the way to the flipper pivot. A 20 px
+  band between the trigger edge and the bat became the single most common
+  death.
+- Unlimited kickbacks make the ball unloseable: games stopped ending and scores
+  ran to 20M. Two per ball is the balance point.
 
 ## Rules
 
 - 3 balls, plus an extra ball at 250,000.
 - **Ball save**: 12 s from each fresh ball's launch. A saved ball is re-served
   and auto-plunged. The saver arms once per ball, not per launch.
+- **Outlane kickbacks**: 2 per ball, recharged on each new ball. A ball
+  committed to either outlane is fired back up the lane. The arrows go dark
+  once spent, so the stakes visibly change.
 - **Pop bumpers** 500+ (rises with the chain), **slingshots** 250,
   **drop targets** 1,000, **standing targets** 1,500, **rollovers** 750,
   **spinner** 120/half-turn (capped so one orbit rip can't dwarf the table).
@@ -91,3 +108,10 @@ simulation without waiting on the renderer; headless WebGL runs at a few fps, so
 pacing must be measured in game time, not wall time. Watch for `longest stall`
 above ~0.5 s (a ball trapped somewhere) and check every feature in the
 `features:` line still fires.
+
+**The metric that matters is `flipHits / serves` — flipper contacts per ball.**
+Time-in-zone percentages look reasonable even when the table is quietly killing
+every ball somewhere the player can't reach; contacts per ball does not. It
+should sit in the tens. `stats.drainX` records where each ball actually died:
+bucket it and check the deaths are near the flipper gap (x ~384-420) rather
+than out at the edges.
