@@ -15,6 +15,7 @@ const games = [
   'balloon-pop-blitz',
   'comet-dash',
   'connect-four',
+  'grand-hotel-tycoon',
   'guess-the-drawing',
   'hangman',
   'hanyverse',

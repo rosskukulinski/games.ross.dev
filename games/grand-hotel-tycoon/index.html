@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#7FD4F5" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%237FD4F5'/%3E%3Crect x='7' y='9' width='18' height='16' rx='2' fill='%23FFF3E0'/%3E%3Cpath d='M5 10 L16 4 L27 10 Z' fill='%23E8734A'/%3E%3Crect x='10' y='13' width='4' height='4' fill='%23FFC94A'/%3E%3Crect x='18' y='13' width='4' height='4' fill='%23FFC94A'/%3E%3C/svg%3E" />
+  <title>Grand Hotel Tycoon</title>
+  <style>
+    :root {
+      --sky: #7fd4f5;
+      --cream: #fff3e0;
+      --terracotta: #e8734a;
+      --water: #2fc3e3;
+      --coin: #ffc94a;
+      --star: #ffd93b;
+      --leaf: #5fae50;
+      --ink: #17384a;
+      --ink-soft: #4a6b7d;
+      --panel: rgba(255, 251, 243, 0.84);
+      --panel-solid: #fffbf3;
+      --panel-border: rgba(23, 56, 74, 0.13);
+      --shadow: 0 6px 22px rgba(23, 56, 74, 0.18);
+      --font: ui-rounded, "SF Pro Rounded", "Segoe UI Variable", "Segoe UI", system-ui,
+              -apple-system, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #7fd4f5;
+      font-family: var(--font);
+      color: var(--ink);
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+
+    #game-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+      outline: none;
+      touch-action: none;
+    }
+
+    /* warm corner vignette so the HUD always has something to sit on */
+    #vignette {
+      position: absolute; inset: 0;
+      pointer-events: none; z-index: 2;
+      background: radial-gradient(ellipse at 50% 45%, transparent 58%, rgba(12, 52, 72, 0.28) 100%);
+    }
+
+    .hidden { opacity: 0 !important; pointer-events: none !important; }
+
+    /* ---------------------------------------------------------------- panels */
+    .panel {
+      background: var(--panel);
+      border: 1.5px solid var(--panel-border);
+      border-radius: 20px;
+      backdrop-filter: blur(12px) saturate(1.3);
+      -webkit-backdrop-filter: blur(12px) saturate(1.3);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    }
+
+    /* ------------------------------------------------------------------ HUD */
+    #hud {
+      position: absolute; inset: 0;
+      z-index: 5; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+
+    #money-panel {
+      position: absolute; top: 16px; left: 16px;
+      padding: 11px 18px 12px;
+      min-width: 150px;
+    }
+    #bank-row { display: flex; align-items: center; gap: 9px; }
+    .coin-dot {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: radial-gradient(circle at 34% 30%, #fff0b8, var(--coin) 58%, #e0a01e);
+      box-shadow: 0 2px 5px rgba(180, 120, 10, 0.4), inset 0 -2px 3px rgba(150, 100, 10, 0.35);
+      flex: none;
+    }
+    #bank {
+      font-size: 33px; font-weight: 800; line-height: 1;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.5px;
+    }
+    /* stars + guests */
+    #rating-panel {
+      position: absolute; top: 16px; left: 50%;
+      transform: translateX(-50%);
+      padding: 9px 18px 10px;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    #stars { display: flex; gap: 3px; }
+    .star {
+      width: 22px; height: 22px;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .star path { fill: rgba(23, 56, 74, 0.16); transition: fill 0.35s ease; }
+    .star.on path { fill: var(--star); filter: drop-shadow(0 0 5px rgba(255, 217, 59, 0.75)); }
+    .star.half path { fill: url(#halfgrad); }
+    #guest-line {
+      font-size: 11px; font-weight: 800; letter-spacing: 1.1px;
+      color: var(--ink-soft); text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* room chips */
+    #rooms-panel {
+      position: absolute; top: 16px; right: 84px;
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 7px;
+      max-width: 40vw; flex-wrap: wrap; justify-content: flex-end;
+    }
+    .chip {
+      width: 26px; height: 26px; border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 13px; line-height: 1;
+      background: rgba(23, 56, 74, 0.09);
+      transition: background 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .chip.free     { background: rgba(95, 174, 80, 0.28); }
+    .chip.reserved { background: rgba(127, 212, 245, 0.45); }
+    .chip.busy     { background: rgba(255, 201, 74, 0.4); }
+    .chip.dirty    { background: rgba(232, 115, 74, 0.4); }
+    .chip.pop   { transform: scale(1.35); }
+
+    /* buttons */
+    .icon-btn {
+      position: absolute; z-index: 6;
+      width: 52px; height: 52px;
+      border-radius: 16px;
+      border: 1.5px solid var(--panel-border);
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      color: var(--ink);
+      display: grid; place-items: center;
+      cursor: pointer; pointer-events: auto;
+      transition: transform 0.14s ease, box-shadow 0.2s ease;
+    }
+    .icon-btn:hover { transform: scale(1.07); }
+    .icon-btn:active { transform: scale(0.93); }
+    .icon-btn svg { width: 25px; height: 25px; fill: var(--ink); }
+    #mute { top: 16px; right: 16px; }
+    #pause-btn { top: 78px; right: 16px; }
+
+    /* minimap */
+    #minimap-wrap {
+      position: absolute; left: 16px; bottom: 16px;
+      padding: 8px;
+      line-height: 0;
+    }
+    #minimap { width: 116px; height: 92px; border-radius: 12px; display: block; }
+
+    /* hint bar */
+    #hint {
+      position: absolute; bottom: 22px; left: 50%;
+      transform: translateX(-50%) translateY(0);
+      padding: 10px 22px;
+      font-size: 15px; font-weight: 800; letter-spacing: 0.2px;
+      white-space: nowrap;
+      display: flex; align-items: center; gap: 9px;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #hint .emoji { font-size: 19px; }
+
+    /* toasts */
+    #toasts {
+      position: absolute; top: 96px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 8;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 11px 22px;
+      font-size: 16px; font-weight: 800;
+      display: flex; align-items: center; gap: 10px;
+      white-space: nowrap;
+      animation: toastIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .toast.leaving { animation: toastOut 0.35s ease forwards; }
+    .toast .emoji { font-size: 22px; }
+    @keyframes toastIn  { from { opacity: 0; transform: translateY(-18px) scale(0.85); } }
+    @keyframes toastOut { to   { opacity: 0; transform: translateY(-14px) scale(0.94); } }
+
+    /* --------------------------------------------------------------- screens */
+    .screen {
+      position: absolute; inset: 0; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 24px;
+      background: radial-gradient(ellipse at 50% 40%, rgba(158, 224, 246, 0.5), rgba(20, 74, 100, 0.72) 82%);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      opacity: 1;
+      transition: opacity 0.45s ease;
+      pointer-events: auto;
+    }
+
+    .title-card {
+      background: var(--panel-solid);
+      border-radius: 30px;
+      padding: 34px 40px 30px;
+      box-shadow: 0 22px 60px rgba(11, 45, 62, 0.4), inset 0 2px 0 #fff;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      max-width: min(520px, 92vw);
+      animation: cardIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes cardIn { from { opacity: 0; transform: translateY(26px) scale(0.9); } }
+
+    h1 {
+      font-size: clamp(30px, 7.2vw, 50px);
+      font-weight: 900; line-height: 1;
+      letter-spacing: -1px;
+      background: linear-gradient(175deg, #ff9a5a, var(--terracotta) 55%, #d0492a);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 3px 0 rgba(200, 90, 55, 0.22));
+    }
+    .sub {
+      margin-top: 9px;
+      font-size: clamp(13px, 3.1vw, 16px); font-weight: 700;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .controls-grid {
+      margin: 20px auto 4px;
+      display: grid; grid-template-columns: auto 1fr;
+      gap: 8px 13px; align-items: center;
+      text-align: left;
+      font-size: clamp(12px, 2.9vw, 14.5px); font-weight: 700;
+      color: var(--ink-soft);
+      max-width: 340px;
+    }
+    .kbd {
+      background: #eef4f7;
+      border: 1.5px solid rgba(23, 56, 74, 0.16);
+      border-bottom-width: 3px;
+      border-radius: 8px;
+      padding: 3px 9px;
+      font-size: 12px; font-weight: 800; color: var(--ink);
+      text-align: center; white-space: nowrap;
+    }
+
+    .big-btn {
+      margin-top: 22px;
+      border: none; cursor: pointer;
+      font-family: var(--font);
+      font-size: clamp(18px, 4.4vw, 23px); font-weight: 900;
+      letter-spacing: 0.6px;
+      color: #fff;
+      padding: 15px 44px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #ff9a5a, var(--terracotta));
+      box-shadow: 0 6px 0 #c1512e, 0 12px 26px rgba(232, 115, 74, 0.45);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+      animation: btnPulse 2.4s ease-in-out infinite;
+    }
+    .big-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #c1512e, 0 16px 32px rgba(232, 115, 74, 0.5); }
+    .big-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #c1512e, 0 6px 14px rgba(232, 115, 74, 0.4); animation: none; }
+    @keyframes btnPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.09); } }
+
+    .link-btn {
+      margin-top: 14px;
+      background: none; border: none; cursor: pointer;
+      font-family: var(--font); font-size: 13px; font-weight: 800;
+      letter-spacing: 0.6px; text-transform: uppercase;
+      color: var(--ink-soft);
+      text-decoration: underline; text-underline-offset: 3px;
+      opacity: 0.75; transition: opacity 0.2s ease;
+    }
+    .link-btn:hover { opacity: 1; }
+
+    #resume-stats {
+      margin-top: 16px; padding-top: 15px;
+      border-top: 2px dashed rgba(23, 56, 74, 0.14);
+      display: flex; justify-content: center; gap: 22px;
+    }
+    .stat { display: flex; flex-direction: column; gap: 2px; }
+    .stat b {
+      font-size: 23px; font-weight: 900; line-height: 1;
+      font-variant-numeric: tabular-nums; color: var(--ink);
+    }
+    .stat span {
+      font-size: 10px; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--ink-soft);
+    }
+
+    /* --------------------------------------------------------------- joystick */
+    #stick {
+      position: absolute; z-index: 7;
+      width: 132px; height: 132px;
+      margin: -66px 0 0 -66px;
+      border-radius: 50%;
+      background: rgba(255, 251, 243, 0.3);
+      border: 2.5px solid rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      display: grid; place-items: center;
+    }
+    #stick.on { opacity: 1; }
+    #knob {
+      width: 62px; height: 62px; border-radius: 50%;
+      background: radial-gradient(circle at 36% 30%, #fff, rgba(255, 243, 224, 0.92) 60%, #ffd9a8);
+      box-shadow: 0 4px 14px rgba(23, 56, 74, 0.32), inset 0 -3px 6px rgba(200, 140, 80, 0.28);
+      will-change: transform;
+    }
+
+    /* touch-only helper text */
+    body:not(.touch) .touch-only { display: none; }
+    body.touch .key-only { display: none; }
+
+    @media (max-width: 620px) {
+      #rooms-panel { display: none; }
+      #minimap { width: 92px; height: 74px; }
+      #money-panel { min-width: 148px; padding: 9px 14px 10px; }
+      #bank { font-size: 27px; }
+      #hint { font-size: 13px; padding: 9px 16px; bottom: 14px; }
+    }
+    @media (max-height: 460px) {
+      #minimap-wrap { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas" touch-action="none"></canvas>
+  <div id="vignette"></div>
+
+  <!-- gradient used by the half-star -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="halfgrad" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="50%" stop-color="#FFD93B" />
+        <stop offset="50%" stop-color="rgba(23,56,74,0.16)" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <div id="hud" class="hidden">
+    <div id="money-panel" class="panel">
+      <div id="bank-row">
+        <div class="coin-dot"></div>
+        <div id="bank">0</div>
+      </div>
+    </div>
+
+    <div id="rating-panel" class="panel">
+      <div id="stars"></div>
+      <div id="guest-line">0 guests &middot; 0 served</div>
+    </div>
+
+    <div id="rooms-panel" class="panel"></div>
+
+    <div id="minimap-wrap" class="panel">
+      <canvas id="minimap" width="232" height="184"></canvas>
+    </div>
+
+    <div id="hint" class="panel"><span class="emoji">👋</span><span id="hint-text">Welcome!</span></div>
+  </div>
+
+  <div id="toasts"></div>
+
+  <button id="mute" class="icon-btn hidden" aria-label="Toggle sound"></button>
+  <button id="pause-btn" class="icon-btn hidden" aria-label="Pause">
+    <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.4"/><rect x="14" y="5" width="4" height="14" rx="1.4"/></svg>
+  </button>
+
+  <div id="stick"><div id="knob"></div></div>
+
+  <!-- ------------------------------------------------------------- start -->
+  <div id="start-screen" class="screen">
+    <div class="title-card">
+      <h1>Grand Hotel Tycoon</h1>
+      <p class="sub">You're the manager! Check guests in, keep everybody smiling,<br>and build the greatest resort on the island.</p>
+
+      <div class="controls-grid">
+        <span class="kbd key-only">W A S D</span>
+        <span class="key-only">Drive your manager around</span>
+        <span class="kbd key-only">Arrows</span>
+        <span class="key-only">Same thing, if you prefer</span>
+        <span class="kbd touch-only">Drag</span>
+        <span class="touch-only">Touch anywhere to steer</span>
+        <span class="kbd">Walk up</span>
+        <span>Stand next to a job and it happens by itself</span>
+        <span class="kbd">💰</span>
+        <span>Run over cash to pick it up — you keep it all</span>
+        <span class="kbd">✨</span>
+        <span>Stand on a glowing pad to build something new</span>
+      </div>
+
+      <div id="resume-stats" class="hidden">
+        <div class="stat"><b id="rs-money">0</b><span>Saved up</span></div>
+        <div class="stat"><b id="rs-rooms">1</b><span>Rooms</span></div>
+        <div class="stat"><b id="rs-served">0</b><span>Guests served</span></div>
+      </div>
+
+      <button id="start-btn" class="big-btn">Open the hotel</button>
+      <br>
+      <button id="reset-btn" class="link-btn hidden">Start a brand new hotel</button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------- paused -->
+  <div id="pause-screen" class="screen hidden">
+    <div class="title-card">
+      <h1>Paused</h1>
+      <p class="sub">Your hotel is saved. Take all the time you need.</p>
+      <button id="resume-btn" class="big-btn">Back to work</button>
+      <br>
+      <button id="quit-btn" class="link-btn">Start a brand new hotel</button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------- graphics failure -->
+  <!-- A dead WebGL context leaves a transparent canvas, which looks exactly
+       like the sky. Never let that be silent. -->
+  <div id="gfx-error" class="screen hidden">
+    <div class="title-card">
+      <h1>Graphics paused</h1>
+      <p class="sub" id="gfx-error-msg">
+        Your browser stopped the 3D view — usually because too many tabs were
+        using it at once.<br>Your hotel is safe. Reload to carry on.
+      </p>
+      <button id="gfx-reload" class="big-btn">Reload the game</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

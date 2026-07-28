@@ -21,6 +21,7 @@ games.ross.dev/
 | balloon-pop-blitz | Balloon Pop Blitz | React + Vite | `vite build` |
 | comet-dash | Comet Dash | Babylon.js + TS + Vite | `vite build` |
 | connect-four | Connect Four | Static (HTML/CSS/JS) | copy only |
+| grand-hotel-tycoon | Grand Hotel Tycoon | Babylon.js + TS + Vite | `tsc && vite build` |
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
 | hangman | Word Guess | Static (HTML/CSS/JS) | copy only |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
