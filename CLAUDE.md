@@ -31,6 +31,7 @@ games.ross.dev/
 | ojoj | OJOJ Racing | Static (HTML/CSS/JS) | copy only |
 | pet-care-game | Dragon Keeper | React + TS + Zustand + Vite | `tsc -b && vite build` |
 | phase-10 | Phase 10 | React + Vite | `vite build` |
+| pinball | Cosmic Pinball | PixiJS v8 + pixi-filters + TS + Vite | `tsc && vite build` |
 | robot-rally | Robot Rally | Three.js + glTF assets + TS + Vite | `vite build` |
 | sir-name-alot | Sir-Name-Alot | Vue + Vite | `vite build` |
 | skee-ball | Skee-Ball | React + Vite | `vite build` |

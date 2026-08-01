@@ -25,6 +25,7 @@ const games = [
   'ojoj',
   'pet-care-game',
   'phase-10',
+  'pinball',
   'robot-rally',
   'sir-name-alot',
   'skee-ball',
