@@ -10,30 +10,7 @@ const LANDING_DIR = path.join(ROOT, 'landing');
 const MANIFEST_PATH = path.join(ROOT, '.build-cache.json');
 const SCRIPT_PATH = __filename;
 
-const games = [
-  'asteroid-dodger',
-  'balloon-pop-blitz',
-  'comet-dash',
-  'connect-four',
-  'grand-hotel-tycoon',
-  'guess-the-drawing',
-  'hangman',
-  'hanyverse',
-  'kpop-rythm-tap',
-  'neon-bricks',
-  'number-line-monster',
-  'ojoj',
-  'pet-care-game',
-  'phase-10',
-  'pinball',
-  'robot-rally',
-  'sir-name-alot',
-  'skee-ball',
-  'sudoku',
-  'tic-tac-toe',
-  'treasure-hunt-island',
-  'unicorn-dragon',
-];
+const games = require('./games-list.js');
 
 const staticGames = ['connect-four', 'hangman', 'number-line-monster', 'ojoj', 'sudoku', 'tic-tac-toe'];
 
@@ -133,7 +110,13 @@ function buildServiceWorker() {
     .filter((file) => !notPrecacheable.has(path.basename(file)) && !file.endsWith('.map'))
     .sort();
 
+  const template = fs.readFileSync(path.join(__dirname, 'sw-template.js'), 'utf8');
+
   const hash = crypto.createHash('sha256');
+  // The worker's own logic is part of the version: changing how things are
+  // cached has to retire the cache built by the previous logic, not reuse it.
+  hash.update(template);
+
   const assets = [];
   const shell = [];
 
@@ -143,7 +126,12 @@ function buildServiceWorker() {
     hash.update(rel);
     hash.update(contents);
 
-    const url = `./${rel}`;
+    // Cache pages under the URL the browser actually navigates to. Cloudflare
+    // Pages 308-redirects /index.html to /, and Safari refuses to serve a
+    // response carrying a redirect to a navigation, so fetching by the
+    // directory name is what keeps the cached copy usable offline.
+    const url =
+      path.basename(rel) === 'index.html' ? `./${rel.slice(0, -'index.html'.length)}` : `./${rel}`;
     assets.push([url, contents.length]);
     // Anything outside a game directory is the landing page — cached during
     // install so the arcade opens immediately, before the library finishes.
@@ -159,7 +147,6 @@ function buildServiceWorker() {
     __SHELL__: JSON.stringify(shell),
   };
 
-  const template = fs.readFileSync(path.join(__dirname, 'sw-template.js'), 'utf8');
   let source = template;
   for (const [token, value] of Object.entries(replacements)) {
     if (!source.includes(token)) {
