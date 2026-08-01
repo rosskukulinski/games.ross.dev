@@ -79,6 +79,37 @@ Or manually:
 - **PR Previews**: Open a PR → preview deployed to `<branch>.games-ross-dev.pages.dev`
 - Secrets needed: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
 
+## Offline Support (PWA)
+
+The whole arcade is installable and plays offline — no network needed after the
+first visit.
+
+- `scripts/sw-template.js` is the service worker source. `scripts/build-all.js`
+  injects the full `dist/` file list and a content-hash version into it and
+  writes `dist/sw.js` on **every** build (never edit `dist/sw.js` by hand).
+- One worker at the site root covers the landing page *and* every game, so
+  games need no offline code of their own.
+- `landing/offline.js` registers the worker, starts the download of every game,
+  and renders the progress pill in the header.
+- `landing/manifest.webmanifest` + `landing/icons/app/` make it installable.
+  Regenerate the icons with `node scripts/generate-icons.js`.
+- A new build changes the version hash, which installs a fresh worker and drops
+  the previous cache.
+
+**Installing**: Mac — Safari's *Add to Dock*, or Chrome's install button.
+iPad — Share → *Add to Home Screen*. On iOS this step matters: Safari evicts
+site data for tabs unused for 7 days, but home screen web apps keep theirs.
+
+Two rules to keep offline working when adding a game:
+
+- **No external URLs.** No CDN scripts and no Google Fonts links — self-host
+  instead (see `landing/fonts.css` for the pattern, regenerate with
+  `scripts/fetch-fonts.js`). Anything fetched from another origin is simply
+  missing offline.
+- **Watch the download size.** Every byte in `dist/` is downloaded on first
+  visit; the build prints the total. It is currently ~50 MB, most of it the
+  K-Pop songs.
+
 ## Key Convention
 
 All Vite-based games MUST have `base: './'` in their vite.config. Without this, assets won't load when served from a subdirectory (e.g., `/phase-10/`).

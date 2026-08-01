@@ -4,6 +4,11 @@
   box-sizing: border-box;
 }
 
+/* The offline UI toggles the hidden attribute; it has to beat display rules. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   font-family: 'Fredoka', sans-serif;
   background: #f0e6ff;
@@ -86,11 +91,102 @@ main {
   line-height: 1.4;
 }
 
+/* Offline download status */
+
+.offline-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  width: fit-content;
+  margin: 1rem auto 0;
+  padding: 0.5rem 1.1rem;
+  background: white;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: #7c6b9a;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+}
+
+.offline-status.is-done {
+  color: #7c3aed;
+}
+
+.offline-status.is-done .offline-status-text::before {
+  content: '✓ ';
+  font-weight: 600;
+}
+
+.offline-progress {
+  display: block;
+  width: 190px;
+  height: 5px;
+  background: #ece3ff;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.offline-progress-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Add to Home Screen / install tip */
+
+.install-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.75rem auto 0;
+  padding: 0.5rem 0.6rem 0.5rem 1.1rem;
+  background: #fff6d6;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  color: #6b5a2a;
+}
+
+.install-tip-action {
+  font: inherit;
+  font-weight: 600;
+  color: white;
+  background: #7c3aed;
+  border: none;
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  cursor: pointer;
+}
+
+.install-tip-dismiss {
+  font: inherit;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0 0.4rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.install-tip-dismiss:hover {
+  opacity: 1;
+}
+
 @media (max-width: 600px) {
   header h1 {
     font-size: 2rem;
   }
   .game-grid {
     grid-template-columns: 1fr;
+  }
+  .offline-status,
+  .install-tip {
+    max-width: 100%;
   }
 }

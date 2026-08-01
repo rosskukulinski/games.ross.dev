@@ -1,0 +1,9 @@
+# Cloudflare Pages headers.
+
+# Never let a stale service worker linger — it is what decides whether the
+# browser notices a new build and refreshes the offline cache.
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
