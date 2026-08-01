@@ -82,7 +82,7 @@ scores today. Full setup, API and conventions: **`docs/leaderboard.md`**.
 db/migrations/     # D1 schema
 functions/         # Pages Functions (repo root — wrangler resolves it from cwd)
 landing/arcade/    # Published at /arcade/: registry, client SDK, page scripts
-landing/leaderboard.html
+landing/leaderboard/index.html
 ```
 
 The D1 binding (`DB`) is configured in the Cloudflare Pages dashboard, not in

@@ -22,7 +22,13 @@ function status(message) {
 
 async function getJson(path) {
   const response = await fetch(path);
-  if (response.status === 503) throw new Error('not_configured');
+  if (response.status === 503) {
+    // Two very different 503s: the server sends one when no database is bound,
+    // and the service worker sends one when we are simply offline. Only the
+    // first is something the person reading it can act on.
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error === 'offline' ? 'offline' : 'not_configured');
+  }
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
@@ -222,9 +228,11 @@ async function load() {
     data = await getJson('/api/leaderboard');
   } catch (error) {
     status(
-      error.message === 'not_configured'
-        ? 'The leaderboard database is not connected yet. See docs/leaderboard.md for the one-time setup.'
-        : "Couldn't reach the arcade. Try again in a moment."
+      error.message === 'offline'
+        ? "You're offline — scores come back when you reconnect."
+        : error.message === 'not_configured'
+          ? 'The leaderboard database is not connected yet. See docs/leaderboard.md for the one-time setup.'
+          : "Couldn't reach the arcade. Try again in a moment."
     );
     return;
   }

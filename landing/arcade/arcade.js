@@ -372,7 +372,7 @@
     card.append(
       el('a', {
         className: 'more',
-        href: `/leaderboard.html?game=${encodeURIComponent(entry.game)}`,
+        href: `/leaderboard/?game=${encodeURIComponent(entry.game)}`,
         textContent: 'See the full leaderboard →',
       })
     );

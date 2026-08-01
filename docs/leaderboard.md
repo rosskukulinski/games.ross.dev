@@ -17,7 +17,7 @@ pre-filled, but it is always editable and posting always takes an explicit tap.
 | `landing/arcade/arcade.js` | Client SDK, served at `/arcade/arcade.js` |
 | `landing/arcade/leaderboard.js` | Leaderboard page logic |
 | `landing/arcade/home-badges.js` | Champion line on each landing-page card |
-| `landing/leaderboard.html` | The leaderboard page |
+| `landing/leaderboard/index.html` | The leaderboard page |
 | `functions/_lib/arcade.js` | Validation, rate limiting, ranking |
 | `functions/api/*` | The HTTP API |
 
