@@ -5,6 +5,28 @@ on:
     branches: [main]
 
 jobs:
+  # Deployed as its own job rather than a dependency of `deploy`, so that a
+  # multiplayer hiccup never blocks the rest of the arcade from shipping.
+  # Air Hockey falls back to solo-vs-bot if the Worker is unreachable.
+  worker:
+    name: Deploy multiplayer server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Deploy Worker + Durable Object
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: multiplayer-server
+          preCommands: npm ci
+          command: deploy
+
   deploy:
     runs-on: ubuntu-latest
     steps:
@@ -30,6 +52,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
+            games/air-hockey/node_modules
             games/balloon-pop-blitz/node_modules
             games/guess-the-drawing/node_modules
             games/hanyverse/node_modules
@@ -43,6 +66,10 @@ jobs:
 
       - name: Build all games
         run: node scripts/build-all.js
+        env:
+          # Base URL of the multiplayer Worker. Optional: unset, the game
+          # falls back to <origin>/mp and then to solo-vs-bot.
+          VITE_MP_SERVER_URL: ${{ vars.MP_SERVER_URL }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v4

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#04060f" />
+    <title>Air Hockey</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1330'/%3E%3Ccircle cx='16' cy='16' r='6.5' fill='%23fff2c4' stroke='%23ffb03a' stroke-width='2'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <!-- Floating controls, visible during play -->
+    <div id="hud" class="hidden">
+      <button id="btn-quit" class="chip" type="button" aria-label="Back to menu">‹ Menu</button>
+      <div id="conn" class="chip chip-quiet"></div>
+      <button id="btn-mute" class="chip" type="button" aria-label="Toggle sound">🔊</button>
+    </div>
+
+    <div id="overlay">
+      <!-- Main menu -->
+      <section class="screen" id="screen-menu">
+        <h1 class="title">AIR<span>HOCKEY</span></h1>
+        <p class="tagline">First to 7 goals wins</p>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-solo" type="button">
+            <span class="btn-icon">🤖</span> Play the Computer
+          </button>
+          <div class="difficulty" role="group" aria-label="Computer difficulty">
+            <button class="diff" data-diff="easy" type="button">Easy</button>
+            <button class="diff is-active" data-diff="normal" type="button">Normal</button>
+            <button class="diff" data-diff="hard" type="button">Hard</button>
+          </div>
+          <button class="btn btn-secondary" id="btn-friend" type="button">
+            <span class="btn-icon">👋</span> Play a Friend
+          </button>
+        </div>
+        <p class="hint">Move your paddle with the mouse or your finger.</p>
+      </section>
+
+      <!-- Host / join chooser -->
+      <section class="screen hidden" id="screen-friend">
+        <h2 class="heading">Play a Friend</h2>
+        <p class="tagline">Two devices, one table.</p>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-host" type="button">
+            <span class="btn-icon">✨</span> Start a New Game
+          </button>
+          <button class="btn btn-secondary" id="btn-join" type="button">
+            <span class="btn-icon">🔑</span> Join With a Code
+          </button>
+          <button class="btn btn-ghost" data-back="menu" type="button">Back</button>
+        </div>
+      </section>
+
+      <!-- Hosting: show the code -->
+      <section class="screen hidden" id="screen-host">
+        <h2 class="heading">Your Game Code</h2>
+        <div class="code" id="host-code">----</div>
+        <p class="tagline" id="host-status">Waiting for the other player…</p>
+        <div class="stack">
+          <button class="btn btn-secondary" id="btn-copy" type="button">Copy Invite Link</button>
+          <button class="btn btn-ghost" data-back="menu" type="button">Cancel</button>
+        </div>
+        <p class="hint">
+          On the other device, open this game, tap <strong>Play a Friend → Join With a Code</strong>,
+          and type these letters.
+        </p>
+      </section>
+
+      <!-- Joining: enter a code -->
+      <section class="screen hidden" id="screen-join">
+        <h2 class="heading">Enter the Code</h2>
+        <div class="code-input">
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 1" />
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 2" />
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 3" />
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 4" />
+        </div>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-join-go" type="button">Join Game</button>
+          <button class="btn btn-ghost" data-back="friend" type="button">Back</button>
+        </div>
+      </section>
+
+      <!-- Connecting spinner -->
+      <section class="screen hidden" id="screen-connecting">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="tagline" id="connecting-text">Connecting…</p>
+        <button class="btn btn-ghost" data-back="menu" type="button">Cancel</button>
+      </section>
+
+      <!-- Something went wrong -->
+      <section class="screen hidden" id="screen-error">
+        <h2 class="heading">Hmm.</h2>
+        <p class="tagline" id="error-text"></p>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-error-solo" type="button">
+            Play the Computer Instead
+          </button>
+          <button class="btn btn-ghost" data-back="menu" type="button">Back to Menu</button>
+        </div>
+      </section>
+
+      <!-- Match over -->
+      <section class="screen screen-bottom hidden" id="screen-over">
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-again" type="button">Play Again</button>
+          <button class="btn btn-ghost" data-back="menu" type="button">Back to Menu</button>
+        </div>
+        <p class="tagline" id="over-status"></p>
+      </section>
+
+      <!-- Waiting for opponent mid-match -->
+      <section class="screen screen-bottom hidden" id="screen-waiting">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="tagline" id="waiting-text">Waiting for the other player…</p>
+        <p class="hint">Game code: <strong id="waiting-code"></strong></p>
+      </section>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

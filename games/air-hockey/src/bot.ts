@@ -1,0 +1,181 @@
+import type { ClientMessage, ServerMessage, Transport } from './protocol';
+import {
+  type Match,
+  type StepEvent,
+  PADDLE_R,
+  PHASE_OVER,
+  PHASE_WAITING,
+  PUCK_R,
+  TABLE_H,
+  TABLE_W,
+  TICK_DT,
+  TICK_RATE,
+  clampPaddleTarget,
+  createMatch,
+  encodeSnapshot,
+  resetMatch,
+  setInput,
+  step,
+} from './shared/rules';
+
+export type Difficulty = 'easy' | 'normal' | 'hard';
+
+/** Longest real-time gap the simulation will try to catch up on, in seconds. */
+const MAX_CATCHUP_SECONDS = 0.25;
+/**
+ * Enough steps to fully drain a MAX_CATCHUP_SECONDS backlog. If this were any
+ * smaller the match would drift into slow motion on a slow device instead of
+ * simply rendering fewer frames.
+ */
+const MAX_CATCHUP_STEPS = Math.ceil(MAX_CATCHUP_SECONDS / TICK_DT);
+
+interface BotConfig {
+  /** Table units per second the bot's hand can travel. */
+  speed: number;
+  /** Seconds of puck movement the bot anticipates. */
+  lead: number;
+  /** Aim wobble, in table units. */
+  noise: number;
+  /** How often the wobble is re-rolled, in seconds. */
+  reaction: number;
+}
+
+const CONFIG: Record<Difficulty, BotConfig> = {
+  // Tuned by feel for a five-year-old: slow enough to beat, quick enough to
+  // look like it's trying.
+  easy: { speed: 74, lead: 0.02, noise: 11, reaction: 0.32 },
+  normal: { speed: 134, lead: 0.07, noise: 6, reaction: 0.17 },
+  hard: { speed: 206, lead: 0.13, noise: 2.5, reaction: 0.07 },
+};
+
+/**
+ * Runs a whole match in the page against a bot, speaking the same protocol as
+ * the Durable Object. Solo play is therefore not a separate code path in the
+ * game — it's the same loop with a different transport.
+ */
+export class BotTransport implements Transport {
+  readonly interpDelayMs = 28;
+  onMessage: ((msg: ServerMessage) => void) | null = null;
+  onError: ((reason: string) => void) | null = null;
+
+  private match: Match = createMatch();
+  private loop: ReturnType<typeof setInterval> | null = null;
+  private readonly cfg: BotConfig;
+
+  // Bot hand position + current aim wobble.
+  private handX = TABLE_W / 2;
+  private handY = PADDLE_R + 14;
+  private noiseX = 0;
+  private noiseY = 0;
+  private noiseTimer = 0;
+  private lastTime = performance.now();
+  private accumulator = 0;
+
+  constructor(difficulty: Difficulty) {
+    this.cfg = CONFIG[difficulty];
+    // Deliver the handshake after construction so callers can attach handlers.
+    setTimeout(() => {
+      this.onMessage?.({ t: 'joined', side: 0, code: 'SOLO', tickRate: TICK_RATE });
+      this.onMessage?.({
+        t: 'roster',
+        names: ['You', 'Computer'],
+        present: [true, true],
+        rematch: [false, false],
+      });
+      resetMatch(this.match);
+      this.loop = setInterval(() => this.tick(), 1000 / TICK_RATE);
+    }, 0);
+  }
+
+  send(msg: ClientMessage): void {
+    switch (msg.t) {
+      case 'input':
+        setInput(this.match, 0, msg.x, msg.y);
+        break;
+      case 'rematch':
+        if (this.match.phase === PHASE_OVER) resetMatch(this.match);
+        break;
+      case 'ping':
+        this.onMessage?.({ t: 'pong', id: msg.id });
+        break;
+    }
+  }
+
+  close(): void {
+    if (this.loop !== null) clearInterval(this.loop);
+    this.loop = null;
+  }
+
+  private tick(): void {
+    if (this.match.phase === PHASE_WAITING) resetMatch(this.match);
+
+    // Catch up on real elapsed time rather than assuming the interval fired on
+    // schedule. A slow device drops frames instead of playing in slow motion.
+    const now = performance.now();
+    const elapsed = Math.min((now - this.lastTime) / 1000, MAX_CATCHUP_SECONDS);
+    this.lastTime = now;
+    this.accumulator += elapsed;
+
+    const events: StepEvent[] = [];
+    let steps = 0;
+    while (this.accumulator >= TICK_DT && steps < MAX_CATCHUP_STEPS) {
+      this.accumulator -= TICK_DT;
+      steps++;
+      this.driveBot(TICK_DT);
+      events.push(...step(this.match, TICK_DT));
+    }
+    if (steps === 0) return;
+
+    this.onMessage?.({
+      t: 'snap',
+      s: encodeSnapshot(this.match),
+      ...(events.length ? { e: events } : {}),
+    });
+  }
+
+  private driveBot(dt: number): void {
+    const { puck } = this.match;
+    const cfg = this.cfg;
+
+    this.noiseTimer -= dt;
+    if (this.noiseTimer <= 0) {
+      this.noiseTimer = cfg.reaction;
+      this.noiseX = (Math.random() * 2 - 1) * cfg.noise;
+      this.noiseY = (Math.random() * 2 - 1) * cfg.noise * 0.6;
+    }
+
+    const homeY = PADDLE_R + 14;
+    let wantX: number;
+    let wantY: number;
+
+    if (puck.y < TABLE_H * 0.55) {
+      // Puck is in reach — line up behind it so the hit goes downfield.
+      wantX = puck.x + puck.vx * cfg.lead;
+      wantY = puck.y + puck.vy * cfg.lead - (PADDLE_R + PUCK_R) * 0.8;
+    } else {
+      // Puck is down the other end — shadow it from the goal line.
+      wantX = TABLE_W / 2 + (puck.x - TABLE_W / 2) * 0.35;
+      wantY = homeY;
+    }
+
+    wantX += this.noiseX;
+    wantY += this.noiseY;
+
+    const dx = wantX - this.handX;
+    const dy = wantY - this.handY;
+    const d = Math.hypot(dx, dy);
+    const maxStep = cfg.speed * dt;
+    if (d > maxStep && d > 0) {
+      this.handX += (dx / d) * maxStep;
+      this.handY += (dy / d) * maxStep;
+    } else {
+      this.handX = wantX;
+      this.handY = wantY;
+    }
+
+    const clamped = clampPaddleTarget(1, this.handX, this.handY);
+    this.handX = clamped.x;
+    this.handY = clamped.y;
+    setInput(this.match, 1, this.handX, this.handY);
+  }
+}

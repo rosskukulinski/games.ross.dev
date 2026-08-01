@@ -32,6 +32,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
+            games/air-hockey/node_modules
             games/balloon-pop-blitz/node_modules
             games/guess-the-drawing/node_modules
             games/hanyverse/node_modules
@@ -45,6 +46,10 @@ jobs:
 
       - name: Build all games
         run: node scripts/build-all.js
+        env:
+          # Base URL of the multiplayer Worker. Optional: unset, the game
+          # falls back to <origin>/mp and then to solo-vs-bot.
+          VITE_MP_SERVER_URL: ${{ vars.MP_SERVER_URL }}
 
       - name: Deploy preview to Cloudflare Pages
         id: deploy
