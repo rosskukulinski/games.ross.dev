@@ -24,12 +24,39 @@ const SHELL = __SHELL__;
 const ASSET_PATHS = ASSETS.map(([path]) => path);
 const TOTAL_BYTES = ASSETS.reduce((sum, [, bytes]) => sum + bytes, 0);
 
+/**
+ * Safari rejects a navigation response whose `redirected` flag is set, with
+ * "Response served by service worker has redirections" — so a redirect that
+ * was followed on the way into the cache breaks the page offline. Rebuilding
+ * the response drops the flag. Cache.addAll gives no chance to do this, which
+ * is why precaching is written out by hand below.
+ */
+async function withoutRedirectFlag(response) {
+  if (!response.redirected) return response;
+  return new Response(await response.blob(), {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+async function fetchAndCache(cache, path) {
+  // reload bypasses the HTTP cache so a precache always stores fresh bytes.
+  const response = await fetch(new Request(path, { cache: 'reload' }));
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${path}`);
+  await cache.put(path, await withoutRedirectFlag(response));
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(SHELL))
-      .then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(CACHE);
+      // Tolerate individual failures. A worker that cannot finish installing
+      // can never replace a broken one already serving this site, and the
+      // background precache refetches whatever is missing anyway.
+      await Promise.allSettled(SHELL.map((path) => fetchAndCache(cache, path)));
+      await self.skipWaiting();
+    })()
   );
 });
 
@@ -91,10 +118,7 @@ async function precacheAll() {
     while (index < pending.length) {
       const [path, size] = pending[index++];
       try {
-        // reload bypasses the HTTP cache so a precache always stores fresh bytes.
-        const response = await fetch(new Request(path, { cache: 'reload' }));
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        await cache.put(path, response);
+        await fetchAndCache(cache, path);
         bytes += size;
       } catch (err) {
         failed.push(path);
@@ -191,14 +215,18 @@ self.addEventListener('fetch', (event) => {
       const cache = await caches.open(CACHE);
       let cached = await cache.match(request, { ignoreSearch: true });
 
-      // Directory URLs like /phase-10/ are cached under their index.html.
+      // Pages are cached under their directory URL (/phase-10/), so map the
+      // other spellings of the same page onto it.
       if (!cached && request.mode === 'navigate') {
-        const base = url.pathname.endsWith('/') ? url.pathname : `${url.pathname}/`;
-        cached = await cache.match(`${base}index.html`);
+        const directory = url.pathname.replace(/index\.html$/, '');
+        cached = await cache.match(directory.endsWith('/') ? directory : `${directory}/`);
       }
 
       if (cached) {
-        return request.headers.has('range') ? rangeResponse(request, cached) : cached;
+        if (request.headers.has('range')) return rangeResponse(request, cached);
+        // Never hand a navigation a redirected response: the browser rejects
+        // it outright and the page dies. Free when the flag is not set.
+        return request.mode === 'navigate' ? withoutRedirectFlag(cached) : cached;
       }
 
       try {
@@ -206,7 +234,9 @@ self.addEventListener('fetch', (event) => {
         // Opportunistically keep anything the precache list missed. Only whole
         // responses: the Cache API rejects the 206 that a range request gets.
         if (response.status === 200 && response.type === 'basic') {
-          cache.put(request, response.clone());
+          const storable = await withoutRedirectFlag(response);
+          cache.put(request, storable.clone());
+          return storable;
         }
         return response;
       } catch (err) {
@@ -216,10 +246,10 @@ self.addEventListener('fetch', (event) => {
         if (request.mode === 'navigate') {
           const segments = url.pathname.split('/').filter(Boolean);
           if (segments.length) {
-            const gameIndex = await cache.match(`${self.registration.scope}${segments[0]}/index.html`);
-            if (gameIndex) return gameIndex;
+            const gameHome = await cache.match(`${self.registration.scope}${segments[0]}/`);
+            if (gameHome) return gameHome;
           }
-          const home = await cache.match(`${self.registration.scope}index.html`);
+          const home = await cache.match(self.registration.scope);
           if (home) return home;
         }
         throw err;
