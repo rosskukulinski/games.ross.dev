@@ -33,6 +33,10 @@ async function boot(): Promise<void> {
     const rect = app.canvas.getBoundingClientRect();
     return ((clientX - rect.left) / rect.width) * W;
   }
+  function toGameY(clientY: number): number {
+    const rect = app.canvas.getBoundingClientRect();
+    return ((clientY - rect.top) / rect.height) * H;
+  }
 
   let pointerDown = false;
   let downX = 0;
@@ -55,7 +59,7 @@ async function boot(): Promise<void> {
     pointerDown = false;
     // treat as a tap when it wasn't a long drag
     const wasDrag = moved && Math.abs(e.clientX - downX) > 24 && performance.now() - downTime > 250;
-    if (!wasDrag) game.onPress();
+    if (!wasDrag) game.onPress(toGameX(e.clientX), toGameY(e.clientY));
   });
   window.addEventListener('pointercancel', () => {
     pointerDown = false;
