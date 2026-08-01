@@ -532,6 +532,8 @@ export class Game {
       this.newBest = true;
       localStorage.setItem(HS_KEY, String(this.best));
     }
+    // Global from /arcade/arcade.js — absent when this game runs standalone.
+    (window as any).Arcade?.submit({ game: 'balloon-pop-blitz', value: this.score });
     audio.gameOver();
 
     this.overMsgText.text = ENCOURAGE[Math.floor(Math.random() * ENCOURAGE.length)];

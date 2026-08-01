@@ -1890,6 +1890,8 @@ export class Game {
       } else {
         audio.gameOver();
       }
+      // Global from /arcade/arcade.js — absent when this game runs standalone.
+      (window as any).Arcade?.submit({ game: 'pinball', value: this.score });
       this.showGameOver();
       return;
     }

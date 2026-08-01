@@ -122,6 +122,11 @@ export default function App() {
               bestTime: isNewBest ? Math.floor(elapsed) : savedBest,
               newBest: isNewBest,
             });
+            // The arcade leaderboard ranks this game in seconds, not ms.
+            window.Arcade?.submit({
+              game: 'treasure-hunt-island',
+              value: Number((elapsed / 1000).toFixed(2)),
+            });
           }, 800);
         } else {
           updateUi({ message: 'Nothing here...' });

@@ -126,6 +126,7 @@ export default function App() {
       localStorage.setItem(LS_KEY, best)
       return best
     })
+    window.Arcade?.submit({ game: 'asteroid-dodger', value: finalScore })
   }, [])
 
   // Keyboard input

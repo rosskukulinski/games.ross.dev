@@ -189,6 +189,9 @@ function endRound(won: boolean): void {
     const best = loadBest();
     const isBest = best === null || time < best;
     if (isBest) localStorage.setItem(BEST_KEY, time.toFixed(1));
+    // Only a completed rally has a time worth ranking. Global from
+    // /arcade/arcade.js — absent when this game runs standalone.
+    (window as any).Arcade?.submit({ game: 'robot-rally', value: Number(time.toFixed(1)) });
     endTitle.textContent = 'You Win!';
     endSub.textContent = 'Every orb collected — great flying, robot!';
     endStats.innerHTML =

@@ -296,16 +296,23 @@ if (landingNeedsBuild) {
   skippedCount++;
 }
 
-// Clean stale entries from dist/ (games no longer in the list)
-const validDirs = new Set([...games, ...fs.readdirSync(LANDING_DIR)]);
+// Clean stale entries from dist/ (games no longer in the list, and landing
+// files that have since been renamed or deleted). Files matter as much as
+// directories here: dist/ is restored from the CI cache between runs, and the
+// service worker precaches whatever it finds, so a leftover page would be
+// shipped and cached indefinitely.
+const GENERATED = new Set(['sw.js']); // written further down, after this sweep
+const validEntries = new Set([...games, ...fs.readdirSync(LANDING_DIR)]);
 for (const entry of fs.readdirSync(DIST_DIR)) {
-  if (!validDirs.has(entry)) {
-    const fullPath = path.join(DIST_DIR, entry);
-    if (fs.statSync(fullPath).isDirectory() && !games.includes(entry)) {
-      console.log(`🧹 Removing stale: dist/${entry}/`);
-      fs.rmSync(fullPath, { recursive: true });
-      delete manifest.entries[entry];
-    }
+  if (validEntries.has(entry) || GENERATED.has(entry)) continue;
+  const fullPath = path.join(DIST_DIR, entry);
+  if (fs.statSync(fullPath).isDirectory()) {
+    console.log(`🧹 Removing stale: dist/${entry}/`);
+    fs.rmSync(fullPath, { recursive: true });
+    delete manifest.entries[entry];
+  } else {
+    console.log(`🧹 Removing stale: dist/${entry}`);
+    fs.rmSync(fullPath);
   }
 }
 

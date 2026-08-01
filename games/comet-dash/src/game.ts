@@ -393,6 +393,8 @@ export class Game {
       this.best = Math.floor(this.score);
       localStorage.setItem("cometDash.best", String(this.best));
     }
+    // Global from /arcade/arcade.js — absent when this game runs standalone.
+    (window as any).Arcade?.submit({ game: "comet-dash", value: Math.floor(this.score) });
     window.setTimeout(() => {
       this.hud.showGameOver(this.score, this.best, isNewBest);
     }, 900);

@@ -252,6 +252,16 @@ self.addEventListener('fetch', (event) => {
           const home = await cache.match(self.registration.scope);
           if (home) return home;
         }
+        // Scores are inherently online-only, so /api/* is never cached and is
+        // expected to fail here. Answer with the same shape the server sends
+        // when it has no database, which every caller already handles, rather
+        // than a network error that surfaces in the console as a broken page.
+        if (url.pathname.startsWith('/api/')) {
+          return new Response(
+            JSON.stringify({ error: 'offline', message: 'The arcade is offline — scores are unavailable.' }),
+            { status: 503, headers: { 'content-type': 'application/json; charset=utf-8' } }
+          );
+        }
         throw err;
       }
     })()

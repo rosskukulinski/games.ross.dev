@@ -48,6 +48,10 @@ npm run build:force  # Rebuild all games (ignore cache)
 npm run serve        # Serve dist/ locally
 npm run dev          # Build then serve
 npm run clean        # Remove dist/
+
+npm run db:local     # Create/migrate a local D1 database for the leaderboard
+npm run dev:api      # Serve dist/ with the Pages Functions + local D1 bound
+npm run db:migrate   # Apply db/migrations to the remote D1 database
 ```
 
 The build script uses content-hash caching (`.build-cache.json`, gitignored) to skip unchanged games. It hashes all source files in each game directory and only rebuilds when the hash changes, `dist/<game>/` is missing, or the build script itself changes. Dependency installs (`npm ci`) are also skipped when `package-lock.json` hasn't changed.
@@ -65,6 +69,24 @@ Or manually:
 3. Add the game slug to `scripts/games-list.js`
 4. Add a card to `landing/index.html`
 5. Add an SVG icon to `landing/icons/<name>.svg`
+6. To put it on the leaderboard, follow "Adding a game" in `docs/leaderboard.md`
+
+## Leaderboard
+
+Scores are stored server-side in Cloudflare D1 and served by Pages Functions in
+`functions/`. `landing/arcade/games.js` is the single registry of which games
+rank and how; the browser and the Functions both import it. Nine games post
+scores today. Full setup, API and conventions: **`docs/leaderboard.md`**.
+
+```
+db/migrations/     # D1 schema
+functions/         # Pages Functions (repo root — wrangler resolves it from cwd)
+landing/arcade/    # Published at /arcade/: registry, client SDK, page scripts
+landing/leaderboard/index.html
+```
+
+The D1 binding (`DB`) is configured in the Cloudflare Pages dashboard, not in
+git. Without it the API returns 503 and the games play normally.
 
 ## Build System
 
