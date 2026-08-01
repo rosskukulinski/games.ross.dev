@@ -51,7 +51,10 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE);
-      await Promise.all(SHELL.map((path) => fetchAndCache(cache, path)));
+      // Tolerate individual failures. A worker that cannot finish installing
+      // can never replace a broken one already serving this site, and the
+      // background precache refetches whatever is missing anyway.
+      await Promise.allSettled(SHELL.map((path) => fetchAndCache(cache, path)));
       await self.skipWaiting();
     })()
   );
@@ -220,7 +223,10 @@ self.addEventListener('fetch', (event) => {
       }
 
       if (cached) {
-        return request.headers.has('range') ? rangeResponse(request, cached) : cached;
+        if (request.headers.has('range')) return rangeResponse(request, cached);
+        // Never hand a navigation a redirected response: the browser rejects
+        // it outright and the page dies. Free when the flag is not set.
+        return request.mode === 'navigate' ? withoutRedirectFlag(cached) : cached;
       }
 
       try {
