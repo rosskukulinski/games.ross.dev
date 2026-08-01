@@ -1,0 +1,26 @@
+// The games that get built into dist/. Single source of truth for the build
+// and the offline check — add a new game's slug here.
+module.exports = [
+  'asteroid-dodger',
+  'balloon-pop-blitz',
+  'comet-dash',
+  'connect-four',
+  'grand-hotel-tycoon',
+  'guess-the-drawing',
+  'hangman',
+  'hanyverse',
+  'kpop-rythm-tap',
+  'neon-bricks',
+  'number-line-monster',
+  'ojoj',
+  'pet-care-game',
+  'phase-10',
+  'pinball',
+  'robot-rally',
+  'sir-name-alot',
+  'skee-ball',
+  'sudoku',
+  'tic-tac-toe',
+  'treasure-hunt-island',
+  'unicorn-dragon',
+];

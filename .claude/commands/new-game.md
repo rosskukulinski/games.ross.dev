@@ -35,7 +35,7 @@ Reference implementations: `games/comet-dash` (Babylon), `games/robot-rally` (Th
 
 ## 5. Register the game
 
-1. Add the slug to the `games` array in `scripts/build-all.js` (and `staticGames` only if it has no build step).
+1. Add the slug to `scripts/games-list.js` (and the `staticGames` array in `scripts/build-all.js` only if it has no build step).
 2. Add a card to `landing/index.html` in the `.game-grid` (alphabetical-ish position).
 3. Create a real scene-depicting SVG icon at `landing/icons/$ARGUMENTS.svg` (100×100, rounded-rect background, style-matched to the game — look at existing icons; no generic gamepad placeholders).
 4. Add a row to the Game Inventory table in the root `CLAUDE.md`.

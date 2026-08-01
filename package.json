@@ -6,6 +6,8 @@
     "dev": "node scripts/build-all.js && npx serve dist",
     "serve": "npx serve dist",
     "build:force": "node scripts/build-all.js --force",
+    "serve:pages": "node scripts/pages-server.js",
+    "verify:offline": "node scripts/verify-offline.js",
     "clean": "rm -rf dist"
   }
 }

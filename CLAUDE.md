@@ -62,7 +62,7 @@ Use the `/new-game` slash command:
 Or manually:
 1. Create `games/<name>/` with your game code
 2. If using Vite, set `base: './'` in vite.config (required for subdirectory serving)
-3. Add the game slug to the `games` array in `scripts/build-all.js`
+3. Add the game slug to `scripts/games-list.js`
 4. Add a card to `landing/index.html`
 5. Add an SVG icon to `landing/icons/<name>.svg`
 
@@ -99,6 +99,24 @@ first visit.
 **Installing**: Mac — Safari's *Add to Dock*, or Chrome's install button.
 iPad — Share → *Add to Home Screen*. On iOS this step matters: Safari evicts
 site data for tabs unused for 7 days, but home screen web apps keep theirs.
+
+**Verifying**: `npm run build && npm run verify:offline` precaches, kills the
+server, and loads every game from cache alone. Run it after touching anything
+in the offline path. It serves through `scripts/pages-server.js`, which
+imitates Cloudflare Pages — `npx serve dist` does **not**, and the difference
+hides real bugs (see below).
+
+**Safari gotchas** — both already handled, but easy to reintroduce:
+
+- *Redirects.* Safari refuses a navigation response whose `redirected` flag is
+  set ("Response served by service worker has redirections"). Pages
+  308-redirects `/index.html` → `/`, so pages are cached under their directory
+  URL (`/phase-10/`), and anything cached is rebuilt to clear the flag. Chromium
+  serves redirected responses happily, so only the assertion in
+  `verify-offline.js` catches this — not a passing page load.
+- *Range requests.* Safari asks for audio with a `Range` header and rejects the
+  plain 200 the Cache API returns, so the worker slices cached media into real
+  206 responses.
 
 Two rules to keep offline working when adding a game:
 
