@@ -37,7 +37,7 @@ await new Promise((r) => server.listen(PORT, r));
 const errors = [];
 const failed = [];
 const browser = await chromium.launch({
-  executablePath: '/opt/pw-browsers/chromium',
+  executablePath: process.env.PW_CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
 });
 const page = await browser.newPage({ viewport: { width: 900, height: 1100 }, deviceScaleFactor: 1 });

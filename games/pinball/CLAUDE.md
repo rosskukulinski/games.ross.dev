@@ -59,6 +59,47 @@ These were all real bugs; the numbers matter.
   table, and the orbit returns the ball down the left every launch. Fixed by
   pulling the outer walls in and adding kickbacks. Flipper contacts went from
   near zero to ~40 per ball.
+- **That fix did not hold, and `flipHits / serves` did not catch it.** Contacts
+  per ball stayed in the tens while 76% of balls still died in the outlanes —
+  the autoplay bot flips ~5x/second, so it racks up contacts on the few balls
+  that do come down and tells you nothing about the ones that never arrive.
+  What exposes it is dropping balls with **no flipping at all** and asking how
+  many reach the bats. Only 24% did.
+- **The lane commit is binary, and it happens at y≈1000.** Bucketing passive
+  drops by the x they cross y=1000 gives ~100% reaching the bats inside a
+  corridor and ~0% outside it — there is no gradient. So the number to move is
+  the *width of that corridor*, not anything about the outlane itself. It was
+  x∈[200,600]; it is now x∈[160,680], which took reach from 24% to 73%.
+- **Guide height matters far more than mouth width.** A 37 px aperture at
+  y=968 let 13% of balls into the outlane; a 36 px aperture at y=1000 let in
+  45%. Near-identical gaps, wildly different outcomes — what counts is how
+  early the guide's inward-leaning face starts shedding balls, not how tight
+  the gap is. Tune `GUIDE_LEFT[0]` (currently `[133, 980]`); lower/inboard is
+  harder, higher/outboard is more forgiving.
+- **Do not extend the guides much above y≈980.** At `[128, 968]` reach hits
+  88% and the outlanes effectively close, but the guide then walls off the
+  channels the ball uses to get *back up* to the targets and orbit, and games
+  stop ending. Closing an outlane and blocking a shot lane are the same edit
+  at different heights.
+- **An aperture narrower than 28 px seals rather than narrows.** `[128, 1000]`
+  computes to 22.6 px of clear width, so no ball ever enters the outlane —
+  it wedges in the mouth instead. Always check the arithmetic against the ball
+  diameter before trusting a probe result that looks too good.
+- **`POSTS` is empty and should stay that way unless a post earns its place.**
+  All five sat where they deflected balls outward into an outlane, and they
+  cost ~14 points of reach between them. The pair at y=924 is the subtle one:
+  it sits just above the outer star rollovers, close enough that players blame
+  the stars — which are triggers with no collider and cannot trap anything.
+  Before moving a rollover, check whether a post is the real culprit.
+- **The slingshots were 22% too big.** At their original size the bodies
+  crowded the space directly in front of the bats and left only a 56px channel
+  between their inner tips. Scaling them down about their centroids opened
+  that to 84px and lifted the bottom corner clear of the flipper, worth ~5
+  points of reach on its own.
+- `WALL_RIGHT` now mirrors `WALL_LEFT` instead of repeating the literals.
+  While they were independent, a change to the left wall left the right
+  aperture 8 px narrower — under a ball width — and balls wedged there. If you
+  edit one outer wall, the other must follow, so let the code do it.
 - A kickback must fire the ball **from where it stands**. Teleporting it onto
   the kicker's own coordinates put it inside the outer wall, so it was shoved
   back out and drained anyway — 97 kicks produced 97 outlane drains.
@@ -109,9 +150,15 @@ pacing must be measured in game time, not wall time. Watch for `longest stall`
 above ~0.5 s (a ball trapped somewhere) and check every feature in the
 `features:` line still fires.
 
-**The metric that matters is `flipHits / serves` — flipper contacts per ball.**
-Time-in-zone percentages look reasonable even when the table is quietly killing
-every ball somewhere the player can't reach; contacts per ball does not. It
-should sit in the tens. `stats.drainX` records where each ball actually died:
-bucket it and check the deaths are near the flipper gap (x ~384-420) rather
-than out at the edges.
+**The metric that matters is `stats.drainX` — where balls actually die.** Bucket
+it and check the deaths are near the flipper gap (x ~384-420) rather than out at
+the edges (x ~235-260 and ~540-570, the outlanes). `flipHits / serves` is *not*
+sufficient on its own: it sat in the tens through a period when three quarters of
+balls were dying unreachably, because the bot flails at whatever does come down.
+
+Neither harness answers "can the ball reach the flippers at all", because both
+flip constantly. For that, drop balls with no flipping and count how many reach
+the bats — see the passive-drop findings above. Note also that the bot defends
+the centre drain near-perfectly, so once the outlanes are fair it stops losing
+and games run past the 600 s cap; that is an artefact of the bot, not
+necessarily of the table. Judge difficulty from `drainX` and from playing it.

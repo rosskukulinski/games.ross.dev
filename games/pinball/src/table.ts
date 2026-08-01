@@ -76,8 +76,20 @@ export interface SlingDef {
   x2: number; y2: number;
   x3: number; y3: number;
 }
-export const SLING_L: SlingDef = { x1: 278, y1: 1072, x2: 274, y2: 1176, x3: 374, y3: 1144 };
-export const SLING_R: SlingDef = { x1: 526, y1: 1072, x2: 530, y2: 1176, x3: 430, y3: 1144 };
+/**
+ * Scaled ~22% down about the centroid from the original
+ * (278,1072)/(274,1176)/(374,1144): the bodies crowded the space directly in
+ * front of the bats. Shrinking lifts the bottom corner 10px clear of the
+ * flipper and opens the centre channel between the two inner tips from 56px
+ * to 84px, so a ball coming down the middle has somewhere to go.
+ */
+export const SLING_L: SlingDef = { x1: 285, y1: 1085, x2: 282, y2: 1166, x3: 360, y3: 1141 };
+/** Mirrored, so the pair can't drift apart the way the outer walls once did. */
+export const SLING_R: SlingDef = {
+  x1: 2 * PF_CX - SLING_L.x1, y1: SLING_L.y1,
+  x2: 2 * PF_CX - SLING_L.x2, y2: SLING_L.y2,
+  x3: 2 * PF_CX - SLING_L.x3, y3: SLING_L.y3,
+};
 
 // --- drop targets -----------------------------------------------------------
 export interface TargetDef { x: number; y: number; angle: number }
@@ -95,14 +107,15 @@ export const TARGETS_R: TargetDef[] = TARGETS_L.map((t) => ({
 }));
 
 // --- posts, rollovers, saucer ----------------------------------------------
-export const POSTS: { x: number; y: number; r: number }[] = [
-  { x: 402, y: 1086, r: 14 },
-  { x: 226, y: 924, r: 13 },
-  { x: 578, y: 924, r: 13 },
-  // rubber at the mouth of each outlane, so cheap side drains are rarer
-  { x: 196, y: 1032, r: 13 },
-  { x: 608, y: 1032, r: 13 },
-];
+/**
+ * Empty on purpose. Every post that used to live here sat where it deflected
+ * balls outward into an outlane: a pair at y=924 just above the outer star
+ * rollovers (players read them as part of that cluster and reported balls
+ * being trapped to the gutters there), a pair at the outlane mouths, and one
+ * dead centre at y=1086 directly above the flipper gap. Removing all five is
+ * worth ~14 points of "balls that reach a bat" between them.
+ */
+export const POSTS: { x: number; y: number; r: number }[] = [];
 
 /** Big painted planet that anchors the middle of the table. */
 export const PLANET_X = 402;
@@ -155,17 +168,20 @@ type Poly = [number, number][];
 export const WALL_LEFT: Poly = [
   [LEFT_X, ARCH_CY],
   [LEFT_X, 894],
-  [126, 1044],
-  [150, 1160],
-  [174, 1292],
+  [108, 1040],
+  [132, 1160],
+  [168, 1292],
   [192, APRON_Y + 20],
 ];
+/**
+ * Mirrors the left wall's lower run rather than repeating the numbers. When
+ * these were two independent lists the right outlane aperture silently drifted
+ * 8px narrower than the left, which is under a ball width once you add the
+ * wall radii — balls wedged in the mouth and never came down.
+ */
 export const WALL_RIGHT: Poly = [
   [DIV_X, 894],
-  [2 * PF_CX - 126, 1044],
-  [2 * PF_CX - 150, 1160],
-  [2 * PF_CX - 174, 1292],
-  [2 * PF_CX - 192, APRON_Y + 20],
+  ...WALL_LEFT.slice(2).map(([x, y]) => [2 * PF_CX - x, y] as [number, number]),
 ];
 export const WALL_DIVIDER: Poly = [
   [DIV_X, DIV_TOP_Y],
@@ -184,10 +200,20 @@ export const WALL_LANE_FLOOR: Poly = [
  * clears the flipper bat: it catches the ball out of the inlane and rolls it
  * onto the middle of the bat. Earlier revisions funnelled the inlane shut and
  * the ball wedged permanently beside the flipper's pivot.
+ *
+ * The top point is the table's difficulty knob. It decides how early the
+ * inward-leaning face starts shedding balls away from the outlane, which is
+ * what actually sets the share of balls that reach the bats — the width of the
+ * outlane mouth barely matters next to it. At [196, 1046] only 24% of balls
+ * arrived at a flipper; at [133, 980] it is 73%. Lower and inboard is harder.
+ * Two limits: above y≈980 the guide starts blocking the channels the ball uses
+ * to get back up the table, and any aperture under 28px seals the outlane and
+ * wedges the ball instead of narrowing it.
  */
 export const GUIDE_LEFT: Poly = [
-  [196, 1046],
-  [206, 1152],
+  [133, 980],
+  [176, 1052],
+  [200, 1152],
   [234, 1216],
   [282, 1240],
 ];
