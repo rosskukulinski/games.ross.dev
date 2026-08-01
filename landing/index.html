@@ -13,6 +13,9 @@
   <header>
     <h1>Family Game Arcade</h1>
     <p class="subtitle">Built with Claude Code</p>
+    <nav class="arcade-nav">
+      <a href="./leaderboard.html">🏆 Leaderboard</a>
+    </nav>
   </header>
   <main>
     <div class="game-grid">
@@ -195,5 +198,7 @@
 
     </div>
   </main>
+  <!-- Adds a champion line to each card once scores exist; no-ops if the API is down. -->
+  <script type="module" src="arcade/home-badges.js"></script>
 </body>
 </html>

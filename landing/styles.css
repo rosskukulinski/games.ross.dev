@@ -86,11 +86,218 @@ main {
   line-height: 1.4;
 }
 
+/* ---------------------------------------------------------------- arcade */
+
+.arcade-nav {
+  margin-top: 1.2rem;
+}
+
+.arcade-nav a {
+  display: inline-block;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  background: white;
+  color: #7c3aed;
+  font-weight: 600;
+  font-size: 0.95rem;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.arcade-nav a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.22);
+}
+
+/* Champion line appended to a game card by arcade/home-badges.js. */
+.card-champ {
+  margin-top: 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.board-status {
+  color: #7c6b9a;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.board-note {
+  margin-top: 0.9rem;
+  font-size: 0.82rem;
+  color: #7c6b9a;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tab {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.4rem 0.85rem;
+  border: none;
+  border-radius: 999px;
+  background: white;
+  color: #7c6b9a;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+}
+
+.tab:hover {
+  color: #2d1b4e;
+}
+
+.tab-empty {
+  opacity: 0.55;
+}
+
+.tab-on {
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  color: white;
+  opacity: 1;
+}
+
+.panel {
+  background: white;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.panel-head h2,
+.feed-head {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.feed-head {
+  margin-bottom: 0.8rem;
+}
+
+.panel-play {
+  color: #7c3aed;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.board-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.board-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a397bd;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.board-table td {
+  padding: 0.55rem 0.5rem;
+  border-top: 1px solid #f0e9fb;
+}
+
+.board-table tbody tr:first-child td {
+  border-top: none;
+}
+
+/* Scoped to beat the `.board-table th` default alignment above. */
+.board-table .c-rank {
+  width: 2.6rem;
+  text-align: center;
+}
+
+.board-table .c-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.c-strong {
+  font-weight: 600;
+}
+
+.feed {
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.feed li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid #f0e9fb;
+}
+
+.feed li:first-child {
+  border-top: none;
+}
+
+.feed-who {
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+
+.feed-what {
+  color: #7c6b9a;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-score {
+  font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
+}
+
+.feed-when {
+  color: #a397bd;
+  font-size: 0.8rem;
+  flex: 0 0 auto;
+}
+
 @media (max-width: 600px) {
   header h1 {
     font-size: 2rem;
   }
   .game-grid {
     grid-template-columns: 1fr;
+  }
+  .panel {
+    padding: 1.1rem;
+  }
+  /* Secondary columns go first when there is no room for them. */
+  .c-hide {
+    display: none;
+  }
+  .feed-when {
+    display: none;
   }
 }

@@ -90,6 +90,15 @@ export default function App() {
     results.isNewHs = isNewHs;
 
     updateUi({ phase: 'results', results });
+
+    // The arcade board ranks a player's best run on any track; the song is
+    // recorded as the variant so the activity feed can still name it.
+    window.Arcade?.submit({
+      game: 'kpop-rythm-tap',
+      value: score,
+      variant: g.song.id,
+      meta: { song: g.song.title, grade, accuracy: Number(accuracy.toFixed(3)) },
+    });
   }, [updateUi, getAudio]);
 
   const selectSong = useCallback(

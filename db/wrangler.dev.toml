@@ -1,0 +1,20 @@
+# Local-development-only Wrangler config.
+#
+# Deliberately *not* named `wrangler.toml` and not at the repo root: a Pages
+# project's real config must carry a live `database_id`, and a placeholder there
+# would fail every production and preview deploy. The production binding lives
+# in the Cloudflare dashboard instead — see docs/leaderboard.md.
+#
+# This file exists only so `wrangler d1 execute --local` knows which local
+# database to create and migrate. It is passed explicitly with `-c`, so no other
+# Wrangler command ever picks it up.
+
+name = "arcade-local"
+compatibility_date = "2026-08-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "arcade-scores"
+# Matches `--d1 DB=arcade-scores` in `npm run dev:api`, so both commands address
+# the same local SQLite file under .wrangler/state.
+database_id = "arcade-scores"

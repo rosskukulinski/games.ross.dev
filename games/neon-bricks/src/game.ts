@@ -496,6 +496,8 @@ export class Game {
 
   private showEndScreen(win: boolean): void {
     this.state = win ? 'win' : 'gameover';
+    // Global from /arcade/arcade.js — absent when this game runs standalone.
+    (window as any).Arcade?.submit({ game: 'neon-bricks', value: this.score });
     this.clearOverlay();
     this.overlay.addChild(this.dimPanel());
 

@@ -6,6 +6,12 @@
     "dev": "node scripts/build-all.js && npx serve dist",
     "serve": "npx serve dist",
     "build:force": "node scripts/build-all.js --force",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "dev:api": "wrangler pages dev dist --d1 DB=arcade-scores",
+    "db:local": "wrangler d1 execute DB --local -c db/wrangler.dev.toml --persist-to .wrangler/state --file db/migrations/0001_init.sql -y",
+    "db:migrate": "wrangler d1 execute arcade-scores --remote --file db/migrations/0001_init.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.118.0"
   }
 }

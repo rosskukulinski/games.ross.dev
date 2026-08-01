@@ -518,6 +518,8 @@ export class Game {
       this.hud.setBest(this.best);
       this.bursts.confetti();
     }
+    // Global from /arcade/arcade.js — absent when this game runs standalone.
+    (window as any).Arcade?.submit({ game: "skee-ball", value: this.score });
     this.audio.gameOver(newBest);
     this.hud.setHint("");
     this.hud.showGameOver(this.score, this.best, newBest, this.shots);
