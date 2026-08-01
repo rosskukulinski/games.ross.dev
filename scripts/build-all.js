@@ -118,6 +118,64 @@ function saveManifest(manifest) {
   fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2) + '\n');
 }
 
+function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Writes dist/sw.js from scripts/sw-template.js, injecting the list of every
+// built file plus a version hash derived from their contents.
+function buildServiceWorker() {
+  // sw.js is the worker itself; _headers and _redirects are Cloudflare Pages
+  // config that is never served, so precaching them would just 404.
+  const notPrecacheable = new Set(['sw.js', '_headers', '_redirects']);
+  const files = collectFiles(DIST_DIR)
+    .filter((file) => !notPrecacheable.has(path.basename(file)) && !file.endsWith('.map'))
+    .sort();
+
+  const hash = crypto.createHash('sha256');
+  const assets = [];
+  const shell = [];
+
+  for (const file of files) {
+    const rel = path.relative(DIST_DIR, file).split(path.sep).join('/');
+    const contents = fs.readFileSync(file);
+    hash.update(rel);
+    hash.update(contents);
+
+    const url = `./${rel}`;
+    assets.push([url, contents.length]);
+    // Anything outside a game directory is the landing page — cached during
+    // install so the arcade opens immediately, before the library finishes.
+    if (!games.includes(rel.split('/')[0])) shell.push(url);
+  }
+
+  const version = hash.digest('hex').slice(0, 12);
+  const totalBytes = assets.reduce((sum, [, bytes]) => sum + bytes, 0);
+
+  const replacements = {
+    __VERSION__: version,
+    __ASSETS__: JSON.stringify(assets),
+    __SHELL__: JSON.stringify(shell),
+  };
+
+  const template = fs.readFileSync(path.join(__dirname, 'sw-template.js'), 'utf8');
+  let source = template;
+  for (const [token, value] of Object.entries(replacements)) {
+    if (!source.includes(token)) {
+      console.error(`❌ sw-template.js is missing the ${token} placeholder`);
+      process.exit(1);
+    }
+    // Function form: file names must never be read as $-replacement patterns.
+    source = source.replaceAll(token, () => value);
+  }
+
+  fs.writeFileSync(path.join(DIST_DIR, 'sw.js'), source);
+  console.log(
+    `\n📦 Service worker: ${assets.length} files, ${formatBytes(totalBytes)} offline (build ${version})`
+  );
+}
+
 // --- Main build ---
 
 const manifest = loadManifest();
@@ -263,6 +321,10 @@ for (const entry of fs.readdirSync(DIST_DIR)) {
     }
   }
 }
+
+// Service worker — regenerated every run, since dist/ is the source of truth
+// for what to precache and the version hash is what tells browsers to update.
+buildServiceWorker();
 
 // Save manifest
 manifest.scriptHash = scriptHash;
