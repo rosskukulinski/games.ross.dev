@@ -63,6 +63,7 @@ one-time setup needed to point the game at the deployed Worker.
 | skee-ball | Skee-Ball | React + Vite | `vite build` |
 | sudoku | Sudoku | Static (HTML/CSS/JS) | copy only |
 | tic-tac-toe | Tic-Tac-Toe | Static (HTML/CSS/JS) | copy only |
+| tower-defense | Toy Kingdom | React + Vite + Canvas | `vite build` |
 | treasure-hunt-island | Treasure Hunt Island | React + Vite | `vite build` |
 | unicorn-dragon | Unicorn Dragon | Three.js + TS + Vite | `tsc && vite build` |
 
@@ -101,7 +102,7 @@ Or manually:
 
 Scores are stored server-side in Cloudflare D1 and served by Pages Functions in
 `functions/`. `landing/arcade/games.js` is the single registry of which games
-rank and how; the browser and the Functions both import it. Nine games post
+rank and how; the browser and the Functions both import it. Ten games post
 scores today. Full setup, API and conventions: **`docs/leaderboard.md`**.
 
 ```

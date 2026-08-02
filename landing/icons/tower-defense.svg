@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Felt board in a wooden frame -->
+  <rect x="6" y="10" width="88" height="80" rx="10" fill="#4a3a2a"/>
+  <rect x="11" y="15" width="78" height="70" rx="6" fill="#2b2145"/>
+
+  <!-- Maple path routed into the felt -->
+  <path d="M11 33 H70 V55 H26 V77 H89"
+        stroke="#1d1633" stroke-width="17" stroke-linejoin="round"/>
+  <path d="M11 33 H70 V55 H26 V77 H89"
+        stroke="#f0cf9a" stroke-width="13" stroke-linejoin="round"/>
+
+  <!-- A moulded tower piece set on the felt, casting its shadow -->
+  <ellipse cx="80" cy="50" rx="12" ry="11" fill="#0d0819" opacity="0.5"/>
+  <circle cx="78" cy="46" r="12" fill="#1f6f4e"/>
+  <circle cx="78" cy="46" r="7.5" fill="#3ddc97"/>
+  <circle cx="75" cy="43" r="2.6" fill="#ffffff" opacity="0.8"/>
+</svg>

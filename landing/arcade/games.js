@@ -75,6 +75,13 @@ export const GAMES = {
     unit: 'points',
     max: 100_000,
   },
+  'tower-defense': {
+    name: 'Toy Kingdom',
+    dir: 'high',
+    unit: 'points',
+    max: 1_000_000,
+    note: 'Scored on the gold you earn across a run — deeper waves pay more.',
+  },
   'treasure-hunt-island': {
     name: 'Treasure Hunt Island',
     dir: 'low',

@@ -22,6 +22,7 @@ module.exports = [
   'skee-ball',
   'sudoku',
   'tic-tac-toe',
+  'tower-defense',
   'treasure-hunt-island',
   'unicorn-dragon',
 ];
