@@ -28,6 +28,25 @@ const BALL_R = 11;
 // hidden test/demo hook: ?juice cranks the power-up drop rate for screenshots
 const POWERUP_CHANCE = typeof location !== 'undefined' && location.search.includes('juice') ? 0.85 : 0.24;
 const MAX_BALLS = 6;
+const START_LIVES = 3;
+/** Hearts the HUD has room for, and the ceiling extra lives bank up to. */
+const MAX_LIVES = 5;
+// Power-up durations, and the ceiling that stacking can push them to.
+const WIDE_TIME = 10;
+const WIDE_MAX = 20;
+const LASER_TIME = 8;
+const LASER_MAX = 16;
+/** Catching a power-up you're already running pays this instead of being wasted. */
+const STACK_BONUS = 300;
+
+/**
+ * Extra-life thresholds: 10k, 30k, 60k, 100k, 150k… The gap grows by 10k each
+ * time, so a life lands roughly every three levels early on and thins out on a
+ * deep run — it never turns into a treadmill you can farm.
+ */
+function extraLifeAt(n: number): number {
+  return 5000 * (n + 1) * (n + 2);
+}
 
 type GameState = 'start' | 'transition' | 'playing' | 'paused' | 'gameover' | 'win';
 type PowerType = 'wide' | 'multi' | 'laser';
@@ -132,9 +151,9 @@ export class Game {
   private pausedFrom: GameState = 'playing';
   private levels: LevelDef[] = getLevels();
   private levelIndex = 0;
-  /** Highest level index the player has ever reached — the continue point. */
-  private unlocked = 0;
-  private lives = 3;
+  private lives = START_LIVES;
+  /** How many extra-life thresholds this run has already crossed. */
+  private extraLives = 0;
   private score = 0;
   private displayScore = 0;
   private best = 0;
@@ -154,7 +173,6 @@ export class Game {
 
   // input buffering
   private pendingLaunch = false;
-  private buttons: { x: number; y: number; w: number; h: number; action: () => void }[] = [];
 
   // juice
   private shakeMag = 0;
@@ -175,8 +193,12 @@ export class Game {
     this.app = app;
     this.tex = makeTextures(app.renderer);
     this.best = Number(localStorage.getItem('neon-bricks-best') ?? 0) || 0;
-    const saved = Number(localStorage.getItem('neon-bricks-progress') ?? 0) || 0;
-    this.unlocked = Math.max(0, Math.min(this.levels.length - 1, Math.floor(saved)));
+    // Levels used to be unlocked and resumable; every game now starts at level 1.
+    try {
+      localStorage.removeItem('neon-bricks-progress');
+    } catch {
+      // private browsing — nothing to clean up
+    }
 
     this.bg = new NeonBackground(this.tex, W, H);
     this.fxUnder = new ParticleSystem(500);
@@ -319,8 +341,8 @@ export class Game {
     this.levelText.position.set(W / 2, 62);
     this.hud.addChild(this.levelText);
 
-    // hearts
-    for (let i = 0; i < 3; i++) {
+    // hearts — MAX_LIVES slots, right-aligned so the last one clears the mute button
+    for (let i = 0; i < MAX_LIVES; i++) {
       const hc = new Container();
       const glow = new Sprite(this.tex.glow);
       glow.anchor.set(0.5);
@@ -333,10 +355,11 @@ export class Game {
       h.tint = 0xff2d95;
       h.scale.set(1.15);
       hc.addChild(glow, h);
-      hc.position.set(W - 160 + i * 46, 46);
+      hc.position.set(W - 110 - (MAX_LIVES - 1 - i) * 46, 46);
       this.hud.addChild(hc);
       this.hearts.push(hc);
     }
+    this.updateHearts();
 
     // mute button
     const mute = new Container();
@@ -379,33 +402,6 @@ export class Game {
 
   private clearOverlay(): void {
     this.overlay.removeChildren().forEach((c) => c.destroy({ children: true }));
-    this.buttons = [];
-  }
-
-  /**
-   * Overlay button. Presses are hit-tested against these before the screen's
-   * default tap action, so "tap anywhere to play" still works around them.
-   */
-  private menuButton(label: string, y: number, color: number, size: number, action: () => void): void {
-    const t = new Text({
-      text: label,
-      style: { ...chunkyStyle(size, color, size >= 30 ? 5 : 4), letterSpacing: 2 },
-    });
-    t.anchor.set(0.5);
-    t.position.set(W / 2, y);
-
-    const padX = 34;
-    const padY = 14;
-    const w = t.width + padX * 2;
-    const h = t.height + padY * 2;
-    const frame = new Graphics()
-      .roundRect(W / 2 - w / 2, y - h / 2, w, h, 16)
-      .fill({ color: darken(color, 0.16), alpha: 0.5 })
-      .roundRect(W / 2 - w / 2, y - h / 2, w, h, 16)
-      .stroke({ width: 3, color });
-
-    this.overlay.addChild(frame, t);
-    this.buttons.push({ x: W / 2 - w / 2, y: y - h / 2, w, h, action });
   }
 
   private dimPanel(): Graphics {
@@ -464,30 +460,30 @@ export class Game {
     count.position.set(W / 2, 640);
     this.overlay.addChild(count);
 
-    if (this.unlocked > 0) {
-      // Returning player: default tap continues, with an explicit restart.
-      this.menuButton(`CONTINUE  •  LEVEL ${this.unlocked + 1}`, 730, 0xffee32, 34, () =>
-        this.startGame(this.unlocked),
-      );
-      this.menuButton('NEW GAME', 820, 0xff2d95, 26, () => this.startGame(0));
-    } else {
-      const sub = new Text({
-        text: 'CLICK / TAP TO PLAY',
-        style: { ...chunkyStyle(34, 0xffee32, 6), letterSpacing: 3 },
-      });
-      sub.anchor.set(0.5);
-      sub.position.set(W / 2, 740);
-      this.overlay.addChild(sub);
-      this.blink(sub);
-    }
+    const sub = new Text({
+      text: 'CLICK / TAP TO PLAY',
+      style: { ...chunkyStyle(34, 0xffee32, 6), letterSpacing: 3 },
+    });
+    sub.anchor.set(0.5);
+    sub.position.set(W / 2, 740);
+    this.overlay.addChild(sub);
+    this.blink(sub);
 
     const hint = new Text({
       text: 'Move: mouse or drag  •  Launch: tap or SPACE',
       style: chunkyStyle(22, 0x8899dd),
     });
     hint.anchor.set(0.5);
-    hint.position.set(W / 2, this.unlocked > 0 ? 890 : 800);
+    hint.position.set(W / 2, 800);
     this.overlay.addChild(hint);
+
+    const rules = new Text({
+      text: `${START_LIVES} lives  •  extra life at ${extraLifeAt(0) / 1000}k, ${extraLifeAt(1) / 1000}k, ${extraLifeAt(2) / 1000}k…`,
+      style: chunkyStyle(22, 0x39ff14),
+    });
+    rules.anchor.set(0.5);
+    rules.position.set(W / 2, 838);
+    this.overlay.addChild(rules);
 
     if (this.best > 0) {
       const b = new Text({
@@ -495,7 +491,7 @@ export class Game {
         style: chunkyStyle(26, 0xb537f2),
       });
       b.anchor.set(0.5);
-      b.position.set(W / 2, this.unlocked > 0 ? 940 : 860);
+      b.position.set(W / 2, 890);
       this.overlay.addChild(b);
     }
 
@@ -586,25 +582,20 @@ export class Game {
     reached.position.set(W / 2, 716);
     this.overlay.addChild(reached);
 
-    if (win) {
-      const again = new Text({
-        text: 'CLICK / TAP TO PLAY AGAIN',
-        style: { ...chunkyStyle(30, 0xffffff, 5), letterSpacing: 2 },
-      });
-      again.anchor.set(0.5);
-      again.position.set(W / 2, 810);
-      again.alpha = 0;
-      this.overlay.addChild(again);
-      tween(0.4, (t) => !again.destroyed && (again.alpha = t), {
-        delay: 0.9,
-        onComplete: () => !again.destroyed && this.blink(again),
-      });
-    } else {
-      // Retrying the level you died on is the default — 50 levels is too far to redo.
-      const retryAt = this.levelIndex;
-      this.menuButton(`RETRY  •  LEVEL ${retryAt + 1}`, 810, 0xffee32, 32, () => this.startGame(retryAt));
-      if (retryAt > 0) this.menuButton('START OVER', 895, 0xff2d95, 24, () => this.startGame(0));
-    }
+    // A run always starts at level 1 — no continuing from where you died, so the
+    // score on the board is always a whole run.
+    const again = new Text({
+      text: win ? 'CLICK / TAP TO PLAY AGAIN' : 'CLICK / TAP TO START A NEW RUN',
+      style: { ...chunkyStyle(30, 0xffffff, 5), letterSpacing: 2 },
+    });
+    again.anchor.set(0.5);
+    again.position.set(W / 2, 810);
+    again.alpha = 0;
+    this.overlay.addChild(again);
+    tween(0.4, (t) => !again.destroyed && (again.alpha = t), {
+      delay: 0.9,
+      onComplete: () => !again.destroyed && this.blink(again),
+    });
 
     if (win) {
       audio.winFanfare();
@@ -633,16 +624,17 @@ export class Game {
 
   // ------------------------------------------------------------ level flow
 
-  private startGame(from = 0): void {
+  /** Every run starts at level 1 with a fresh score — dying costs you the run. */
+  private startGame(): void {
     this.score = 0;
     this.displayScore = 0;
-    this.lives = 3;
+    this.lives = START_LIVES;
+    this.extraLives = 0;
     this.combo = 0;
     this.maxCombo = 0;
-    const start = Math.max(0, Math.min(this.levels.length - 1, from));
-    this.levelIndex = start;
+    this.levelIndex = 0;
     this.updateHearts();
-    this.loadLevel(start);
+    this.loadLevel(0);
   }
 
   private loadLevel(idx: number): void {
@@ -653,7 +645,6 @@ export class Game {
     this.clearOverlay();
     this.clearEntities();
     this.levelText.text = `LV ${idx + 1}/${this.levels.length}`;
-    this.saveProgress(idx);
 
     // Level banner
     const banner = this.bigTitle(`LEVEL ${idx + 1}`, NEON[idx % NEON.length], 480, 110);
@@ -812,23 +803,12 @@ export class Game {
     }
   }
 
-  onPress(x?: number, y?: number): void {
+  onPress(): void {
     audio.unlock();
-
-    // Overlay buttons win over the screen's default tap action.
-    if (x !== undefined && y !== undefined) {
-      const hit = this.buttons.find((btn) => x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h);
-      if (hit) {
-        this.clearOverlay();
-        hit.action();
-        return;
-      }
-    }
 
     switch (this.state) {
       case 'start':
-        // Tapping anywhere else picks up where you left off.
-        this.startGame(this.unlocked);
+        this.startGame();
         break;
       case 'playing':
         this.launchStuckBalls();
@@ -837,12 +817,9 @@ export class Game {
         this.resume();
         break;
       case 'gameover':
-        this.clearOverlay();
-        this.startGame(this.levelIndex);
-        break;
       case 'win':
         this.clearOverlay();
-        this.startGame(0);
+        this.startGame();
         break;
       case 'transition':
         // buffer the press — launch as soon as the level intro finishes
@@ -963,9 +940,57 @@ export class Game {
 
   private addScore(base: number, x: number, y: number, color: number): void {
     const mult = Math.max(1, this.combo);
-    const amount = base * mult;
+    this.gainScore(base * mult, x, y, color);
+  }
+
+  /** Raw points, no combo multiplier — the single place extra lives are checked. */
+  private gainScore(amount: number, x: number, y: number, color: number): void {
     this.score += amount;
     this.scorePopup(x, y, amount, color);
+    this.checkExtraLife();
+  }
+
+  private checkExtraLife(): void {
+    // Thresholds are consumed even at max hearts, so a capped run can't bank them.
+    while (this.score >= extraLifeAt(this.extraLives)) {
+      this.extraLives++;
+      if (this.lives < MAX_LIVES) this.grantExtraLife();
+    }
+  }
+
+  private grantExtraLife(): void {
+    this.lives++;
+    this.updateHearts();
+    audio.extraLife();
+    this.flash(0.22, 0.35);
+    this.addShake(6);
+    this.ringBurst(this.paddleX, PADDLE_Y, 0xff2d95, 1.6);
+
+    // pop the heart that just appeared
+    const heart = this.hearts[this.lives - 1];
+    if (heart && !heart.destroyed) {
+      tween(0.6, (t) => {
+        if (heart.destroyed) return;
+        heart.scale.set(1 + 1.8 * Math.sin(Math.min(1, t * 1.6) * Math.PI) * (1 - t));
+      }, {
+        ease: Ease.outCubic,
+        onComplete: () => !heart.destroyed && heart.scale.set(1),
+      });
+    }
+
+    const t = new Text({
+      text: 'EXTRA LIFE!',
+      style: { ...chunkyStyle(52, 0xff2d95, 8), letterSpacing: 3 },
+    });
+    t.anchor.set(0.5);
+    t.position.set(W / 2, 800);
+    this.shakeRoot.addChild(t);
+    t.scale.set(0);
+    tween(0.5, (p) => !t.destroyed && t.scale.set(p), { ease: Ease.outBack });
+    tween(0.35, (p) => !t.destroyed && (t.alpha = 1 - p), {
+      delay: 1.2,
+      onComplete: () => !t.destroyed && t.destroy(),
+    });
   }
 
   private onBrickDestroyed(brick: Brick, byLaser = false): void {
@@ -1012,16 +1037,6 @@ export class Game {
     });
   }
 
-  private saveProgress(idx: number): void {
-    if (idx <= this.unlocked) return;
-    this.unlocked = idx;
-    try {
-      localStorage.setItem('neon-bricks-progress', String(idx));
-    } catch {
-      // private browsing / storage full — progress just won't persist
-    }
-  }
-
   private saveBest(): void {
     if (this.score > this.best) {
       this.best = this.score;
@@ -1061,13 +1076,18 @@ export class Game {
     this.ringBurst(this.paddleX, PADDLE_Y, info.color, 1.4);
     this.flash(0.18, 0.3);
     this.addShake(5);
-    this.scoreTagline(info, p.type);
+
+    // "Stacked" = you already had this power, so the pickup would have been
+    // wasted. It pays out in points instead; timed powers also run longer.
+    let stacked = false;
     switch (p.type) {
       case 'wide':
-        this.wideT = 10;
+        stacked = this.wideT > 0;
+        this.wideT = Math.min(WIDE_MAX, this.wideT + WIDE_TIME);
         this.paddleWTarget = 225;
         break;
       case 'multi': {
+        const before = this.balls.length;
         const src = this.balls.filter((b) => !b.stuck);
         const list = src.length > 0 ? src : this.balls;
         for (const b of list) {
@@ -1082,19 +1102,33 @@ export class Game {
             if (nb.vy > -80 && nb.vy < 80) nb.vy = -120; // keep them lively
           }
         }
+        // Field was already full — nothing new launched, so pay out instead.
+        stacked = this.balls.length === before;
         this.shockwave(this.paddleX, PADDLE_Y);
         break;
       }
       case 'laser':
-        this.laserT = 8;
+        stacked = this.laserT > 0;
+        this.laserT = Math.min(LASER_MAX, this.laserT + LASER_TIME);
         this.redrawPaddle();
         break;
     }
+
+    if (stacked) this.gainScore(STACK_BONUS, this.paddleX, PADDLE_Y - 60, info.color);
+    this.scoreTagline(info, p.type, stacked);
   }
 
-  private scoreTagline(info: { color: number }, type: PowerType): void {
+  private scoreTagline(info: { color: number }, type: PowerType, stacked: boolean): void {
     const names: Record<PowerType, string> = { wide: 'WIDE PADDLE!', multi: 'MULTI-BALL!', laser: 'LASERS!' };
-    const t = new Text({ text: names[type], style: { ...chunkyStyle(46, info.color, 7), letterSpacing: 2 } });
+    const stackedNames: Record<PowerType, string> = {
+      wide: `LONGER PADDLE TIME!  +${STACK_BONUS}`,
+      multi: `BALLS MAXED OUT!  +${STACK_BONUS}`,
+      laser: `LONGER LASER TIME!  +${STACK_BONUS}`,
+    };
+    const t = new Text({
+      text: stacked ? stackedNames[type] : names[type],
+      style: { ...chunkyStyle(stacked ? 38 : 46, info.color, 7), letterSpacing: 2 },
+    });
     t.anchor.set(0.5);
     t.position.set(W / 2, 880);
     this.shakeRoot.addChild(t);
@@ -1140,7 +1174,8 @@ export class Game {
     this.hitStop(0.12);
 
     // pop the heart
-    const heart = this.hearts[this.lives];
+    const lostIndex = this.lives;
+    const heart = this.hearts[lostIndex];
     if (heart) {
       const hx = heart.x;
       tween(0.5, (t) => {
@@ -1152,7 +1187,8 @@ export class Game {
         ease: Ease.outCubic,
         onComplete: () => {
           if (!heart.destroyed) {
-            heart.visible = false;
+            // an extra life may have refilled this slot mid-animation
+            heart.visible = lostIndex < this.lives;
             heart.scale.set(1);
             heart.alpha = 1;
           }
