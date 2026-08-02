@@ -42,11 +42,43 @@ npm run dev
 ## Deploying
 
 CI (`.github/workflows/deploy.yml`) deploys this on every push to `main` using
-the existing `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets. Manually:
+the existing `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets. That
+token needs **`Workers Scripts: Edit`** — a different permission from the
+`Cloudflare Pages: Edit` the site deploy uses. Without it the Worker job fails
+while the site still ships green, so the Worker silently freezes at its last
+version while `rules.ts` moves on in the game. That drift shows up as desyncs
+rather than as a clear error, so it is worth confirming.
+
+The workflow has a `workflow_dispatch` trigger for exactly that check — run it
+from the Actions tab and watch **Deploy multiplayer server** go green without
+having to push to `main`. Manually, from here:
 
 ```bash
 npx wrangler deploy
 ```
+
+### Preview environment
+
+PR previews get their own Worker, `air-hockey-server-preview`, deployed by
+`.github/workflows/preview.yml`. Preview builds are pointed at it via the
+`MP_PREVIEW_SERVER_URL` repository variable, so a client built from a PR can
+never join a room on the production server — which matters because the server
+is authoritative and `rules.ts` is shared verbatim, so a simulation change
+under review would otherwise land a differently-behaved client in a live match.
+
+Cloudflare's built-in preview URLs cannot cover this: they are [not generated
+for Workers that implement a Durable Object][preview-urls], and DO lifecycle
+changes only apply through `wrangler deploy`. A separate Worker is the only
+option.
+
+Every PR shares that one preview Worker, so two Air Hockey PRs open at once
+overwrite each other. Deploy manually with:
+
+```bash
+npx wrangler deploy --env preview
+```
+
+[preview-urls]: https://developers.cloudflare.com/workers/configuration/previews/
 
 ## Pointing the game at it
 

@@ -20,3 +20,30 @@ new_sqlite_classes = ["AirHockeyRoom"]
 # [[routes]]
 # pattern = "games.ross.dev/mp/*"
 # zone_name = "ross.dev"
+
+# A second Worker that PR previews talk to, so a preview client never joins a
+# room on the production server. That matters more than it sounds: the server
+# is authoritative and `rules.ts` is shared verbatim with the client, so a PR
+# that changes the simulation would otherwise put a differently-behaved client
+# into a live match with someone actually playing.
+#
+# Cloudflare's built-in preview URLs cannot do this job — they are not
+# generated for Workers that implement a Durable Object, and DO lifecycle
+# changes only apply via `wrangler deploy`. Hence a whole separate Worker.
+#
+# All PRs share this one Worker, so two Air Hockey PRs open at once overwrite
+# each other's deploy. Per-PR Workers would need teardown on close; not worth
+# the machinery here.
+# `name` is deliberately not set here. Wrangler names an environment's Worker
+# `<top-level-name>-<environment-name>`, which is already exactly
+# `air-hockey-server-preview`. Setting it explicitly would rely on override
+# semantics the docs do not actually specify.
+[env.preview]
+
+# `migrations` is inheritable and carries over on its own, but
+# `durable_objects` is NOT — it has to be repeated per environment. Leave this
+# out and the preview Worker still deploys clean, then fails at runtime the
+# moment someone tries to host a room, because ROOMS is not bound.
+[[env.preview.durable_objects.bindings]]
+name = "ROOMS"
+class_name = "AirHockeyRoom"

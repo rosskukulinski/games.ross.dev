@@ -3,6 +3,9 @@ name: Deploy to Cloudflare Pages
 on:
   push:
     branches: [main]
+  # Lets the Worker be redeployed without pushing to main — useful for
+  # confirming the API token has Workers Scripts:Edit before relying on it.
+  workflow_dispatch:
 
 jobs:
   # Deployed as its own job rather than a dependency of `deploy`, so that a
@@ -18,13 +21,23 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install
+        working-directory: multiplayer-server
+        run: npm ci
+
+      # `wrangler deploy` bundles with esbuild, which strips types without
+      # checking them, so a type error would otherwise ship silently. The game
+      # side is covered by its own `tsc && vite build`.
+      - name: Typecheck
+        working-directory: multiplayer-server
+        run: npm run typecheck
+
       - name: Deploy Worker + Durable Object
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: multiplayer-server
-          preCommands: npm ci
           command: deploy
 
   deploy:

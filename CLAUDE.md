@@ -25,6 +25,16 @@ by both the Worker and the game client (the client uses it for solo-vs-bot
 play). It lives in the game directory on purpose — the build cache only hashes
 `games/<slug>/`, so rules changes must live there to invalidate it.
 
+It deploys twice: `air-hockey-server` from `main`, and
+`air-hockey-server-preview` from every PR, so a preview client never joins a
+room on the production server. Each build is pointed at the right one by the
+`MP_SERVER_URL` / `MP_PREVIEW_SERVER_URL` repository variables.
+
+The API token needs `Workers Scripts: Edit`, which is separate from the
+`Cloudflare Pages: Edit` the site uses. The Worker deploys as its own CI job,
+so if that permission is missing the site still ships green while the Worker
+quietly stops updating.
+
 See [`multiplayer-server/README.md`](multiplayer-server/README.md) for the
 one-time setup needed to point the game at the deployed Worker.
 
