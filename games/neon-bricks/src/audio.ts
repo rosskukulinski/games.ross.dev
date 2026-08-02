@@ -141,6 +141,17 @@ class SynthAudio {
     });
   }
 
+  /** Extra life — a bright 1-UP climb, deliberately unlike the power-up jingle. */
+  extraLife(): void {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const notes = [659.25, 987.77, 1318.5, 1975.5];
+    notes.forEach((f, i) => {
+      this.tone(f, 0.22, { type: 'triangle', vol: 0.2, when: t + i * 0.1 });
+      this.tone(f / 2, 0.18, { type: 'square', vol: 0.09, when: t + i * 0.1 });
+    });
+  }
+
   lifeLost(): void {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
