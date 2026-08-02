@@ -129,16 +129,21 @@ git. Without it the API returns 503 and the games play normally.
 
 ## Offline Support (PWA)
 
-The whole arcade is installable and plays offline — no network needed after the
-first visit.
+The whole arcade is installable and plays offline, once the visitor asks for it
+with the *Save games for offline play* button in the header. The download is
+opt-in on purpose — it is tens of megabytes — and the choice is remembered in
+`localStorage` (`arcade-offline-enabled`), so later visits top the cache back
+up on their own after a new build.
 
 - `scripts/sw-template.js` is the service worker source. `scripts/build-all.js`
   injects the full `dist/` file list and a content-hash version into it and
   writes `dist/sw.js` on **every** build (never edit `dist/sw.js` by hand).
 - One worker at the site root covers the landing page *and* every game, so
   games need no offline code of their own.
-- `landing/offline.js` registers the worker, starts the download of every game,
-  and renders the progress pill in the header.
+- `landing/offline.js` registers the worker on every visit (so anything already
+  cached keeps working), but only starts the download once the user opts in. It
+  also renders the progress line and the install tip, both of which stay hidden
+  until then.
 - `landing/manifest.webmanifest` + `landing/icons/app/` make it installable.
   Regenerate the icons with `node scripts/generate-icons.js`.
 - A new build changes the version hash, which installs a fresh worker and drops
@@ -148,8 +153,8 @@ first visit.
 iPad — Share → *Add to Home Screen*. On iOS this step matters: Safari evicts
 site data for tabs unused for 7 days, but home screen web apps keep theirs.
 
-**Verifying**: `npm run build && npm run verify:offline` precaches, kills the
-server, and loads every game from cache alone. Run it after touching anything
+**Verifying**: `npm run build && npm run verify:offline` clicks the save
+button, precaches, kills the server, and loads every game from cache alone. Run it after touching anything
 in the offline path. It serves through `scripts/pages-server.js`, which
 imitates Cloudflare Pages — `npx serve dist` does **not**, and the difference
 hides real bugs (see below).

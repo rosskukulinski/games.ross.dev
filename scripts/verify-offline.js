@@ -60,6 +60,8 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   console.log('→ precaching');
   await page.goto(`${BASE}/`, { waitUntil: 'load' });
+  // The download is opt-in, so a real visitor's click is what starts it.
+  await page.click('#offline-save');
   await page.waitForFunction(
     () => document.querySelector('#offline-status')?.classList.contains('is-done'),
     null,
