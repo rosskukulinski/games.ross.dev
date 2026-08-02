@@ -1,6 +1,7 @@
 // The games that get built into dist/. Single source of truth for the build
 // and the offline check — add a new game's slug here.
 module.exports = [
+  'air-hockey',
   'asteroid-dodger',
   'balloon-pop-blitz',
   'comet-dash',

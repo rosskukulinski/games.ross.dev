@@ -8,15 +8,41 @@ Family Game Arcade — a monorepo of browser games built with Claude Code, deplo
 games.ross.dev/
   landing/          # Landing page (index.html, styles.css, icons/)
   games/            # Each game in its own directory
+  multiplayer-server/  # Cloudflare Worker + Durable Object for real-time multiplayer
   scripts/          # Build orchestrator
   dist/             # Build output (gitignored)
   .github/          # CI/CD workflows + Claude integration
 ```
 
+## Multiplayer
+
+`multiplayer-server/` is a Cloudflare Worker with a Durable Object per game
+room, deployed separately from the static site. It hosts the real-time matches
+for Air Hockey: 60Hz authoritative physics, 30Hz snapshots over WebSockets.
+
+The simulation lives in `games/air-hockey/src/shared/rules.ts` and is imported
+by both the Worker and the game client (the client uses it for solo-vs-bot
+play). It lives in the game directory on purpose — the build cache only hashes
+`games/<slug>/`, so rules changes must live there to invalidate it.
+
+It deploys twice: `air-hockey-server` from `main`, and
+`air-hockey-server-preview` from every PR, so a preview client never joins a
+room on the production server. Each build is pointed at the right one by the
+`MP_SERVER_URL` / `MP_PREVIEW_SERVER_URL` repository variables.
+
+The API token needs `Workers Scripts: Edit`, which is separate from the
+`Cloudflare Pages: Edit` the site uses. The Worker deploys as its own CI job,
+so if that permission is missing the site still ships green while the Worker
+quietly stops updating.
+
+See [`multiplayer-server/README.md`](multiplayer-server/README.md) for the
+one-time setup needed to point the game at the deployed Worker.
+
 ## Game Inventory
 
 | Slug | Display Name | Tech Stack | Build |
 |------|-------------|-----------|-------|
+| air-hockey | Air Hockey | PixiJS v8 + TS + Vite (+ Cloudflare Worker/DO) | `tsc && vite build` |
 | asteroid-dodger | Asteroid Dodger | React + Vite | `vite build` |
 | balloon-pop-blitz | Balloon Pop Blitz | React + Vite | `vite build` |
 | comet-dash | Comet Dash | Babylon.js + TS + Vite | `vite build` |
