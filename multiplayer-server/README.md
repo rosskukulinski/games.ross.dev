@@ -78,6 +78,17 @@ overwrite each other. Deploy manually with:
 npx wrangler deploy --env preview
 ```
 
+### Changing either URL
+
+The URL is baked into the bundle at build time, so changing `MP_SERVER_URL` or
+`MP_PREVIEW_SERVER_URL` means the game has to be rebuilt. `scripts/build-all.js`
+knows this — `BUILD_ENV` lists `VITE_MP_SERVER_URL` as part of Air Hockey's
+cache key, so a changed URL invalidates that game (and only that game).
+
+Without it the build cache would see byte-identical source files, skip the
+game, and go on shipping the old URL indefinitely. If you ever add another
+build-time variable to a game, add it to `BUILD_ENV` too.
+
 [preview-urls]: https://developers.cloudflare.com/workers/configuration/previews/
 
 ## Pointing the game at it

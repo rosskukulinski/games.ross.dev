@@ -14,6 +14,15 @@ const games = require('./games-list.js');
 
 const staticGames = ['connect-four', 'hangman', 'number-line-monster', 'ojoj', 'sudoku', 'tic-tac-toe'];
 
+// Build-time environment variables that get baked into a game's bundle, and so
+// have to be part of its cache key. Hashing source files alone cannot see
+// them: point MP_SERVER_URL at a different Worker and every file on disk is
+// byte-identical, so the game would be skipped as cached and keep shipping the
+// old URL — silently, and for as long as nobody happens to edit the game.
+const BUILD_ENV = {
+  'air-hockey': ['VITE_MP_SERVER_URL'],
+};
+
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.DS_Store', '.wrangler', '.playwright-mcp', '.claude']);
 
 const forceRebuild = process.argv.includes('--force');
@@ -53,13 +62,19 @@ function collectFiles(dir) {
   return results;
 }
 
-function computeDirectoryHash(dir) {
+function computeDirectoryHash(dir, envVars = []) {
   const files = collectFiles(dir).sort();
   const hash = crypto.createHash('sha256');
   for (const file of files) {
     const rel = path.relative(dir, file);
     hash.update(rel);
     hash.update(fs.readFileSync(file));
+  }
+  // Unset and empty are deliberately the same input here: both produce a build
+  // with no URL baked in, so they should not force a rebuild of each other.
+  for (const name of envVars) {
+    hash.update(name);
+    hash.update(process.env[name] || '');
   }
   return hash.digest('hex');
 }
@@ -188,7 +203,7 @@ for (const game of games) {
   const gameDist = path.join(DIST_DIR, game);
   const isStatic = staticGames.includes(game);
 
-  const sourceHash = computeDirectoryHash(gameDir);
+  const sourceHash = computeDirectoryHash(gameDir, BUILD_ENV[game]);
   const depsHash = isStatic ? null : computeDepsHash(gameDir);
   const cached = manifest.entries[game];
 
