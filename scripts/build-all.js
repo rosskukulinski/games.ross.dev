@@ -115,6 +115,35 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Installed on the Home Screen there is no browser chrome, so a game with no
+// exit of its own traps the player — and no game has one. Rather than ask 23
+// games to each grow a back button, every built page gets a tag for the shared
+// one at /arcade/home-button.js, which decides for itself whether to draw
+// anything (it only does in an installed app).
+//
+// Injecting here rather than in each game's source means a new game is covered
+// the day it is added, and a game built by Vite cannot resolve the absolute
+// path away. The tag is a fixed one-liner, so changing the button's code never
+// needs a game rebuild — only this line changing does, and editing this file
+// already rebuilds everything.
+const HOME_BUTTON_SRC = '/arcade/home-button.js';
+const HOME_BUTTON_TAG = `<script defer src="${HOME_BUTTON_SRC}"></script>`;
+
+function injectHomeButton(distDir) {
+  for (const file of collectFiles(distDir)) {
+    if (!file.endsWith('.html')) continue;
+    const html = fs.readFileSync(file, 'utf8');
+    if (html.includes(HOME_BUTTON_SRC)) continue;
+    // Last </body> — a game's HTML may well contain the string earlier, inside
+    // a script or a template.
+    const at = html.lastIndexOf('</body>');
+    fs.writeFileSync(
+      file,
+      at === -1 ? html + `\n${HOME_BUTTON_TAG}\n` : html.slice(0, at) + `${HOME_BUTTON_TAG}\n` + html.slice(at)
+    );
+  }
+}
+
 // Writes dist/sw.js from scripts/sw-template.js, injecting the list of every
 // built file plus a version hash derived from their contents.
 function buildServiceWorker() {
@@ -278,6 +307,8 @@ for (const game of games) {
     copyRecursive(buildOutput, gameDist);
     console.log(`✅ ${game} → dist/${game}/`);
   }
+
+  injectHomeButton(gameDist);
 
   manifest.entries[game] = { sourceHash, depsHash };
   builtCount++;

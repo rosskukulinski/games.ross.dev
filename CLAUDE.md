@@ -119,7 +119,45 @@ git. Without it the API returns 503 and the games play normally.
 `scripts/build-all.js` handles the full build:
 - For each game with a `package.json`: runs `npm ci && npm run build`, copies `dist/` output
 - For static games (ojoj): copies files directly
+- Injects the shared back button into every built game page (see below)
 - Copies `landing/` to `dist/` root
+
+## Leaving a Game
+
+Installed on the Home Screen there is no browser chrome, so a game with no exit
+of its own traps the player — and no game has one of its own. Every built game
+page therefore gets a *‹ Arcade* button in the top-left corner, which asks for
+confirmation and then returns to `/`.
+
+`landing/arcade/home-button.js` is the whole implementation, served at
+`/arcade/home-button.js` and shared by every game. `scripts/build-all.js`
+injects the script tag into each `dist/<game>/**/*.html` after the game builds,
+so **a new game needs no back-button code of its own** — and Vite never sees
+the absolute path, which it would otherwise fail to resolve.
+
+Because the injected tag is a fixed one-liner, editing the button's code never
+requires rebuilding a game; only changing the tag itself does, and editing
+`build-all.js` already rebuilds everything.
+
+A game whose own UI already holds that corner moves the button with one line in
+its `index.html`:
+
+```html
+<meta name="arcade-home-button" content="bottom-left" />
+```
+
+`top-left` (default), `top-right`, `bottom-left`, `bottom-right`, or `off` for a
+game that grows a real arcade exit of its own. The rule used so far: move it to
+a corner the game leaves free, and where a game holds all four (robot-rally,
+treasure-hunt-island) leave it at the default and accept that it sits over a
+score pill. Prefer covering a read-only panel over a control — bottom-left is
+a joystick in robot-rally and touch controls in treasure-hunt-island.
+
+The button only draws itself in an installed app (`display-mode: standalone`
+and friends, or `navigator.standalone` on iOS). In an ordinary tab Safari's own
+back button already does the job, so a second one would just cover the game. It
+renders in a shadow root — like `arcade.js` — so no game's CSS can reach it, and
+it sits inside `env(safe-area-inset-*)` to clear the notch.
 
 ## Deployment
 
