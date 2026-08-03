@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#0a0614" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='13' r='10' fill='none' stroke='%23ffd54a' stroke-width='3'/%3E%3Ccircle cx='16' cy='13' r='3.5' fill='%23ff3fd8'/%3E%3Crect x='6' y='25' width='20' height='4' rx='2' fill='%2337f2ff'/%3E%3C/svg%3E" />
   <title>Skee-Ball</title>
+  <!-- Score, pips and mute already hold three corners, so the arcade's back
+       button (injected at build time) takes the free one. -->
+  <meta name="arcade-home-button" content="bottom-left" />
   <style>
     :root {
       --gold: #ffd54a;
