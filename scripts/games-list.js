@@ -10,6 +10,7 @@ module.exports = [
   'guess-the-drawing',
   'hangman',
   'hanyverse',
+  'hole-io',
   'kpop-rythm-tap',
   'neon-bricks',
   'number-line-monster',

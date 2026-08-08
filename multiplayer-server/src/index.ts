@@ -1,14 +1,18 @@
 /**
- * Air Hockey multiplayer server.
+ * Arcade multiplayer server.
  *
  * A single Cloudflare Worker that upgrades WebSocket connections and hands
  * them to a Durable Object, one per room code. The Durable Object is the
- * authority: it runs the physics at 60Hz and broadcasts snapshots at 30Hz, so
- * the two browsers can never disagree about where the puck is.
+ * authority — it runs the simulation and broadcasts snapshots, so browsers
+ * can never disagree about the state of a match.
  *
- * The simulation itself lives in the game directory and is shared verbatim
- * with the client, which uses it for solo-vs-bot play:
- *   games/air-hockey/src/shared/rules.ts
+ * Two games share this Worker, each with its own Durable Object class and
+ * path prefix:
+ *   - Air Hockey       `/room/:code`       (games/air-hockey/src/shared/rules.ts)
+ *   - Hole Munchers    `/hole/room/:code`  (games/hole-io/src/shared/rules.ts)
+ *
+ * The simulations live in the game directories and are shared verbatim with
+ * the clients, which use them for solo-vs-bot play.
  */
 
 import {
@@ -29,8 +33,11 @@ import {
   step,
 } from '../../games/air-hockey/src/shared/rules';
 
+export { HoleRoom } from './hole-room';
+
 export interface Env {
   ROOMS: DurableObjectNamespace;
+  HOLE_ROOMS: DurableObjectNamespace;
 }
 
 const SNAPSHOT_EVERY = 2; // ticks — 60Hz simulation, 30Hz on the wire
@@ -54,20 +61,25 @@ export default {
     }
 
     if (path === '/' || path === '/health') {
-      return Response.json({ ok: true, service: 'air-hockey' }, { headers: CORS });
+      return Response.json(
+        { ok: true, service: 'air-hockey', games: ['air-hockey', 'hole-io'] },
+        { headers: CORS }
+      );
     }
 
-    const roomMatch = path.match(/^\/room\/([A-Za-z0-9]+)$/);
+    // Both games use the same code alphabet, so one validator serves both.
+    const roomMatch = path.match(/^(\/hole)?\/room\/([A-Za-z0-9]+)$/);
     if (roomMatch) {
-      const code = roomMatch[1].toUpperCase();
+      const code = roomMatch[2].toUpperCase();
       if (!isValidCode(code)) {
         return new Response('Bad room code', { status: 400, headers: CORS });
       }
       if (request.headers.get('Upgrade') !== 'websocket') {
         return new Response('Expected WebSocket upgrade', { status: 426, headers: CORS });
       }
-      const id = env.ROOMS.idFromName(code);
-      return env.ROOMS.get(id).fetch(request);
+      const rooms = roomMatch[1] ? env.HOLE_ROOMS : env.ROOMS;
+      const id = rooms.idFromName(code);
+      return rooms.get(id).fetch(request);
     }
 
     return new Response('Not found', { status: 404, headers: CORS });

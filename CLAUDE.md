@@ -18,11 +18,16 @@ games.ross.dev/
 
 `multiplayer-server/` is a Cloudflare Worker with a Durable Object per game
 room, deployed separately from the static site. It hosts the real-time matches
-for Air Hockey: 60Hz authoritative physics, 30Hz snapshots over WebSockets.
+for two games, each with its own Durable Object class and path prefix:
 
-The simulation lives in `games/air-hockey/src/shared/rules.ts` and is imported
-by both the Worker and the game client (the client uses it for solo-vs-bot
-play). It lives in the game directory on purpose — the build cache only hashes
+- **Air Hockey** (`/room/:code`, class `AirHockeyRoom`): two players, 60Hz
+  authoritative physics, 30Hz snapshots over WebSockets.
+- **Hole Munchers** (`/hole/room/:code`, class `HoleRoom`): up to 8 players in
+  a drop-in arena topped up with bots, 30Hz simulation and snapshots.
+
+Each simulation lives in `games/<slug>/src/shared/rules.ts` and is imported by
+both the Worker and the game client (the client uses it for solo-vs-bot play).
+It lives in the game directory on purpose — the build cache only hashes
 `games/<slug>/`, so rules changes must live there to invalidate it.
 
 It deploys twice: `air-hockey-server` from `main`, and
@@ -51,6 +56,7 @@ one-time setup needed to point the game at the deployed Worker.
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
 | hangman | Word Guess | Static (HTML/CSS/JS) | copy only |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
+| hole-io | Hole Munchers | PixiJS v8 + pixi-filters + TS + Vite (+ Cloudflare Worker/DO) | `tsc && vite build` |
 | kpop-rythm-tap | K-Pop Rhythm Tap | React + Vite + Canvas + Web Audio | `vite build` |
 | neon-bricks | Neon Bricks | PixiJS v8 + pixi-filters + TS + Vite | `vite build` |
 | number-line-monster | Monster Hunt | Static (HTML/CSS/JS) | copy only |
