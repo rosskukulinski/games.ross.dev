@@ -38,6 +38,14 @@ body {
   display: none !important;
 }
 
+#vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(2, 4, 10, 0.5) 100%);
+  z-index: 5;
+}
+
 /* --- HUD ------------------------------------------------------------- */
 
 #hud {

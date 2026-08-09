@@ -1,4 +1,3 @@
-import { Application } from 'pixi.js';
 import { audio } from './audio';
 import { LocalTransport } from './local';
 import { OnlineTransport, probeServer, resolveServerBase } from './net';
@@ -10,11 +9,13 @@ import {
   type Prop,
   type Snap,
   type StepEvent,
+  type ThemeName,
   HOLE_BASE_R,
   PHASE_COUNTDOWN,
   PHASE_OVER,
   PHASE_PLAY,
   ROUND_TIME,
+  THEMES,
   WORLD_H,
   WORLD_W,
   advanceHole,
@@ -23,6 +24,7 @@ import {
   generateProps,
   isValidCode,
   randomCode,
+  themeForSeed,
 } from './shared/rules';
 
 type Mode = 'idle' | 'solo' | 'online';
@@ -69,32 +71,27 @@ let lastEatAt = 0;
 
 // --- Boot ------------------------------------------------------------------
 
-async function boot(): Promise<void> {
-  const app = new Application();
-  await app.init({
-    resizeTo: window,
-    backgroundColor: 0x070b14,
-    antialias: true,
-    resolution: Math.min(window.devicePixelRatio || 1, 1.5),
-    autoDensity: true,
-  });
-
+function boot(): void {
   const host = document.getElementById('app');
   if (!host) throw new Error('missing #app');
-  host.appendChild(app.canvas);
 
-  const view = new View(app);
+  const view = new View(host);
   const ui = new Ui();
 
   window.addEventListener('resize', () => view.resize());
 
-  wireInput(app, view, ui);
+  wireInput(view, ui);
   wireUi(ui, view);
 
-  app.ticker.add(() => {
-    const dt = Math.min(app.ticker.deltaMS, 100) / 1000;
+  let lastFrame = performance.now();
+  const tick = (): void => {
+    const now = performance.now();
+    const dt = Math.min(now - lastFrame, 100) / 1000;
+    lastFrame = now;
     frame(dt, view, ui);
-  });
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
@@ -160,7 +157,7 @@ async function boot(): Promise<void> {
 
 // --- Input -----------------------------------------------------------------
 
-function wireInput(app: Application, view: View, ui: Ui): void {
+function wireInput(view: View, ui: Ui): void {
   window.addEventListener('pointerdown', (e) => {
     audio.unlock();
     if (mode === 'idle') return;
@@ -208,8 +205,13 @@ function wireInput(app: Application, view: View, ui: Ui): void {
   });
   window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => keys.clear());
-  void app;
   void view;
+}
+
+/** Theme comes from the arena seed; `?theme=` overrides it for testing. */
+function resolveTheme(seed: number): ThemeName {
+  const override = new URLSearchParams(location.search).get('theme') as ThemeName | null;
+  return override && (THEMES as readonly string[]).includes(override) ? override : themeForSeed(seed);
 }
 
 /** The current steering vector, from whichever input is in charge. */
@@ -377,7 +379,7 @@ function handleMessage(msg: ServerMessage, ui: Ui, view: View): void {
       for (const id of msg.gone) {
         if (props[id]) props[id].alive = false;
       }
-      view.setWorld(msg.seed, msg.gone);
+      view.setWorld(msg.seed, msg.gone, resolveTheme(msg.seed));
       localPos = { x: WORLD_W / 2, y: WORLD_H / 2 };
       myR = HOLE_BASE_R;
       ui.show('none');

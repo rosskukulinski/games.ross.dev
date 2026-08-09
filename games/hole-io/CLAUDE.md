@@ -1,12 +1,18 @@
 # Hole Munchers (hole-io)
 
-Real-time multiplayer hole.io: you are a hole in a night-time park, you eat
-everything smaller than you, you grow, and you can swallow smaller rival
-holes — their whole score becomes yours. Up to 8 humans share a drop-in arena
-via a Cloudflare Durable Object, with bots topping the arena up to six holes.
-Solo play runs the identical simulation in-page.
+Real-time multiplayer hole.io: you are a hole, you eat everything smaller
+than you, you grow, and you can swallow smaller rival holes — their whole
+score becomes yours. Up to 8 humans share a drop-in arena via a Cloudflare
+Durable Object, with bots topping the arena up to six holes. Solo play runs
+the identical simulation in-page.
 
-**Stack:** PixiJS v8 + pixi-filters + TypeScript + Vite.
+Rendered in 3D from a gently tilted chase camera, with three map themes
+picked by the arena seed: a **city park** (glowing towers, houses, cars), a
+**moon base** (rockets, domes, antennas, crystals), and **pirate islands**
+(ships, palms, treasure, whales). The theme is pure cosmetics — one
+simulation, ten prop size-tiers, three sets of clothes for them.
+
+**Stack:** Three.js + TypeScript + Vite.
 **Server:** [`multiplayer-server/`](../../multiplayer-server) (`HoleRoom` Durable
 Object, rooms at `/hole/room/:code` on the same Worker as Air Hockey).
 
@@ -41,12 +47,11 @@ Object, so `main.ts` never branches on game mode.
 
 | File | Role |
 |------|------|
-| `src/shared/rules.ts` | The simulation + arena generator + bot AI. **Shared verbatim with the Worker.** |
+| `src/shared/rules.ts` | The simulation + arena generator + bot AI + theme picker. **Shared verbatim with the Worker.** |
 | `src/protocol.ts` | Message types + the `Transport` interface both modes implement |
 | `src/net.ts` | WebSocket transport, server discovery, health probe |
 | `src/local.ts` | In-page transport for solo play (bots included) |
-| `src/view.ts` | All Pixi rendering: camera, procedural prop art, holes, arena |
-| `src/fx.ts` | Pooled additive particles, score popups, screen shake |
+| `src/view.ts` | All Three.js rendering: tilted camera, themed 3D prop kits, holes, particles, popups |
 | `src/audio.ts` | Synthesized Web Audio (no asset files) |
 | `src/ui.ts` | DOM menus, room-code entry, HUD, leaderboard, joystick |
 | `src/main.ts` | Boot, input, prediction + interpolation, frame loop |
@@ -67,11 +72,21 @@ directory to invalidate it.
 - **Props never regrow under a hole** that could instantly re-eat them (the
   regrow check retries every 2s) — otherwise a parked hole becomes a point
   fountain.
-- **Prop art is 14 generated textures**, not per-prop Graphics: each kind
-  (plus color variants) is drawn once at 3× scale and shared by every sprite.
-  Shadows are baked into the texture.
-- **Camera zoom is tied to your radius** and the label text scales inversely
-  with zoom, so names stay readable at any size.
+- **Themes are client-side only** (`themeForSeed` in rules.ts): same seed →
+  same theme on every client, nothing on the wire, the server doesn't care.
+  `?theme=city|moon|pirate` overrides it for testing/screenshots.
+- **Each prop kind is one merged vertex-colored geometry** (plus an optional
+  unlit "glow" geometry whose HDR vertex colors are what the bloom pass
+  catches), shared by every instance — two draw calls per visible prop, one
+  material each. The grounding shadow is a small dark disc baked into the
+  geometry; keep it subtle or it reads as a hole.
+- **ACES pushes luminance past 1.0**, so the bloom threshold sits at 1.05 and
+  palettes are brighter than they'd be unlit — colors that looked right in 2D
+  render nearly black under Lambert + ACES (found via the screenshot loop).
+- **Pirate islands are painted under the land props** on the ground canvas;
+  boats, ships and whales are excluded and bob gently instead.
+- **Camera distance is tied to your radius**; name labels are canvas sprites
+  scaled by camera distance so they stay readable at any size.
 - Interpolation never lerps across a death/respawn teleport (>140 units or an
   alive-flag flip snaps instead).
 

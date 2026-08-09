@@ -56,7 +56,7 @@ one-time setup needed to point the game at the deployed Worker.
 | guess-the-drawing | Guess the Drawing | Vanilla JS | `node build.js` |
 | hangman | Word Guess | Static (HTML/CSS/JS) | copy only |
 | hanyverse | Hanyverse | Phaser + Vite | `vite build` |
-| hole-io | Hole Munchers | PixiJS v8 + pixi-filters + TS + Vite (+ Cloudflare Worker/DO) | `tsc && vite build` |
+| hole-io | Hole Munchers | Three.js + TS + Vite (+ Cloudflare Worker/DO) | `tsc && vite build` |
 | kpop-rythm-tap | K-Pop Rhythm Tap | React + Vite + Canvas + Web Audio | `vite build` |
 | neon-bricks | Neon Bricks | PixiJS v8 + pixi-filters + TS + Vite | `vite build` |
 | number-line-monster | Monster Hunt | Static (HTML/CSS/JS) | copy only |

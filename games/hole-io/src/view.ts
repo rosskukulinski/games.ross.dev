@@ -1,16 +1,25 @@
-import { AdvancedBloomFilter } from 'pixi-filters';
-import {
-  type Application,
-  Container,
-  Graphics,
-  Sprite,
-  Text,
-  Texture,
-} from 'pixi.js';
-import { Fx } from './fx';
+/**
+ * All rendering, in Three.js: a gently tilted camera following your hole over
+ * a low-poly 3D world. Three map themes (city park, moon base, pirate
+ * islands) share one simulation — the theme only changes what the ten prop
+ * size-tiers look like and how the ground is painted.
+ *
+ * Everything is procedural: props are merged low-poly primitives with vertex
+ * colors (one body mesh + one emissive "glow" mesh each), the ground is a
+ * canvas-painted plane, and particles are a single shader-driven Points
+ * cloud. No asset files.
+ */
+
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import {
   type Phase,
   type Prop,
+  type ThemeName,
   HOLE_BASE_R,
   PROP_KINDS,
   WORLD_H,
@@ -21,7 +30,7 @@ import {
 
 /** Rim colors, assigned per player in roster order. */
 export const PLAYER_COLORS = [
-  0x00e5ff, // you (index 0 in solo) — electric cyan
+  0x00e5ff, // you — electric cyan
   0xff5d73, // coral
   0xffb703, // amber
   0x9ef01a, // lime
@@ -51,287 +60,1012 @@ export interface RenderState {
   timer: number;
 }
 
+const DEATH_TIME = 0.55;
+const SPAWN_TIME = 0.45;
+const SINK_TIME = 0.6;
+
+// --- Small geometry helpers ------------------------------------------------
+
+const box = (w: number, h: number, d: number): THREE.BufferGeometry => new THREE.BoxGeometry(w, h, d);
+const cyl = (rt: number, rb: number, h: number, seg = 10): THREE.BufferGeometry =>
+  new THREE.CylinderGeometry(rt, rb, h, seg);
+const cone = (r: number, h: number, seg = 10): THREE.BufferGeometry => new THREE.ConeGeometry(r, h, seg);
+const sph = (r: number, seg = 8): THREE.BufferGeometry => new THREE.SphereGeometry(r, seg, Math.max(5, seg - 2));
+const ico = (r: number): THREE.BufferGeometry => new THREE.IcosahedronGeometry(r, 0);
+const disc = (r: number, seg = 24): THREE.BufferGeometry => {
+  const g = new THREE.CircleGeometry(r, seg);
+  g.rotateX(-Math.PI / 2);
+  return g;
+};
+
+interface PlaceOpts {
+  rx?: number;
+  ry?: number;
+  rz?: number;
+  sx?: number;
+  sy?: number;
+  sz?: number;
+}
+
+/** Collects colored, positioned parts and merges them into 1–2 geometries. */
+class Parts {
+  private body: THREE.BufferGeometry[] = [];
+  private glow: THREE.BufferGeometry[] = [];
+
+  add(geo: THREE.BufferGeometry, color: number, x: number, y: number, z: number, o: PlaceOpts = {}): void {
+    this.body.push(this.prep(geo, color, 1, x, y, z, o));
+  }
+
+  /** HDR-colored part rendered unlit — this is what the bloom pass catches. */
+  addGlow(geo: THREE.BufferGeometry, color: number, x: number, y: number, z: number, o: PlaceOpts = {}, hdr = 2.2): void {
+    this.glow.push(this.prep(geo, color, hdr, x, y, z, o));
+  }
+
+  private prep(
+    geo: THREE.BufferGeometry,
+    color: number,
+    hdr: number,
+    x: number,
+    y: number,
+    z: number,
+    o: PlaceOpts
+  ): THREE.BufferGeometry {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    const c = new THREE.Color(color);
+    const n = g.attributes.position.count;
+    const arr = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      arr[i * 3] = c.r * hdr;
+      arr[i * 3 + 1] = c.g * hdr;
+      arr[i * 3 + 2] = c.b * hdr;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    const m = new THREE.Matrix4()
+      .makeTranslation(x, y, z)
+      .multiply(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(o.rx ?? 0, o.ry ?? 0, o.rz ?? 0)))
+      .multiply(new THREE.Matrix4().makeScale(o.sx ?? 1, o.sy ?? 1, o.sz ?? 1));
+    g.applyMatrix4(m);
+    return g;
+  }
+
+  build(): { body: THREE.BufferGeometry; glow: THREE.BufferGeometry | null } {
+    return {
+      body: mergeGeometries(this.body),
+      glow: this.glow.length ? mergeGeometries(this.glow) : null,
+    };
+  }
+}
+
+interface KindTemplate {
+  body: THREE.BufferGeometry;
+  glow: THREE.BufferGeometry | null;
+  /** 'bob' makes the prop float gently (boats, whales). */
+  anim?: 'bob';
+}
+
+// --- Themes ----------------------------------------------------------------
+
+interface ThemeDef {
+  bg: number;
+  baseGround: number;
+  shadow: number;
+  wall: number;
+  hemiSky: number;
+  hemiGround: number;
+  sun: number;
+  dust: number;
+  paint(ctx: CanvasRenderingContext2D, px: number, props: Prop[], rng: () => number): void;
+  build(tier: number, parts: Parts): 'bob' | undefined;
+}
+
+/** Which pirate tiers sit on water (everything else gets an island). */
+const PIRATE_WATER_TIERS = new Set([5, 8, 9]);
+
+const themes: Record<ThemeName, ThemeDef> = {
+  // ---- City park at dusk --------------------------------------------------
+  city: {
+    bg: 0x0e2036,
+    baseGround: 0x16344c,
+    shadow: 0x1c3c58,
+    wall: 0x2dd4bf,
+    hemiSky: 0x9fc4ee,
+    hemiGround: 0x1c3350,
+    sun: 0xfff1d6,
+    dust: 0xffd166,
+    paint(ctx, px, _props, rng) {
+      const k = px / WORLD_W;
+      ctx.fillStyle = '#2c5b82';
+      ctx.fillRect(0, 0, px, px);
+      for (let i = 0; i < 56; i++) {
+        ctx.fillStyle = i % 2 ? 'rgba(64,120,163,0.32)' : 'rgba(38,77,110,0.32)';
+        ctx.beginPath();
+        ctx.arc(rng() * px, rng() * px, (34 + rng() * 80) * k, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < 9; i++) {
+        ctx.fillStyle = 'rgba(56,105,145,0.28)';
+        ctx.fillRect(0, rng() * px, px, (34 + rng() * 40) * k);
+      }
+      ctx.fillStyle = 'rgba(130,180,220,0.22)';
+      for (let x = 100; x < WORLD_W; x += 100) ctx.fillRect(x * k - 1.5, 0, 3, px);
+      for (let y = 100; y < WORLD_H; y += 100) ctx.fillRect(0, y * k - 1.5, px, 3);
+    },
+    build(tier, p) {
+      switch (tier) {
+        case 0: {
+          // Flower bed.
+          p.add(disc(4), 0x1f5f3a, 0, 0.1, 0);
+          for (let i = 0; i < 3; i++) {
+            const a = (i / 3) * Math.PI * 2;
+            const x = Math.cos(a) * 1.8;
+            const z = Math.sin(a) * 1.8;
+            p.add(cyl(0.22, 0.22, 2.4, 5), 0x2e7d4f, x, 1.2, z);
+            p.addGlow(sph(1.1, 7), [0xff8fab, 0xfff1f0, 0xc8b6ff][i], x, 2.8, z, {}, 1.5);
+          }
+          break;
+        }
+        case 1: // Trash can.
+          p.add(cyl(2.6, 2.2, 5.5, 10), 0x2f6f75, 0, 2.75, 0);
+          p.add(cyl(2.9, 2.9, 0.9, 10), 0x3f939b, 0, 5.9, 0);
+          break;
+        case 2: // Traffic cone.
+          p.add(box(6, 0.8, 6), 0xd9480f, 0, 0.4, 0);
+          p.add(cone(2.6, 6.4, 9), 0xff7b00, 0, 4, 0);
+          p.add(cyl(1.8, 2, 1.1, 9), 0xfff4e6, 0, 4.2, 0);
+          break;
+        case 3: // Fire hydrant.
+          p.add(cyl(2.4, 2.7, 5.5, 9), 0xe8384f, 0, 2.75, 0);
+          p.add(sph(2, 9), 0xff6b81, 0, 6, 0);
+          p.add(cyl(0.9, 0.9, 5.6, 7), 0xc9184a, 0, 3.6, 0, { rz: Math.PI / 2 });
+          break;
+        case 4: // Bush.
+          p.add(sph(4.6, 8), 0x2b8a3e, -2, 3.4, 1, { sy: 0.85 });
+          p.add(sph(4, 8), 0x37b24d, 2.6, 3, -1.2, { sy: 0.85 });
+          p.add(sph(3.4, 8), 0x2f9e44, 0.4, 4.6, 1.6);
+          p.addGlow(sph(0.7, 6), 0xff6b6b, -1.6, 5.6, 1.8, {}, 1.6);
+          p.addGlow(sph(0.6, 6), 0xff6b6b, 2.4, 5, -0.4, {}, 1.6);
+          break;
+        case 5: {
+          // Park bench.
+          p.add(box(14, 1.1, 4.6), 0x9c6644, 0, 3.6, 0);
+          p.add(box(14, 4.4, 1), 0xb08968, 0, 6.4, -2.2, { rx: -0.18 });
+          for (const sx of [-5.6, 5.6]) p.add(box(1.2, 3.6, 4), 0x4a3728, sx, 1.8, 0);
+          break;
+        }
+        case 6: {
+          // Car.
+          p.add(box(9, 3.4, 18), 0x1c7ed6, 0, 3.2, 0);
+          p.add(box(7.6, 3, 9.5), 0x4dabf7, 0, 6.2, 0.6);
+          p.add(box(7, 2.6, 2.4), 0x14263c, 0, 6.2, -4);
+          for (const [wx, wz] of [[-4.4, -5.6], [4.4, -5.6], [-4.4, 5.6], [4.4, 5.6]]) {
+            p.add(cyl(1.9, 1.9, 1.6, 10), 0x11151f, wx, 1.9, wz, { rz: Math.PI / 2 });
+          }
+          p.addGlow(box(1.4, 0.9, 0.5), 0xfff3bf, -2.6, 3.4, -9.1, {}, 2.6);
+          p.addGlow(box(1.4, 0.9, 0.5), 0xfff3bf, 2.6, 3.4, -9.1, {}, 2.6);
+          break;
+        }
+        case 7: // Tree.
+          p.add(cyl(1.6, 2.2, 9, 7), 0x6f4a2f, 0, 4.5, 0);
+          p.add(sph(8.5, 8), 0x2b8a3e, 0, 15, 0, { sy: 1.15 });
+          p.add(sph(5, 7), 0x51cf66, -4, 18.5, 2, { sy: 0.9 });
+          break;
+        case 8: {
+          // House with a pitched roof and lit windows.
+          p.add(box(26, 13, 22), 0xe8dcc8, 0, 6.5, 0);
+          p.add(cyl(0.1, 20, 9, 4), 0xd9480f, 0, 17.5, 0, { ry: Math.PI / 4, sz: 0.85 });
+          p.add(box(3.5, 6, 3.5), 0x9c4a3a, 7, 21, -3);
+          p.add(box(5, 7, 1), 0x7a5a3a, 0, 3.5, 11.1);
+          for (const wx of [-8, 8]) p.addGlow(box(4, 4, 0.5), 0xffd766, wx, 8, 11.2, {}, 2.4);
+          p.addGlow(box(0.5, 4, 4), 0xffd766, -13.2, 8, -4, {}, 2.4);
+          break;
+        }
+        case 9: {
+          // Office tower.
+          p.add(box(24, 42, 24), 0x33436e, 0, 21, 0);
+          p.add(box(17, 12, 17), 0x415584, 0, 48, 0);
+          p.add(box(4, 5, 4), 0x2b3a61, 6, 56.5, 5);
+          for (let f = 0; f < 5; f++) {
+            for (const [dx, dz, rot] of [[0, 12.3, 0], [0, -12.3, 0], [12.3, 0, 1], [-12.3, 0, 1]]) {
+              p.addGlow(
+                box(rot ? 0.5 : 16, 2.2, rot ? 16 : 0.5),
+                f % 2 ? 0x9fd8ff : 0xffe4a8,
+                dx,
+                8 + f * 7.4,
+                dz,
+                {},
+                1.9
+              );
+            }
+          }
+          p.addGlow(sph(1.4, 7), 0xff6b6b, 0, 55.5, 0, {}, 3);
+          break;
+        }
+      }
+      return undefined;
+    },
+  },
+
+  // ---- Moon base ----------------------------------------------------------
+  moon: {
+    bg: 0x131628,
+    baseGround: 0x2b2f42,
+    shadow: 0x30354a,
+    wall: 0xb388ff,
+    hemiSky: 0xaab4e8,
+    hemiGround: 0x23273c,
+    sun: 0xe8ecff,
+    dust: 0x9fd8ff,
+    paint(ctx, px, _props, rng) {
+      const k = px / WORLD_W;
+      ctx.fillStyle = '#454a60';
+      ctx.fillRect(0, 0, px, px);
+      // Craters: shallow, clearly rimmed — anything resembling a dark pit
+      // would be mistaken for a player's hole.
+      for (let i = 0; i < 40; i++) {
+        const x = rng() * px;
+        const y = rng() * px;
+        const r = (12 + rng() * 34) * k;
+        ctx.fillStyle = 'rgba(120,128,158,0.9)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 1.16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(54,58,78,0.9)';
+        ctx.beginPath();
+        ctx.arc(x + r * 0.05, y + r * 0.08, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Dust speckles.
+      for (let i = 0; i < 900; i++) {
+        ctx.fillStyle = rng() > 0.5 ? 'rgba(150,156,185,0.5)' : 'rgba(40,44,62,0.5)';
+        ctx.fillRect(rng() * px, rng() * px, 2.4, 2.4);
+      }
+      // A landing pad and painted paths between nothing in particular.
+      ctx.strokeStyle = 'rgba(140,150,200,0.28)';
+      ctx.lineWidth = 5 * k;
+      ctx.setLineDash([18 * k, 14 * k]);
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(rng() * px, rng() * px);
+        ctx.lineTo(rng() * px, rng() * px);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    },
+    build(tier, p) {
+      switch (tier) {
+        case 0: // Moon rocks.
+          p.add(ico(2.6), 0x565c72, -1, 1.6, 0.5, { sy: 0.8 });
+          p.add(ico(1.7), 0x6a7188, 2, 1.1, -1);
+          break;
+        case 1: // Crystal shard.
+          p.add(ico(1.9), 0x3a4056, 0, 0.9, 0, { sy: 0.6 });
+          p.addGlow(cone(1.5, 6.5, 6), 0x64e8ff, 0, 3.6, 0, { rz: 0.12 }, 2.2);
+          break;
+        case 2: // Flag.
+          p.add(cyl(0.35, 0.35, 11, 6), 0xc8cede, 0, 5.5, 0);
+          p.addGlow(box(5, 3.2, 0.3), 0xff5d73, 2.9, 9.2, 0, {}, 1.7);
+          p.add(ico(1.6), 0x565c72, 0, 0.9, 0);
+          break;
+        case 3: // Oxygen tank.
+          p.add(cyl(3, 3, 6.5, 12), 0xdfe5f4, 0, 3.9, 0);
+          p.add(sph(3, 10), 0xdfe5f4, 0, 7.1, 0, { sy: 0.6 });
+          p.addGlow(box(1.6, 1, 1.6), 0x64e8ff, 0, 8, 0, {}, 2);
+          p.add(cyl(3.4, 3.4, 1, 12), 0x8f97ad, 0, 0.5, 0);
+          break;
+        case 4: // Crystal cluster.
+          p.addGlow(cone(2.2, 9, 6), 0x64e8ff, 0, 4.5, 0, {}, 2.2);
+          p.addGlow(cone(1.6, 6, 6), 0xb388ff, 3, 3, 1.5, { rz: -0.3 }, 2.2);
+          p.addGlow(cone(1.4, 5, 6), 0x9ef0d0, -2.8, 2.5, -1, { rz: 0.34 }, 2);
+          p.add(ico(3.4), 0x3a4056, 0, 1.4, 0, { sy: 0.5 });
+          break;
+        case 5: // Solar panel.
+          p.add(box(1.4, 5, 1.4), 0x8f97ad, 0, 2.5, 0);
+          p.add(box(16, 0.6, 9), 0x2b3a61, 0, 6.5, 0, { rz: 0.32 });
+          p.addGlow(box(15, 0.3, 8), 0x4d7dff, 0, 7, 0, { rz: 0.32 }, 1.5);
+          break;
+        case 6: {
+          // Rover.
+          p.add(box(9, 3.4, 14), 0xc8cede, 0, 4, 0);
+          p.add(box(6.5, 2.6, 6), 0x8f97ad, 0, 7, -2);
+          for (const [wx, wz] of [[-4.8, -5], [4.8, -5], [-4.8, 0], [4.8, 0], [-4.8, 5], [4.8, 5]]) {
+            p.add(cyl(2, 2, 1.6, 9), 0x22242f, wx, 2, wz, { rz: Math.PI / 2 });
+          }
+          p.add(cyl(0.3, 0.3, 6, 5), 0xc8cede, 3, 10, -4);
+          p.addGlow(sph(0.8, 6), 0xff6b6b, 3, 13.2, -4, {}, 2.6);
+          p.addGlow(box(4, 1.4, 0.4), 0x9fd8ff, 0, 7.2, -5.2, {}, 2.2);
+          break;
+        }
+        case 7: // Comms antenna (tall).
+          p.add(cyl(0.9, 1.6, 26, 6), 0x8f97ad, 0, 13, 0);
+          p.add(cyl(3.4, 3.4, 1.2, 10), 0x565c72, 0, 0.6, 0);
+          p.add(cone(4.6, 3, 12), 0xdfe5f4, 0, 27.5, 0, { rx: Math.PI });
+          p.addGlow(sph(1.1, 7), 0xff5d73, 0, 30, 0, {}, 3);
+          break;
+        case 8: {
+          // Habitat dome.
+          const domeGeo = new THREE.SphereGeometry(16, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+          p.add(domeGeo, 0xd4dae8, 0, 0.5, 0);
+          p.add(cyl(5, 5, 6, 10), 0x8f97ad, 0, 3, 15, { rx: Math.PI / 2 });
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2;
+            p.addGlow(sph(0.9, 6), 0xffe4a8, Math.cos(a) * 12.5, 7, Math.sin(a) * 12.5, {}, 2.2);
+          }
+          p.addGlow(box(3.6, 3, 0.4), 0x9fd8ff, 0, 6, 15.8, {}, 2);
+          break;
+        }
+        case 9: {
+          // Rocket (very tall).
+          p.add(cyl(6.4, 7, 34, 12), 0xe8ecf6, 0, 20, 0);
+          p.add(cone(6.4, 12, 12), 0xe8384f, 0, 43, 0);
+          for (let i = 0; i < 3; i++) {
+            const a = (i / 3) * Math.PI * 2;
+            p.add(box(1.4, 12, 7), 0xe8384f, Math.cos(a) * 7.6, 6, Math.sin(a) * 7.6, { ry: -a });
+          }
+          p.add(cyl(4, 5.6, 4, 12), 0x565c72, 0, 2, 0);
+          p.addGlow(sph(2.4, 8), 0x9fd8ff, 0, 26, -6.4, {}, 2);
+          p.addGlow(cyl(3.4, 3.4, 1, 12), 0xffb35c, 0, 0.6, 0, {}, 2.4);
+          break;
+        }
+      }
+      return undefined;
+    },
+  },
+
+  // ---- Pirate islands -----------------------------------------------------
+  pirate: {
+    bg: 0x0e2c48,
+    baseGround: 0x11486b,
+    shadow: 0x14547a,
+    wall: 0xffb703,
+    hemiSky: 0xa8d8f0,
+    hemiGround: 0x14425f,
+    sun: 0xfff3d0,
+    dust: 0xa5f3fc,
+    paint(ctx, px, props, rng) {
+      const k = px / WORLD_W;
+      ctx.fillStyle = '#1a6690';
+      ctx.fillRect(0, 0, px, px);
+      // Wave glints.
+      ctx.strokeStyle = 'rgba(180,230,255,0.22)';
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 240; i++) {
+        const x = rng() * px;
+        const y = rng() * px;
+        ctx.beginPath();
+        ctx.arc(x, y, 8 + rng() * 14, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
+      }
+      // Islands: shallow water first, then sand, under every land prop.
+      const land = props.filter((pr) => !PIRATE_WATER_TIERS.has(pr.kind));
+      for (const pr of land) {
+        const r = (PROP_KINDS[pr.kind].r * 3 + 30) * k;
+        const grad = ctx.createRadialGradient(pr.x * k, pr.y * k, r * 0.2, pr.x * k, pr.y * k, r * 1.6);
+        grad.addColorStop(0, 'rgba(64,168,190,0.9)');
+        grad.addColorStop(1, 'rgba(64,168,190,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pr.x * k, pr.y * k, r * 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (const pr of land) {
+        const r = (PROP_KINDS[pr.kind].r * 2.6 + 20) * k;
+        const grad = ctx.createRadialGradient(pr.x * k, pr.y * k, r * 0.3, pr.x * k, pr.y * k, r);
+        grad.addColorStop(0, '#d9b380');
+        grad.addColorStop(0.75, '#c9a06b');
+        grad.addColorStop(1, 'rgba(201,160,107,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pr.x * k, pr.y * k, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+    build(tier, p) {
+      switch (tier) {
+        case 0: {
+          // Starfish.
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2;
+            p.add(sph(1.2, 6), 0xff9f5c, Math.cos(a) * 2.2, 0.8, Math.sin(a) * 2.2, { sx: 1.5, sy: 0.6 });
+          }
+          p.add(sph(1.5, 7), 0xffb703, 0, 1, 0, { sy: 0.6 });
+          break;
+        }
+        case 1: // Seashell.
+          p.add(sph(2.6, 9), 0xf6e3d0, 0, 1.6, 0, { sy: 0.65 });
+          p.add(sph(1.4, 8), 0xffc9de, 1.4, 2.2, 0.8, { sy: 0.7 });
+          break;
+        case 2: // Crab.
+          p.add(sph(3, 8), 0xe8384f, 0, 2, 0, { sy: 0.65 });
+          p.add(sph(1.3, 6), 0xff6b81, -3.4, 1.6, 1.6);
+          p.add(sph(1.3, 6), 0xff6b81, 3.4, 1.6, 1.6);
+          p.addGlow(sph(0.45, 5), 0xffffff, -1, 3.4, 1.8, {}, 1.6);
+          p.addGlow(sph(0.45, 5), 0xffffff, 1, 3.4, 1.8, {}, 1.6);
+          break;
+        case 3: // Barrel.
+          p.add(cyl(2.6, 2.2, 6.4, 11), 0x9c6644, 0, 3.2, 0, { sy: 1 });
+          p.add(cyl(2.85, 2.85, 0.7, 11), 0x4a3728, 0, 1.7, 0);
+          p.add(cyl(2.85, 2.85, 0.7, 11), 0x4a3728, 0, 4.7, 0);
+          break;
+        case 4: // Treasure chest.
+          p.add(box(7.5, 4, 5.5), 0x8a5a35, 0, 2, 0);
+          p.add(cyl(2.75, 2.75, 7.5, 10, ), 0xa06a40, 0, 4, 0, { rz: Math.PI / 2, sx: 0.75 });
+          p.add(box(1.6, 5.2, 0.6), 0xd9a441, 0, 2.6, 2.6);
+          p.addGlow(sph(1.6, 7), 0xffd766, 0, 4.6, 0, { sy: 0.5 }, 2.4);
+          break;
+        case 5: // Rowboat (floats).
+          p.add(box(5.5, 2.6, 13), 0x9c6644, 0, 1.8, 0);
+          p.add(box(4, 2, 11), 0x5c4030, 0, 2.6, 0);
+          p.add(box(4.6, 0.7, 1.6), 0xb08968, 0, 2.6, -2);
+          p.add(box(4.6, 0.7, 1.6), 0xb08968, 0, 2.6, 2.5);
+          return 'bob';
+        case 6: {
+          // Cannon.
+          p.add(cyl(1.7, 2.3, 9, 10), 0x2f3542, 0, 4.6, -1, { rx: -1.1 });
+          for (const wx of [-2.6, 2.6]) p.add(cyl(2, 2, 1.2, 10), 0x6f4a2f, wx, 2, 1, { rz: Math.PI / 2 });
+          p.add(box(4.4, 2.4, 5), 0x8a5a35, 0, 2.2, 0.6);
+          p.addGlow(cyl(1.1, 1.1, 0.5, 9), 0xffb35c, 0, 8.6, -3.05, { rx: -1.1 }, 1.8);
+          break;
+        }
+        case 7: {
+          // Palm tree.
+          p.add(cyl(1, 1.7, 15, 7), 0x8a5a35, 1, 7.5, 0, { rz: -0.12 });
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            p.add(box(9, 0.5, 2.6), 0x2f9e44, 2 + Math.cos(a) * 4.4, 15.4 - Math.abs(Math.sin(a)) * 1, Math.sin(a) * 4.4, {
+              ry: -a,
+              rz: 0.3,
+            });
+          }
+          p.add(sph(1, 6), 0x6f4a2f, 1.2, 14.2, 1.2);
+          p.add(sph(1, 6), 0x6f4a2f, 2.8, 14, -0.6);
+          break;
+        }
+        case 8: {
+          // Pirate ship (tall masts, floats).
+          p.add(box(11, 6, 30), 0x6b4226, 0, 4, 0);
+          p.add(box(9, 2, 26), 0x8a5a35, 0, 7.5, 0);
+          p.add(box(11, 4, 7), 0x8a5a35, 0, 8.5, -12.5);
+          p.add(box(1.1, 24, 1.1), 0x4a3728, 0, 20, 3);
+          p.add(box(1, 18, 1), 0x4a3728, 0, 17, -8);
+          p.add(box(12, 9, 0.6), 0xf1e4c8, 0, 22, 3);
+          p.add(box(9, 7, 0.6), 0xf1e4c8, 0, 18.5, -8);
+          p.add(box(2.6, 2, 2.6), 0x4a3728, 0, 32.5, 3);
+          p.addGlow(box(3, 2.4, 0.4), 0x2f3542, 0, 22, 3.4, {}, 0.6);
+          p.addGlow(sph(0.9, 6), 0xffb35c, 0, 10.5, -16.2, {}, 2.6);
+          return 'bob';
+        }
+        case 9: {
+          // Whale! (floats)
+          p.add(sph(13, 12), 0x30518a, 0, 6, 2, { sx: 0.65, sy: 0.55, sz: 1.15 });
+          p.add(sph(10, 10), 0xbcd3e8, 0, 3.2, 3, { sx: 0.6, sy: 0.4, sz: 1.05 });
+          p.add(sph(4, 8), 0x30518a, 0, 5, -13, { sx: 0.4, sy: 0.35 });
+          p.add(box(5.5, 1.2, 4), 0x274370, -4.4, 6.5, -16, { ry: 0.5, rz: 0.25 });
+          p.add(box(5.5, 1.2, 4), 0x274370, 4.4, 6.5, -16, { ry: -0.5, rz: -0.25 });
+          p.add(box(3.6, 1, 2.6), 0x274370, -7.5, 5, 4, { rz: 0.35 });
+          p.add(box(3.6, 1, 2.6), 0x274370, 7.5, 5, 4, { rz: -0.35 });
+          p.addGlow(sph(0.55, 5), 0xffffff, -4.6, 8, 8.6, {}, 1.5);
+          p.addGlow(sph(0.55, 5), 0xffffff, 4.6, 8, 8.6, {}, 1.5);
+          p.addGlow(cone(1.4, 4.5, 7), 0xa5f3fc, 0, 12.4, 4, {}, 1.4);
+          return 'bob';
+        }
+      }
+      return undefined;
+    },
+  },
+};
+
+// --- Particles (one shader-driven Points cloud) ----------------------------
+
+const MAX_PARTICLES = 360;
+
+class ParticleFx {
+  readonly points: THREE.Points;
+  private pos: Float32Array;
+  private col: Float32Array;
+  private size: Float32Array;
+  private alpha: Float32Array;
+  private vel: Float32Array;
+  private life: Float32Array;
+  private maxLife: Float32Array;
+  private grav: Float32Array;
+  private cursor = 0;
+  private geo: THREE.BufferGeometry;
+
+  constructor() {
+    this.pos = new Float32Array(MAX_PARTICLES * 3);
+    this.col = new Float32Array(MAX_PARTICLES * 3);
+    this.size = new Float32Array(MAX_PARTICLES);
+    this.alpha = new Float32Array(MAX_PARTICLES);
+    this.vel = new Float32Array(MAX_PARTICLES * 3);
+    this.life = new Float32Array(MAX_PARTICLES);
+    this.maxLife = new Float32Array(MAX_PARTICLES).fill(1);
+    this.grav = new Float32Array(MAX_PARTICLES);
+
+    this.geo = new THREE.BufferGeometry();
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.geo.setAttribute('aColor', new THREE.BufferAttribute(this.col, 3));
+    this.geo.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1));
+    this.geo.setAttribute('aAlpha', new THREE.BufferAttribute(this.alpha, 1));
+    // Never let a stale bounding sphere cull the cloud.
+    this.geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(WORLD_W / 2, 0, WORLD_H / 2), WORLD_W * 2);
+
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexShader: `
+        attribute vec3 aColor;
+        attribute float aSize;
+        attribute float aAlpha;
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          vColor = aColor;
+          vAlpha = aAlpha;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize * (620.0 / -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          float d = length(gl_PointCoord - 0.5);
+          float m = smoothstep(0.5, 0.08, d);
+          gl_FragColor = vec4(vColor * m * vAlpha, 1.0);
+        }`,
+    });
+    this.points = new THREE.Points(this.geo, material);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 20;
+  }
+
+  spawn(
+    x: number,
+    y: number,
+    z: number,
+    vx: number,
+    vy: number,
+    vz: number,
+    color: number,
+    size: number,
+    life: number,
+    grav = 0
+  ): void {
+    const i = this.cursor;
+    this.cursor = (this.cursor + 1) % MAX_PARTICLES;
+    this.pos.set([x, y, z], i * 3);
+    this.vel.set([vx, vy, vz], i * 3);
+    const c = new THREE.Color(color);
+    this.col.set([c.r, c.g, c.b], i * 3);
+    this.size[i] = size;
+    this.alpha[i] = 1;
+    this.life[i] = life;
+    this.maxLife[i] = life;
+    this.grav[i] = grav;
+  }
+
+  burst(x: number, z: number, color: number, count: number, speed: number, size: number, life = 0.7): void {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = speed * (0.3 + Math.random() * 0.7);
+      this.spawn(
+        x,
+        2 + Math.random() * 4,
+        z,
+        Math.cos(a) * v,
+        speed * (0.5 + Math.random() * 0.9),
+        Math.sin(a) * v,
+        color,
+        size * (0.6 + Math.random() * 0.7),
+        life * (0.6 + Math.random() * 0.5),
+        320
+      );
+    }
+  }
+
+  implode(x: number, z: number, color: number, count: number, radius: number): void {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = radius * (0.8 + Math.random() * 0.6);
+      this.spawn(
+        x + Math.cos(a) * d,
+        2 + Math.random() * 10,
+        z + Math.sin(a) * d,
+        -Math.cos(a) * d * 2.4,
+        -6,
+        -Math.sin(a) * d * 2.4,
+        color,
+        radius * 0.14 * (0.5 + Math.random()),
+        0.45,
+        0
+      );
+    }
+  }
+
+  update(dt: number): void {
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+      if (this.life[i] <= 0) continue;
+      this.life[i] -= dt;
+      if (this.life[i] <= 0) {
+        this.alpha[i] = 0;
+        this.size[i] = 0;
+        continue;
+      }
+      this.vel[i * 3 + 1] -= this.grav[i] * dt;
+      this.pos[i * 3] += this.vel[i * 3] * dt;
+      this.pos[i * 3 + 1] += this.vel[i * 3 + 1] * dt;
+      this.pos[i * 3 + 2] += this.vel[i * 3 + 2] * dt;
+      if (this.pos[i * 3 + 1] < 0.5) this.pos[i * 3 + 1] = 0.5;
+      this.alpha[i] = Math.min(1, this.life[i] / this.maxLife[i] / 0.7);
+    }
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.aColor.needsUpdate = true;
+    this.geo.attributes.aSize.needsUpdate = true;
+    this.geo.attributes.aAlpha.needsUpdate = true;
+  }
+}
+
+// --- Floating score popups -------------------------------------------------
+
+interface Popup {
+  sprite: THREE.Sprite;
+  canvas: HTMLCanvasElement;
+  texture: THREE.CanvasTexture;
+  life: number;
+  maxLife: number;
+  scale: number;
+}
+
+class Popups {
+  readonly group = new THREE.Group();
+  private pool: Popup[] = [];
+  private active: Popup[] = [];
+
+  constructor() {
+    for (let i = 0; i < 16; i++) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 96;
+      const texture = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false, toneMapped: false })
+      );
+      sprite.visible = false;
+      sprite.renderOrder = 30;
+      this.group.add(sprite);
+      this.pool.push({ sprite, canvas, texture, life: 0, maxLife: 1, scale: 1 });
+    }
+  }
+
+  spawn(x: number, z: number, text: string, cssColor: string, scale = 1): void {
+    const p = this.pool.pop();
+    if (!p) return;
+    const ctx = p.canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 256, 96);
+    ctx.font = '800 56px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = 'rgba(6,10,22,0.9)';
+    ctx.strokeText(text, 128, 48);
+    ctx.fillStyle = cssColor;
+    ctx.fillText(text, 128, 48);
+    p.texture.needsUpdate = true;
+    p.sprite.position.set(x, 14, z);
+    p.sprite.visible = true;
+    p.life = p.maxLife = 0.9;
+    p.scale = scale;
+    this.active.push(p);
+  }
+
+  update(dt: number, camDist: number): void {
+    const base = camDist * 0.085;
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      const p = this.active[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        p.sprite.visible = false;
+        this.active.splice(i, 1);
+        this.pool.push(p);
+        continue;
+      }
+      const t = 1 - p.life / p.maxLife;
+      const k = t < 0.3 ? easeOutBack(t / 0.3) : 1;
+      p.sprite.scale.set(base * p.scale * k, base * p.scale * k * 0.375, 1);
+      p.sprite.position.y += dt * 22;
+      const mat = p.sprite.material as THREE.SpriteMaterial;
+      mat.opacity = t > 0.55 ? 1 - (t - 0.55) / 0.45 : 1;
+    }
+  }
+}
+
+// --- Hole visuals ----------------------------------------------------------
+
 interface HoleVis {
-  root: Container;
-  halo: Sprite;
-  ring: Sprite;
-  voidSprite: Sprite;
-  swirl: Sprite;
-  shield: Graphics;
-  label: Text;
-  /** Seconds left of the death animation; 0 when not dying. */
+  root: THREE.Group;
+  disc: THREE.Mesh;
+  ring: THREE.Mesh;
+  ringMat: THREE.MeshBasicMaterial;
+  swirl: THREE.Mesh;
+  swirlMat: THREE.MeshBasicMaterial;
+  halo: THREE.Mesh;
+  haloMat: THREE.MeshBasicMaterial;
+  shield: THREE.Mesh;
+  shieldMat: THREE.MeshBasicMaterial;
+  label: THREE.Sprite;
+  labelCanvas: HTMLCanvasElement;
+  labelTexture: THREE.CanvasTexture;
+  labelText: string;
+  color: number;
   deathT: number;
   deathR: number;
   eaterId: number;
-  /** Seconds left of the spawn pop-in. */
   spawnT: number;
   lastAlive: boolean;
 }
 
 interface Sinking {
-  sprite: Sprite;
+  group: THREE.Group;
   eaterId: number;
   t: number;
   maxT: number;
-  startScale: number;
+  kindR: number;
   fromX: number;
-  fromY: number;
+  fromZ: number;
+  baseYaw: number;
+  grow: boolean;
 }
 
-interface Firefly {
-  sprite: Sprite;
-  baseX: number;
-  baseY: number;
-  phase: number;
-  speed: number;
-}
-
-const DEATH_TIME = 0.55;
-const SPAWN_TIME = 0.45;
-const SINK_TIME = 0.5;
+// --- The view --------------------------------------------------------------
 
 export class View {
-  readonly fx = new Fx();
+  private renderer: THREE.WebGLRenderer;
+  private scene = new THREE.Scene();
+  private camera: THREE.PerspectiveCamera;
+  private composer: EffectComposer;
+  private bloom: UnrealBloomPass;
 
-  /** Everything in world coordinates lives under this container. */
-  private world = new Container();
-  private groundLayer = new Container();
-  private propLayer = new Container();
-  private holeLayer = new Container();
-  private glowLayer = new Container();
+  private worldGroup = new THREE.Group();
+  private holeGroup = new THREE.Group();
+  private fx = new ParticleFx();
+  private popups = new Popups();
 
-  private vignette: Sprite;
+  private bodyMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
+  private glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+  private templates = new Map<string, KindTemplate>();
 
-  private propSprites = new Map<number, Sprite>();
   private props: Prop[] = [];
-  private seed = 0;
+  private propGroups = new Map<number, THREE.Group>();
+  private animated: { group: THREE.Group; phase: number }[] = [];
   private sinking: Sinking[] = [];
   private holes = new Map<number, HoleVis>();
   private holePositions = new Map<number, { x: number; y: number }>();
-  private fireflies: Firefly[] = [];
 
-  private kindTextures = new Map<string, Texture>();
-  private voidTexture: Texture;
-  private ringTexture: Texture;
-  private glowTexture: Texture;
-  private swirlTexture: Texture;
+  private theme: ThemeName = 'city';
+
+
+  private hemi: THREE.HemisphereLight;
+  private sun: THREE.DirectionalLight;
 
   private camX = WORLD_W / 2;
-  private camY = WORLD_H / 2;
-  private zoom = 1;
-  private zoomInit = false;
+  private camZ = WORLD_H / 2;
+  private camDist = 500;
+  private camInit = false;
+  private shakeTime = 0;
+  private shakePower = 0;
+  private time = 0;
+  private dustTimer = 0;
 
-  constructor(private readonly app: Application) {
-    this.world.addChild(this.groundLayer, this.propLayer, this.holeLayer, this.glowLayer);
-    this.glowLayer.addChild(this.fx.particleLayer, this.fx.popupLayer);
-    app.stage.addChild(this.world);
+  private ringGeo = new THREE.RingGeometry(0.9, 1.07, 48);
+  private discGeo = new THREE.CircleGeometry(1, 48);
+  private planeGeo = new THREE.PlaneGeometry(2, 2);
+  private swirlTexture: THREE.CanvasTexture;
+  private haloTexture: THREE.CanvasTexture;
+  private shieldTexture: THREE.CanvasTexture;
 
-    this.fx.init(app.renderer);
+  constructor(host: HTMLElement) {
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+    host.appendChild(this.renderer.domElement);
 
-    this.voidTexture = makeRadialTexture(256, [
-      [0, 'rgba(1,2,7,1)'],
-      [0.76, 'rgba(1,2,7,1)'],
-      [0.88, 'rgba(2,4,12,0.96)'],
-      [1, 'rgba(2,4,12,0)'],
-    ]);
-    this.ringTexture = makeRadialTexture(256, [
-      [0, 'rgba(255,255,255,0)'],
-      [0.7, 'rgba(255,255,255,0)'],
-      [0.8, 'rgba(255,255,255,1)'],
-      [0.9, 'rgba(255,255,255,0.85)'],
-      [1, 'rgba(255,255,255,0)'],
-    ]);
-    this.glowTexture = makeRadialTexture(128, [
-      [0, 'rgba(255,255,255,0.9)'],
-      [0.4, 'rgba(255,255,255,0.28)'],
-      [1, 'rgba(255,255,255,0)'],
-    ]);
-    this.swirlTexture = this.makeSwirlTexture();
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 5, 6000);
 
-    this.vignette = new Sprite(
-      makeRadialTexture(512, [
-        [0, 'rgba(0,0,0,0)'],
-        [0.62, 'rgba(0,0,0,0)'],
-        [1, 'rgba(2,4,10,0.55)'],
+    this.ringGeo.rotateX(-Math.PI / 2);
+    this.discGeo.rotateX(-Math.PI / 2);
+    this.planeGeo.rotateX(-Math.PI / 2);
+
+    this.swirlTexture = new THREE.CanvasTexture(makeSwirlCanvas());
+    this.haloTexture = new THREE.CanvasTexture(
+      makeRadialCanvas(128, [
+        [0, 'rgba(255,255,255,0.55)'],
+        [0.55, 'rgba(255,255,255,0.14)'],
+        [1, 'rgba(255,255,255,0)'],
       ])
     );
-    this.vignette.anchor.set(0.5);
-    app.stage.addChild(this.vignette);
+    this.shieldTexture = new THREE.CanvasTexture(makeShieldCanvas());
 
-    this.world.filters = [
-      new AdvancedBloomFilter({
-        // High enough that prop bodies keep their detail — only rims, windows,
-        // popups, particles and the boundary wall actually bloom.
-        threshold: 0.52,
-        bloomScale: 0.7,
-        brightness: 1,
-        blur: 6,
-        quality: 6,
-      }),
-    ];
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 1.2);
+    this.sun = new THREE.DirectionalLight(0xffffff, 2.1);
+    this.sun.position.set(420, 640, 260);
+    this.scene.add(this.hemi, this.sun, this.worldGroup, this.holeGroup, this.fx.points, this.popups.group);
+
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    // ACES pushes scene luminance past 1.0, so anything below ~1.05 here
+    // would bloom the whole frame (see robot-rally's notes).
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.45, 1.05);
+    this.composer.addPass(this.bloom);
+    this.composer.addPass(new OutputPass());
 
     this.resize();
   }
 
   resize(): void {
-    const w = this.app.renderer.width / this.app.renderer.resolution;
-    const h = this.app.renderer.height / this.app.renderer.resolution;
-    this.vignette.position.set(w / 2, h / 2);
-    // Oversize so the corners are fully covered.
-    const d = Math.hypot(w, h) * 1.05;
-    this.vignette.width = d;
-    this.vignette.height = d;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w, h);
+    this.composer.setSize(w, h);
   }
 
   // --- Arena construction --------------------------------------------------
 
-  /** Build the arena for a seed. Call on every join (replaces the old one). */
-  setWorld(seed: number, gone: number[]): void {
-    this.groundLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
-    this.propLayer.removeChildren().forEach((c) => c.destroy());
-    for (const vis of this.holes.values()) vis.root.destroy({ children: true });
+  setWorld(seed: number, gone: number[], theme: ThemeName): void {
+    // Tear down the previous arena.
+    this.worldGroup.traverse((o) => {
+      if (o instanceof THREE.Mesh && !(o.geometry as THREE.BufferGeometry).userData.shared) {
+        (o.geometry as THREE.BufferGeometry).dispose();
+      }
+    });
+    this.worldGroup.clear();
+    for (const vis of this.holes.values()) this.disposeHole(vis);
     this.holes.clear();
     this.holePositions.clear();
-    this.propSprites.clear();
+    this.propGroups.clear();
+    this.animated = [];
     this.sinking = [];
-    this.fireflies = [];
-    this.zoomInit = false;
+    this.camInit = false;
 
-    this.seed = seed;
-    this.buildGround(seed);
+
+    this.theme = theme;
+    const def = themes[theme];
+
+    this.scene.background = new THREE.Color(def.bg);
+    this.scene.fog = new THREE.Fog(def.bg, 900, 2600);
+    this.hemi.color.set(def.hemiSky);
+    this.hemi.groundColor.set(def.hemiGround);
+    this.sun.color.set(def.sun);
+
     this.props = generateProps(seed);
-    const goneSet = new Set(gone);
-    for (const prop of this.props) {
-      const sprite = new Sprite(this.textureForProp(prop));
-      sprite.anchor.set(0.5);
-      sprite.position.set(prop.x, prop.y);
-      sprite.scale.set(1 / TEX_SCALE);
-      sprite.rotation = (mulberry32(seed + prop.id)() - 0.5) * 0.9;
-      sprite.visible = !goneSet.has(prop.id);
-      this.propLayer.addChild(sprite);
-      this.propSprites.set(prop.id, sprite);
+
+    // Ground: an oversized dark base plus the painted arena plane.
+    const base = new THREE.Mesh(
+      new THREE.PlaneGeometry(9000, 9000).rotateX(-Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: def.baseGround })
+    );
+    base.position.set(WORLD_W / 2, -0.6, WORLD_H / 2);
+    this.worldGroup.add(base);
+
+    const px = 2048;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = px;
+    def.paint(canvas.getContext('2d')!, px, this.props, mulberry32(seed ^ 0x9e3779b9));
+    const groundTex = new THREE.CanvasTexture(canvas);
+    groundTex.anisotropy = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
+    groundTex.colorSpace = THREE.SRGBColorSpace;
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(WORLD_W, WORLD_H).rotateX(-Math.PI / 2),
+      new THREE.MeshLambertMaterial({ map: groundTex })
+    );
+    ground.position.set(WORLD_W / 2, 0, WORLD_H / 2);
+    this.worldGroup.add(ground);
+
+    // Glowing boundary walls — bright enough to catch a little bloom, dim
+    // enough not to blow out into white streaks when you drive alongside one.
+    const wallMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(def.wall).multiplyScalar(1.15), toneMapped: false });
+    const wallH = 4;
+    for (const [x, z, w, d] of [
+      [WORLD_W / 2, -4, WORLD_W + 20, 5],
+      [WORLD_W / 2, WORLD_H + 4, WORLD_W + 20, 5],
+      [-4, WORLD_H / 2, 5, WORLD_H + 20],
+      [WORLD_W + 4, WORLD_H / 2, 5, WORLD_H + 20],
+    ]) {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(w, wallH, d), wallMat);
+      wall.position.set(x, wallH / 2, z);
+      this.worldGroup.add(wall);
     }
+
+    // Props.
+    const goneSet = new Set(gone);
+    const yawRng = mulberry32(seed + 7);
+    for (const prop of this.props) {
+      const template = this.templateFor(theme, prop.kind);
+      const group = new THREE.Group();
+      const bodyMesh = new THREE.Mesh(template.body, this.bodyMaterial);
+      group.add(bodyMesh);
+      if (template.glow) group.add(new THREE.Mesh(template.glow, this.glowMaterial));
+      const yaw = yawRng() * Math.PI * 2;
+      group.position.set(prop.x, 0, prop.y);
+      group.rotation.y = yaw;
+      group.userData = { yaw, x: prop.x, z: prop.y };
+      group.visible = !goneSet.has(prop.id);
+      this.worldGroup.add(group);
+      this.propGroups.set(prop.id, group);
+      if (template.anim === 'bob') this.animated.push({ group, phase: yawRng() * Math.PI * 2 });
+    }
+  }
+
+  private templateFor(theme: ThemeName, tier: number): KindTemplate {
+    const key = `${theme}:${tier}`;
+    let template = this.templates.get(key);
+    if (!template) {
+      const parts = new Parts();
+      // Grounding "stain" shadow baked into the body geometry. Kept small and
+      // barely darker than the ground — a big dark disc reads as a hole.
+      parts.add(disc(PROP_KINDS[tier].r * 0.8, 20), themes[theme].shadow, 0.8, 0.07, 1);
+      const anim = themes[theme].build(tier, parts);
+      const { body, glow } = parts.build();
+      body.userData.shared = true;
+      if (glow) glow.userData.shared = true;
+      template = { body, glow, anim };
+      this.templates.set(key, template);
+    }
+    return template;
   }
 
   /** New round: every prop regrows at once (the server reset them silently). */
   resetProps(): void {
     this.sinking = [];
-    for (const [id, sprite] of this.propSprites) {
-      const prop = this.props[id];
-      sprite.visible = true;
-      sprite.alpha = 1;
-      sprite.scale.set(1 / TEX_SCALE);
-      sprite.position.set(prop.x, prop.y);
-      sprite.rotation = (mulberry32(this.seed + id)() - 0.5) * 0.9;
+    for (const group of this.propGroups.values()) {
+      const { yaw, x, z } = group.userData as { yaw: number; x: number; z: number };
+      group.visible = true;
+      group.position.set(x, 0, z);
+      group.rotation.set(0, yaw, 0);
+      group.scale.setScalar(1);
     }
-  }
-
-  private buildGround(seed: number): void {
-    const rng = mulberry32(seed ^ 0x9e3779b9);
-    const g = new Graphics();
-
-    // Base lawn — bright enough that the near-black holes punch through it.
-    g.rect(-200, -200, WORLD_W + 400, WORLD_H + 400).fill(0x0a1420);
-    g.rect(0, 0, WORLD_W, WORLD_H).fill(0x1d3d57);
-
-    // Small soft patches to break up the flatness — kept subtle so they read
-    // as mottled grass, not giant discs.
-    for (let i = 0; i < 56; i++) {
-      const x = rng() * WORLD_W;
-      const y = rng() * WORLD_H;
-      const r = 34 + rng() * 80;
-      g.circle(x, y, r).fill({ color: i % 2 ? 0x224461 : 0x19364f, alpha: 0.4 });
-    }
-    // A few mown stripes for texture.
-    for (let i = 0; i < 9; i++) {
-      const y = rng() * WORLD_H;
-      g.rect(0, y, WORLD_W, 34 + rng() * 40).fill({ color: 0x224460, alpha: 0.35 });
-    }
-
-    // Subtle grid, like park paths seen from far above.
-    for (let x = 100; x < WORLD_W; x += 100) {
-      g.rect(x - 1.2, 0, 2.4, WORLD_H).fill({ color: 0x35608a, alpha: 0.3 });
-    }
-    for (let y = 100; y < WORLD_H; y += 100) {
-      g.rect(0, y - 1.2, WORLD_W, 2.4).fill({ color: 0x35608a, alpha: 0.3 });
-    }
-
-    // Glowing boundary wall — bright enough to bloom.
-    g.roundRect(-10, -10, WORLD_W + 20, WORLD_H + 20, 26).stroke({ width: 7, color: 0x2dd4bf });
-    g.roundRect(-22, -22, WORLD_W + 44, WORLD_H + 44, 34).stroke({
-      width: 4,
-      color: 0x1a7f74,
-      alpha: 0.7,
-    });
-    this.groundLayer.addChild(g);
-
-    // Fireflies drifting over the lawn.
-    for (let i = 0; i < 26; i++) {
-      const sprite = new Sprite(this.glowTexture);
-      sprite.anchor.set(0.5);
-      sprite.tint = i % 3 === 0 ? 0x9ef0d0 : 0xffd166;
-      sprite.blendMode = 'add';
-      const f: Firefly = {
-        sprite,
-        baseX: rng() * WORLD_W,
-        baseY: rng() * WORLD_H,
-        phase: rng() * Math.PI * 2,
-        speed: 0.3 + rng() * 0.5,
-      };
-      sprite.width = sprite.height = 10 + rng() * 8;
-      this.groundLayer.addChild(sprite);
-      this.fireflies.push(f);
-    }
-  }
-
-  private textureForProp(prop: Prop): Texture {
-    const variants = KIND_VARIANTS[PROP_KINDS[prop.kind].name] ?? 1;
-    const variant = prop.id % variants;
-    const key = `${prop.kind}:${variant}`;
-    let texture = this.kindTextures.get(key);
-    if (!texture) {
-      const g = new Graphics();
-      drawPropArt(g, PROP_KINDS[prop.kind].name, variant);
-      texture = this.app.renderer.generateTexture(g);
-      g.destroy();
-      this.kindTextures.set(key, texture);
-    }
-    return texture;
   }
 
   // --- Arena events --------------------------------------------------------
 
-  /** A prop fell in: animate it spiralling into the eater. */
   propEaten(propId: number, eaterId: number): void {
-    const sprite = this.propSprites.get(propId);
-    if (!sprite || !sprite.visible) return;
+    const group = this.propGroups.get(propId);
+    if (!group || !group.visible) return;
     this.sinking.push({
-      sprite,
+      group,
       eaterId,
       t: SINK_TIME,
       maxT: SINK_TIME,
-      startScale: sprite.scale.x,
-      fromX: sprite.x,
-      fromY: sprite.y,
+      kindR: PROP_KINDS[this.props[propId].kind].r,
+      fromX: group.position.x,
+      fromZ: group.position.z,
+      baseYaw: group.rotation.y,
+      grow: false,
     });
   }
 
   propRespawned(propId: number): void {
-    const sprite = this.propSprites.get(propId);
-    if (!sprite) return;
-    const prop = this.props[propId];
-    sprite.visible = true;
-    sprite.alpha = 0;
-    sprite.position.set(prop.x, prop.y);
-    // The render loop eases alpha/scale back in via the sinking list trick:
+    const group = this.propGroups.get(propId);
+    if (!group) return;
+    const { yaw, x, z } = group.userData as { yaw: number; x: number; z: number };
+    group.visible = true;
+    group.position.set(x, 0, z);
+    group.rotation.set(0, yaw, 0);
+    group.scale.setScalar(0.01);
     this.sinking.push({
-      sprite,
-      eaterId: -1, // -1 marks "growing back", not sinking
+      group,
+      eaterId: -1,
       t: 0.4,
       maxT: 0.4,
-      startScale: 1 / TEX_SCALE,
-      fromX: prop.x,
-      fromY: prop.y,
+      kindR: 0,
+      fromX: x,
+      fromZ: z,
+      baseYaw: yaw,
+      grow: true,
     });
   }
 
@@ -339,15 +1073,15 @@ export class View {
     const vis = this.holes.get(victimId);
     if (vis) {
       vis.deathT = DEATH_TIME;
-      vis.deathR = Math.max(vis.voidSprite.width / 2, HOLE_BASE_R);
+      vis.deathR = Math.max(vis.disc.scale.x, HOLE_BASE_R);
       vis.eaterId = eaterId;
     }
     const pos = this.holePositions.get(victimId);
     const eaterVis = this.holes.get(eaterId);
     if (pos) {
-      const color = eaterVis ? eaterVis.ring.tint : 0xffffff;
-      this.fx.implode(pos.x, pos.y, color as number, 46, vis ? vis.deathR * 1.4 : 40);
-      this.fx.burst(pos.x, pos.y, 0xffffff, 18, 190, 9, 0.5);
+      const color = eaterVis ? eaterVis.color : 0xffffff;
+      this.fx.implode(pos.x, pos.y, color, 42, vis ? vis.deathR * 1.5 : 40);
+      this.fx.burst(pos.x, pos.y, 0xffffff, 16, 130, 7, 0.5);
     }
   }
 
@@ -360,77 +1094,110 @@ export class View {
     const prop = this.props[propId];
     if (!prop) return;
     const size = PROP_KINDS[prop.kind].r;
-    this.fx.burst(prop.x, prop.y, color, Math.min(26, 6 + pts * 2), 120 + size * 6, 4 + size * 0.4);
+    this.fx.burst(prop.x, prop.y, color, Math.min(22, 5 + pts * 2), 60 + size * 4, 3 + size * 0.32);
     if (mine || pts >= 6) {
-      this.fx.popup(prop.x, prop.y - size, `+${pts}`, mine ? 0xffe066 : 0xdfe8ff, mine ? 1 : 0.75);
+      this.popups.spawn(prop.x, prop.y, `+${pts}`, mine ? '#ffe066' : '#dfe8ff', mine ? 1 : 0.75);
     }
   }
 
-  /** Screen shake, exposed for main.ts (swallows, deaths). */
   shake(power: number): void {
-    this.fx.shake(power);
+    this.shakePower = Math.max(this.shakePower, power);
+    this.shakeTime = Math.max(this.shakeTime, 0.18 + power * 0.12);
+  }
+
+  // --- Coordinate mapping --------------------------------------------------
+
+  screenToWorld(x: number, y: number): { x: number; y: number } {
+    const ndc = new THREE.Vector2(
+      (x / window.innerWidth) * 2 - 1,
+      -(y / window.innerHeight) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(ndc, this.camera);
+    const hit = new THREE.Vector3();
+    raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit);
+    return { x: hit.x, y: hit.z };
+  }
+
+  worldToScreen(x: number, y: number): { x: number; y: number } {
+    const v = new THREE.Vector3(x, 0, y).project(this.camera);
+    return {
+      x: ((v.x + 1) / 2) * window.innerWidth,
+      y: ((1 - v.y) / 2) * window.innerHeight,
+    };
   }
 
   // --- Per-frame rendering -------------------------------------------------
 
-  screenToWorld(x: number, y: number): { x: number; y: number } {
-    return {
-      x: (x - this.world.position.x) / this.zoom,
-      y: (y - this.world.position.y) / this.zoom,
-    };
-  }
+  render(state: RenderState | null, focus: { x: number; y: number; r: number }, dt: number): void {
+    this.time += dt;
 
-  worldToScreen(x: number, y: number): { x: number; y: number } {
-    return {
-      x: x * this.zoom + this.world.position.x,
-      y: y * this.zoom + this.world.position.y,
-    };
-  }
-
-  render(
-    state: RenderState | null,
-    focus: { x: number; y: number; r: number },
-    dt: number
-  ): void {
-    const w = this.app.renderer.width / this.app.renderer.resolution;
-    const h = this.app.renderer.height / this.app.renderer.resolution;
-
-    // Camera: zoom out as the hole grows.
-    const targetZoom = h / Math.min(1500, 320 + focus.r * 8.5);
-    if (!this.zoomInit) {
-      this.zoom = targetZoom;
+    // Camera: a gently tilted chase view that pulls back as you grow.
+    const targetDist = Math.min(940, 300 + focus.r * 9.5);
+    if (!this.camInit) {
+      this.camDist = targetDist;
       this.camX = focus.x;
-      this.camY = focus.y;
-      this.zoomInit = true;
+      this.camZ = focus.y;
+      this.camInit = true;
     }
-    this.zoom += (targetZoom - this.zoom) * Math.min(1, dt * 2.5);
+    this.camDist += (targetDist - this.camDist) * Math.min(1, dt * 2.5);
     this.camX += (focus.x - this.camX) * Math.min(1, dt * 5);
-    this.camY += (focus.y - this.camY) * Math.min(1, dt * 5);
+    this.camZ += (focus.y - this.camZ) * Math.min(1, dt * 5);
 
-    // Keep the view inside the arena (with a little border showing).
-    const halfW = w / 2 / this.zoom;
-    const halfH = h / 2 / this.zoom;
-    const pad = 60;
-    const cx = clampCam(this.camX, halfW, WORLD_W, pad);
-    const cy = clampCam(this.camY, halfH, WORLD_H, pad);
+    // Screen shake.
+    let shakeX = 0;
+    let shakeZ = 0;
+    if (this.shakeTime > 0) {
+      this.shakeTime -= dt;
+      const a = Math.max(0, this.shakeTime) * this.shakePower * 26;
+      shakeX = (Math.random() * 2 - 1) * a;
+      shakeZ = (Math.random() * 2 - 1) * a;
+      if (this.shakeTime <= 0) this.shakePower = 0;
+    }
 
-    this.world.scale.set(this.zoom);
-    this.world.position.set(
-      w / 2 - cx * this.zoom + this.fx.shakeX,
-      h / 2 - cy * this.zoom + this.fx.shakeY
+    this.camera.position.set(
+      this.camX + shakeX,
+      this.camDist * 0.74,
+      this.camZ + this.camDist * 0.62 + shakeZ
     );
+    this.camera.lookAt(this.camX + shakeX * 0.4, 0, this.camZ + shakeZ * 0.4);
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.near = this.camDist * 1.9;
+      this.scene.fog.far = this.camDist * 5.2;
+    }
 
-    // Fireflies drift and pulse.
-    const now = performance.now() / 1000;
-    for (const f of this.fireflies) {
-      f.sprite.x = f.baseX + Math.sin(now * f.speed + f.phase) * 26;
-      f.sprite.y = f.baseY + Math.cos(now * f.speed * 0.8 + f.phase * 2) * 20;
-      f.sprite.alpha = 0.35 + 0.3 * Math.sin(now * 1.7 + f.phase * 3);
+    // Bobbing props (boats, whales).
+    for (const a of this.animated) {
+      if (!a.group.visible) continue;
+      a.group.position.y = Math.sin(this.time * 1.3 + a.phase) * 0.9;
+      a.group.rotation.z = Math.sin(this.time * 1.1 + a.phase) * 0.03;
+    }
+
+    // Ambient drifting dust / fireflies / sea sparkle.
+    this.dustTimer -= dt;
+    if (this.dustTimer <= 0) {
+      this.dustTimer = 0.12;
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.random() * this.camDist * 1.1;
+      this.fx.spawn(
+        this.camX + Math.cos(a) * d,
+        3 + Math.random() * 26,
+        this.camZ + Math.sin(a) * d,
+        (Math.random() - 0.5) * 7,
+        Math.random() * 2.5,
+        (Math.random() - 0.5) * 7,
+        themes[this.theme].dust,
+        2.4,
+        2.5 + Math.random() * 2
+      );
     }
 
     if (state) this.renderHoles(state, dt);
     this.updateSinking(dt);
     this.fx.update(dt);
+    this.popups.update(dt, this.camDist);
+
+    this.composer.render();
   }
 
   private renderHoles(state: RenderState, dt: number): void {
@@ -439,35 +1206,30 @@ export class View {
       seen.add(hole.id);
       let vis = this.holes.get(hole.id);
       if (!vis) {
-        vis = this.makeHoleVis();
+        vis = this.makeHoleVis(hole.color);
         this.holes.set(hole.id, vis);
       }
       this.holePositions.set(hole.id, { x: hole.x, y: hole.y });
 
       const label = hole.leader ? `👑 ${hole.name}` : hole.name;
-      if (vis.label.text !== label) vis.label.text = label;
-      vis.ring.tint = hole.color;
-      vis.halo.tint = hole.color;
-      vis.swirl.tint = hole.color;
-      vis.label.style.fill = hole.isMe ? 0xffffff : 0xcfe0f5;
+      if (vis.labelText !== label) this.drawLabel(vis, label, hole.isMe);
 
-      vis.root.position.set(hole.x, hole.y);
+      vis.root.position.set(hole.x, 0, hole.y);
 
       if (!hole.alive) {
         if (vis.deathT > 0) {
-          // Death animation: shrink and spin into the eater.
           vis.deathT -= dt;
           const t = Math.max(0, vis.deathT / DEATH_TIME);
           const eater = this.holePositions.get(vis.eaterId);
           if (eater) {
             vis.root.position.set(
               hole.x + (eater.x - hole.x) * (1 - t),
+              0,
               hole.y + (eater.y - hole.y) * (1 - t)
             );
           }
           this.sizeHole(vis, vis.deathR * t);
-          vis.swirl.rotation += dt * 14;
-          vis.root.alpha = t;
+          this.setHoleOpacity(vis, t);
           vis.root.visible = true;
         } else {
           vis.root.visible = false;
@@ -477,36 +1239,35 @@ export class View {
       }
 
       if (!vis.lastAlive) {
-        // Came (back) to life this frame.
         vis.spawnT = SPAWN_TIME;
         vis.lastAlive = true;
       }
       vis.root.visible = true;
-      vis.root.alpha = 1;
+      this.setHoleOpacity(vis, 1);
 
       let r = hole.r;
       if (vis.spawnT > 0) {
         vis.spawnT -= dt;
-        const t = 1 - Math.max(0, vis.spawnT) / SPAWN_TIME;
-        r *= easeOutBack(t);
+        r *= easeOutBack(1 - Math.max(0, vis.spawnT) / SPAWN_TIME);
       }
       this.sizeHole(vis, r);
 
-      vis.swirl.rotation += dt * (1.6 + 14 / hole.r);
+      vis.swirl.rotation.z += dt * (1.4 + 16 / hole.r);
       vis.shield.visible = hole.invuln;
       if (hole.invuln) {
-        vis.shield.alpha = 0.5 + 0.4 * Math.sin(performance.now() / 90);
+        vis.shieldMat.opacity = 0.45 + 0.35 * Math.sin(performance.now() / 90);
+        vis.shield.rotation.z -= dt * 1.6;
       }
-      // Labels stay a constant size on screen.
-      const labelScale = Math.min(1.6, 1 / this.zoom);
-      vis.label.scale.set(labelScale);
-      vis.label.position.set(0, -hole.r - 16 * labelScale);
+
+      // Labels keep a steady on-screen size.
+      const w = this.camDist * 0.16;
+      vis.label.scale.set(w, w * 0.25, 1);
+      vis.label.position.set(0, 8, -hole.r * 0.3);
     }
 
-    // Remove visuals for holes no longer in the snapshot (players who left).
     for (const [id, vis] of this.holes) {
       if (!seen.has(id)) {
-        vis.root.destroy({ children: true });
+        this.disposeHole(vis);
         this.holes.delete(id);
         this.holePositions.delete(id);
       }
@@ -514,73 +1275,139 @@ export class View {
   }
 
   private sizeHole(vis: HoleVis, r: number): void {
-    const d = Math.max(1, r * 2);
-    vis.voidSprite.width = vis.voidSprite.height = d * 1.06;
-    vis.ring.width = vis.ring.height = d * 1.24;
-    vis.halo.width = vis.halo.height = d * 2.5;
-    vis.swirl.width = vis.swirl.height = d * 0.92;
-    vis.shield.scale.set(r / 64);
+    const s = Math.max(0.5, r);
+    vis.disc.scale.set(s, 1, s);
+    vis.ring.scale.set(s * 1.06, 1, s * 1.06);
+    vis.halo.scale.set(s * 2.4, 1, s * 2.4);
+    vis.swirl.scale.set(s * 0.95, 1, s * 0.95);
+    vis.shield.scale.set(s * 1.28, 1, s * 1.28);
   }
 
-  private makeHoleVis(): HoleVis {
-    const root = new Container();
+  private setHoleOpacity(vis: HoleVis, o: number): void {
+    (vis.disc.material as THREE.MeshBasicMaterial).opacity = o;
+    vis.ringMat.opacity = o;
+    vis.swirlMat.opacity = 0.55 * o;
+    vis.haloMat.opacity = 0.3 * o;
+    (vis.label.material as THREE.SpriteMaterial).opacity = o;
+  }
 
-    // Soft colored halo underneath everything, so a hole pops off the lawn.
-    const halo = new Sprite(this.glowTexture);
-    halo.anchor.set(0.5);
-    halo.blendMode = 'add';
-    halo.alpha = 0.34;
+  private makeHoleVis(color: number): HoleVis {
+    const root = new THREE.Group();
 
-    const ring = new Sprite(this.ringTexture);
-    ring.anchor.set(0.5);
-    ring.blendMode = 'add';
-
-    const voidSprite = new Sprite(this.voidTexture);
-    voidSprite.anchor.set(0.5);
-
-    const swirl = new Sprite(this.swirlTexture);
-    swirl.anchor.set(0.5);
-    swirl.blendMode = 'add';
-    swirl.alpha = 0.8;
-
-    const shield = new Graphics();
-    // Drawn at radius 64; sizeHole scales it to match.
-    for (let i = 0; i < 12; i++) {
-      const a0 = (i / 12) * Math.PI * 2;
-      const a1 = a0 + Math.PI / 14;
-      shield.arc(0, 0, 78, a0, a1).stroke({ width: 7, color: 0xffffff, alpha: 0.9 });
-      shield.closePath();
-    }
-    shield.visible = false;
-
-    const label = new Text({
-      text: '',
-      style: {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: 17,
-        fontWeight: '700',
-        fill: 0xffffff,
-        stroke: { color: 0x081020, width: 4 },
-      },
+    const haloMat = new THREE.MeshBasicMaterial({
+      map: this.haloTexture,
+      color,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
     });
-    label.anchor.set(0.5, 1);
+    const halo = new THREE.Mesh(this.planeGeo, haloMat);
+    halo.position.y = 0.1;
+    halo.renderOrder = 4;
 
-    root.addChild(halo, ring, voidSprite, swirl, shield, label);
-    this.holeLayer.addChild(root);
+    const discMat = new THREE.MeshBasicMaterial({ color: 0x04060e, transparent: true });
+    const holeDisc = new THREE.Mesh(this.discGeo, discMat);
+    holeDisc.position.y = 0.22;
+    holeDisc.renderOrder = 5;
+
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color).multiplyScalar(1.55),
+      transparent: true,
+      toneMapped: false,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(this.ringGeo, ringMat);
+    ring.position.y = 0.3;
+    ring.renderOrder = 6;
+
+    const swirlMat = new THREE.MeshBasicMaterial({
+      map: this.swirlTexture,
+      color,
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const swirl = new THREE.Mesh(this.planeGeo, swirlMat);
+    swirl.position.y = 0.26;
+    swirl.renderOrder = 7;
+
+    const shieldMat = new THREE.MeshBasicMaterial({
+      map: this.shieldTexture,
+      color: 0xffffff,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    const shield = new THREE.Mesh(this.planeGeo, shieldMat);
+    shield.position.y = 0.34;
+    shield.visible = false;
+    shield.renderOrder = 8;
+
+    const labelCanvas = document.createElement('canvas');
+    labelCanvas.width = 512;
+    labelCanvas.height = 128;
+    const labelTexture = new THREE.CanvasTexture(labelCanvas);
+    const label = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: labelTexture, transparent: true, depthTest: false, toneMapped: false })
+    );
+    label.renderOrder = 25;
+    label.center.set(0.5, 0);
+
+    root.add(halo, holeDisc, ring, swirl, shield, label);
+    this.holeGroup.add(root);
     return {
       root,
-      halo,
+      disc: holeDisc,
       ring,
-      voidSprite,
+      ringMat,
       swirl,
+      swirlMat,
+      halo,
+      haloMat,
       shield,
+      shieldMat,
       label,
+      labelCanvas,
+      labelTexture,
+      labelText: '',
+      color,
       deathT: 0,
       deathR: HOLE_BASE_R,
       eaterId: -1,
       spawnT: SPAWN_TIME,
       lastAlive: true,
     };
+  }
+
+  private drawLabel(vis: HoleVis, text: string, isMe: boolean): void {
+    vis.labelText = text;
+    const ctx = vis.labelCanvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 512, 128);
+    ctx.font = '700 52px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = 'rgba(6,10,22,0.85)';
+    ctx.strokeText(text, 256, 70);
+    ctx.fillStyle = isMe ? '#ffffff' : '#cfe0f5';
+    ctx.fillText(text, 256, 70);
+    vis.labelTexture.needsUpdate = true;
+  }
+
+  private disposeHole(vis: HoleVis): void {
+    this.holeGroup.remove(vis.root);
+    vis.labelTexture.dispose();
+    (vis.disc.material as THREE.Material).dispose();
+    vis.ringMat.dispose();
+    vis.swirlMat.dispose();
+    vis.haloMat.dispose();
+    vis.shieldMat.dispose();
+    (vis.label.material as THREE.Material).dispose();
   }
 
   private updateSinking(dt: number): void {
@@ -590,70 +1417,39 @@ export class View {
       const done = s.t <= 0;
       const t = Math.max(0, s.t / s.maxT);
 
-      if (s.eaterId === -1) {
-        // Growing back in.
+      if (s.grow) {
         const k = easeOutBack(1 - t);
-        s.sprite.scale.set(s.startScale * k);
-        s.sprite.alpha = 1 - t;
+        s.group.scale.setScalar(Math.max(0.01, k));
         if (done) {
-          s.sprite.scale.set(s.startScale);
-          s.sprite.alpha = 1;
+          s.group.scale.setScalar(1);
           this.sinking.splice(i, 1);
         }
         continue;
       }
 
-      // Spiralling down the hole.
-      const eater = this.holePositions.get(s.eaterId);
+      // Tip over and spiral down into the eater.
       const k = 1 - t;
+      const eater = this.holePositions.get(s.eaterId);
       if (eater) {
-        s.sprite.x = s.fromX + (eater.x - s.fromX) * k * k;
-        s.sprite.y = s.fromY + (eater.y - s.fromY) * k * k;
+        s.group.position.x = s.fromX + (eater.x - s.fromX) * k * k;
+        s.group.position.z = s.fromZ + (eater.y - s.fromZ) * k * k;
       }
-      s.sprite.rotation += dt * 9;
-      s.sprite.scale.set(s.startScale * t);
+      s.group.position.y = -(s.kindR * 2.2 + 6) * k * k;
+      s.group.rotation.y = s.baseYaw + k * 5;
+      s.group.rotation.x = k * 0.7;
+      s.group.scale.setScalar(Math.max(0.01, 1 - k * 0.85));
       if (done) {
-        s.sprite.visible = false;
-        s.sprite.scale.set(s.startScale);
-        s.sprite.rotation = 0;
+        s.group.visible = false;
+        s.group.position.y = 0;
+        s.group.rotation.set(0, s.baseYaw, 0);
+        s.group.scale.setScalar(1);
         this.sinking.splice(i, 1);
       }
     }
   }
-
-  private makeSwirlTexture(): Texture {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 256;
-    const ctx = canvas.getContext('2d')!;
-    ctx.translate(128, 128);
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    ctx.lineCap = 'round';
-    for (let arm = 0; arm < 3; arm++) {
-      ctx.beginPath();
-      for (let i = 0; i <= 40; i++) {
-        const t = i / 40;
-        const angle = arm * ((Math.PI * 2) / 3) + t * 2.4;
-        const radius = 14 + t * 96;
-        const x = Math.cos(angle) * radius;
-        const y = Math.sin(angle) * radius;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.lineWidth = 5;
-      ctx.stroke();
-    }
-    return Texture.from(canvas);
-  }
 }
 
-// --- Helpers ---------------------------------------------------------------
-
-function clampCam(v: number, half: number, size: number, pad: number): number {
-  const lo = half - pad;
-  const hi = size - half + pad;
-  if (lo > hi) return size / 2;
-  return v < lo ? lo : v > hi ? hi : v;
-}
+// --- Canvas texture helpers ------------------------------------------------
 
 function easeOutBack(t: number): number {
   const c1 = 1.70158;
@@ -661,7 +1457,7 @@ function easeOutBack(t: number): number {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-function makeRadialTexture(size: number, stops: [number, string][]): Texture {
+function makeRadialCanvas(size: number, stops: [number, string][]): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d')!;
@@ -669,164 +1465,46 @@ function makeRadialTexture(size: number, stops: [number, string][]): Texture {
   for (const [offset, color] of stops) gradient.addColorStop(offset, color);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
-  return Texture.from(canvas);
+  return canvas;
 }
 
-// --- Prop art --------------------------------------------------------------
-// Everything is drawn procedurally at TEX_SCALE× so the textures stay crisp
-// when the camera is zoomed in, then sprites scale back down.
-
-const TEX_SCALE = 3;
-
-const KIND_VARIANTS: Record<string, number> = {
-  flower: 3,
-  car: 3,
-  tree: 2,
-  house: 2,
-};
-
-/** Top-down doodads with a soft drop shadow baked into the texture. */
-function drawPropArt(g: Graphics, name: string, variant: number): void {
-  const s = TEX_SCALE;
-  const shadow = (r: number): void => {
-    g.ellipse(2.4 * s, 3 * s, r * s, r * 0.82 * s).fill({ color: 0x000000, alpha: 0.34 });
-  };
-
-  switch (name) {
-    case 'flower': {
-      const petals = [0xff8fab, 0xfff1f0, 0xc8b6ff][variant];
-      shadow(3.6);
-      for (let i = 0; i < 5; i++) {
-        const a = (i / 5) * Math.PI * 2;
-        g.circle(Math.cos(a) * 2.3 * s, Math.sin(a) * 2.3 * s, 2 * s).fill(petals);
-      }
-      g.circle(0, 0, 1.7 * s).fill(0xffd166);
-      break;
+function makeSwirlCanvas(): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.translate(128, 128);
+  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+  ctx.lineCap = 'round';
+  for (let arm = 0; arm < 3; arm++) {
+    ctx.beginPath();
+    for (let i = 0; i <= 40; i++) {
+      const t = i / 40;
+      const angle = arm * ((Math.PI * 2) / 3) + t * 2.4;
+      const radius = 14 + t * 100;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
-    case 'mushroom': {
-      shadow(4.2);
-      g.circle(0, 0, 4.2 * s).fill(0xff5d5d);
-      g.circle(0, 0, 4.2 * s).stroke({ width: 0.8 * s, color: 0xd6336c });
-      g.circle(-1.5 * s, -1.2 * s, 1 * s).fill(0xfff5f5);
-      g.circle(1.7 * s, 0.6 * s, 0.8 * s).fill(0xfff5f5);
-      g.circle(-0.2 * s, 2 * s, 0.7 * s).fill(0xfff5f5);
-      break;
-    }
-    case 'cone': {
-      shadow(5);
-      g.circle(0, 0, 5 * s).fill(0xff7b00);
-      g.circle(0, 0, 3.4 * s).fill(0xfff4e6);
-      g.circle(0, 0, 1.9 * s).fill(0xff9500);
-      break;
-    }
-    case 'hydrant': {
-      shadow(5.6);
-      g.circle(0, 0, 5.2 * s).fill(0xff4d6d);
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-        g.circle(Math.cos(a) * 4.4 * s, Math.sin(a) * 4.4 * s, 1.5 * s).fill(0xc9184a);
-      }
-      g.circle(0, 0, 2.6 * s).fill(0xffccd5);
-      g.circle(0, 0, 1.1 * s).fill(0xff758f);
-      break;
-    }
-    case 'bush': {
-      shadow(7.4);
-      g.circle(-3 * s, 1 * s, 4.6 * s).fill(0x2b8a3e);
-      g.circle(3.2 * s, 0.4 * s, 4.2 * s).fill(0x2f9e44);
-      g.circle(0, -2.6 * s, 4.4 * s).fill(0x37b24d);
-      g.circle(-2 * s, -1.5 * s, 1 * s).fill(0xff6b6b);
-      g.circle(2.6 * s, -2.6 * s, 0.9 * s).fill(0xff6b6b);
-      g.circle(1 * s, 2 * s, 0.9 * s).fill(0xff8787);
-      break;
-    }
-    case 'bench': {
-      shadow(9);
-      g.roundRect(-8.5 * s, -3.6 * s, 17 * s, 7.2 * s, 2 * s).fill(0x9c6644);
-      g.roundRect(-8.5 * s, -3.6 * s, 17 * s, 7.2 * s, 2 * s).stroke({ width: 0.7 * s, color: 0x6f4a2f });
-      for (let i = -1; i <= 1; i++) {
-        g.rect(-7.6 * s, i * 2.1 * s - 0.5 * s, 15.2 * s, 1 * s).fill(0xb08968);
-      }
-      break;
-    }
-    case 'car': {
-      const body = [0x1c7ed6, 0xf59f00, 0xe03131][variant];
-      const roof = [0x4dabf7, 0xffd43b, 0xff8787][variant];
-      shadow(11);
-      // Wheels poke out from under the body.
-      for (const [wx, wy] of [
-        [-5.6, -6.5],
-        [5.6, -6.5],
-        [-5.6, 6.5],
-        [5.6, 6.5],
-      ]) {
-        g.roundRect((wx - 1.4) * s, (wy - 2.4) * s, 2.8 * s, 4.8 * s, 1 * s).fill(0x11151f);
-      }
-      g.roundRect(-6 * s, -10.5 * s, 12 * s, 21 * s, 3.6 * s).fill(body);
-      g.roundRect(-6 * s, -10.5 * s, 12 * s, 21 * s, 3.6 * s).stroke({
-        width: 0.9 * s,
-        color: 0x0b1626,
-        alpha: 0.55,
-      });
-      // Cabin roof with dark glass front and back.
-      g.roundRect(-4.6 * s, -5.6 * s, 9.2 * s, 11 * s, 2.4 * s).fill(roof);
-      g.roundRect(-4.2 * s, -6.6 * s, 8.4 * s, 3 * s, 1.4 * s).fill(0x14263c);
-      g.roundRect(-4.2 * s, 3.8 * s, 8.4 * s, 2.7 * s, 1.2 * s).fill(0x14263c);
-      // Headlights.
-      g.circle(-3.4 * s, -9.6 * s, 1 * s).fill(0xfff3bf);
-      g.circle(3.4 * s, -9.6 * s, 1 * s).fill(0xfff3bf);
-      break;
-    }
-    case 'tree': {
-      const crown = variant === 0 ? 0x2b8a3e : 0x2d9660;
-      const light = variant === 0 ? 0x51cf66 : 0x63e6be;
-      shadow(13);
-      g.circle(0, 0, 13 * s).fill(crown);
-      g.circle(0, 0, 13 * s).stroke({ width: 1 * s, color: 0x14532d, alpha: 0.7 });
-      g.circle(-4 * s, -4 * s, 6.4 * s).fill({ color: light, alpha: 0.5 });
-      g.circle(5 * s, 3 * s, 4.4 * s).fill({ color: 0x1f6e33, alpha: 0.55 });
-      g.circle(0, 0, 3.2 * s).fill(0x6f4a2f);
-      g.circle(-0.6 * s, -0.6 * s, 1.6 * s).fill({ color: 0xa07850, alpha: 0.9 });
-      break;
-    }
-    case 'house': {
-      const roofLight = variant === 0 ? 0xf76707 : 0x748ffc;
-      const roofDark = variant === 0 ? 0xd9480f : 0x4c6ef5;
-      shadow(19);
-      // Gabled roof seen from above: two shaded slopes meeting at a ridge.
-      g.roundRect(-17 * s, -17 * s, 34 * s, 34 * s, 2.5 * s).fill(roofDark);
-      g.poly([
-        { x: -17 * s, y: -17 * s },
-        { x: 17 * s, y: -17 * s },
-        { x: 17 * s, y: -1 * s },
-        { x: -17 * s, y: -1 * s },
-      ]).fill(roofLight);
-      g.rect(-17 * s, -1.6 * s, 34 * s, 1.6 * s).fill({ color: 0xffffff, alpha: 0.45 });
-      // Roof planks.
-      for (let i = 1; i < 4; i++) {
-        g.rect(-17 * s + i * 8.5 * s - 0.5 * s, -17 * s, 1 * s, 34 * s).fill({
-          color: 0x000000,
-          alpha: 0.12,
-        });
-      }
-      g.roundRect(6 * s, -13 * s, 6.5 * s, 6.5 * s, 1 * s).fill(0x862e2e);
-      g.roundRect(6 * s, -13 * s, 6.5 * s, 6.5 * s, 1 * s).stroke({ width: 0.8 * s, color: 0x5c1f1f });
-      // A warm lit window — bright enough for the bloom to catch.
-      g.circle(-8 * s, 8 * s, 2.6 * s).fill(0xffe066);
-      break;
-    }
-    case 'tower': {
-      shadow(26);
-      g.roundRect(-23 * s, -23 * s, 46 * s, 46 * s, 4 * s).fill(0x3b4d81);
-      g.roundRect(-23 * s, -23 * s, 46 * s, 46 * s, 4 * s).stroke({ width: 1.6 * s, color: 0x91a7ff });
-      g.roundRect(-16 * s, -16 * s, 32 * s, 32 * s, 3 * s).fill(0x475d99);
-      g.roundRect(-13 * s, -13 * s, 11 * s, 11 * s, 2 * s).fill(0x2e3d66);
-      g.roundRect(3 * s, 2 * s, 9 * s, 9 * s, 2 * s).fill(0x2e3d66);
-      g.roundRect(2 * s, -13 * s, 10 * s, 7 * s, 2 * s).fill(0x54689f);
-      // Rooftop beacon.
-      g.circle(0, 0, 3 * s).fill(0xff8787);
-      g.circle(0, 0, 1.4 * s).fill(0xffe3e3);
-      break;
-    }
+    ctx.lineWidth = 6;
+    ctx.stroke();
   }
+  return canvas;
+}
+
+function makeShieldCanvas(): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  ctx.translate(128, 128);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 9;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 12; i++) {
+    const a0 = (i / 12) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 108, a0, a0 + Math.PI / 14);
+    ctx.stroke();
+  }
+  return canvas;
 }

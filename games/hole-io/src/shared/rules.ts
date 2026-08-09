@@ -669,6 +669,17 @@ export function decodeSnapshot(s: Snapshot): Snap {
   return { tick: s[0], phase: s[1] as Phase, timer: s[2], holes };
 }
 
+// --- Map themes ------------------------------------------------------------
+// Purely cosmetic, but derived from the arena seed so every client in a room
+// renders the same world. The simulation is identical across themes.
+
+export const THEMES = ['city', 'moon', 'pirate'] as const;
+export type ThemeName = (typeof THEMES)[number];
+
+export function themeForSeed(seed: number): ThemeName {
+  return THEMES[Math.abs(seed) % THEMES.length];
+}
+
 // --- Room codes ------------------------------------------------------------
 // No I/O/0/1 — an eight-year-old has to read these out loud to a five-year-old.
 
