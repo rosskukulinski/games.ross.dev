@@ -81,17 +81,20 @@ export interface PropKind {
 
 /** Ordered small → large. The index into this array is the prop's `kind`. */
 export const PROP_KINDS: PropKind[] = [
-  { name: 'flower', r: 4, points: 1, count: 62 },
-  { name: 'mushroom', r: 4.6, points: 1, count: 26 },
-  { name: 'cone', r: 5.6, points: 2, count: 24 },
-  { name: 'hydrant', r: 6.4, points: 3, count: 18 },
-  { name: 'bush', r: 8.4, points: 4, count: 26 },
-  { name: 'bench', r: 10.5, points: 6, count: 18 },
-  { name: 'car', r: 13.5, points: 10, count: 22 },
-  { name: 'tree', r: 16, points: 12, count: 24 },
-  { name: 'house', r: 24, points: 25, count: 12 },
-  { name: 'tower', r: 32, points: 45, count: 6 },
+  { name: 'flower', r: 4, points: 1, count: 170 },
+  { name: 'mushroom', r: 4.6, points: 1, count: 80 },
+  { name: 'cone', r: 5.6, points: 2, count: 64 },
+  { name: 'hydrant', r: 6.4, points: 3, count: 48 },
+  { name: 'bush', r: 8.4, points: 4, count: 64 },
+  { name: 'bench', r: 10.5, points: 6, count: 40 },
+  { name: 'car', r: 13.5, points: 10, count: 48 },
+  { name: 'tree', r: 16, points: 12, count: 44 },
+  { name: 'house', r: 24, points: 25, count: 18 },
+  { name: 'tower', r: 32, points: 45, count: 9 },
 ];
+
+/** Small tiers spawn in clumps — flower fields and cone rows, not confetti. */
+const CLUSTERED_KINDS = new Set([0, 1, 2, 3]);
 
 export interface Prop {
   id: number;
@@ -127,31 +130,58 @@ export function generateProps(seed: number): Prop[] {
     (a, b) => PROP_KINDS[b].r - PROP_KINDS[a].r
   );
 
+  const fits = (kind: number, x: number, y: number): boolean => {
+    const def = PROP_KINDS[kind];
+    for (const other of props) {
+      const gap = def.r + PROP_KINDS[other.kind].r + (CLUSTERED_KINDS.has(kind) ? 4 : 10);
+      const dx = x - other.x;
+      const dy = y - other.y;
+      if (dx * dx + dy * dy < gap * gap) return false;
+    }
+    return true;
+  };
+
   for (const kind of kindOrder) {
     const def = PROP_KINDS[kind];
-    for (let n = 0; n < def.count; n++) {
-      const margin = def.r + 26;
-      let placed = false;
-      for (let attempt = 0; attempt < 30 && !placed; attempt++) {
-        const x = margin + rng() * (WORLD_W - margin * 2);
-        const y = margin + rng() * (WORLD_H - margin * 2);
-        let ok = true;
-        for (const other of props) {
-          const gap = def.r + PROP_KINDS[other.kind].r + 10;
-          const dx = x - other.x;
-          const dy = y - other.y;
-          if (dx * dx + dy * dy < gap * gap) {
-            ok = false;
-            break;
+    const margin = def.r + 26;
+    const span = (v: number): number => margin + v * (WORLD_W - margin * 2);
+
+    if (CLUSTERED_KINDS.has(kind)) {
+      // Clumps of 4–8 around shared centres.
+      let placed = 0;
+      let guard = 0;
+      while (placed < def.count && guard++ < def.count * 4) {
+        const cx = span(rng());
+        const cy = span(rng());
+        const n = Math.min(def.count - placed, 4 + Math.floor(rng() * 5));
+        for (let i = 0; i < n; i++) {
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const a = rng() * Math.PI * 2;
+            const d = rng() * 52;
+            const x = clamp(cx + Math.cos(a) * d, margin, WORLD_W - margin);
+            const y = clamp(cy + Math.sin(a) * d, margin, WORLD_H - margin);
+            if (fits(kind, x, y)) {
+              props.push({ id: 0, kind, x, y, alive: true, respawn: 0 });
+              placed++;
+              break;
+            }
           }
         }
-        if (ok) {
+      }
+      continue;
+    }
+
+    for (let n = 0; n < def.count; n++) {
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const x = span(rng());
+        const y = span(rng());
+        if (fits(kind, x, y)) {
           props.push({ id: 0, kind, x, y, alive: true, respawn: 0 });
-          placed = true;
+          break;
         }
       }
       // A spot that never cleared 30 attempts is simply skipped; the arena is
-      // sparse enough that this is rare and invisible.
+      // roomy enough that this is rare and invisible.
     }
   }
 

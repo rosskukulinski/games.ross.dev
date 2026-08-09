@@ -193,14 +193,15 @@ const themes: Record<ThemeName, ThemeDef> = {
     build(tier, p) {
       switch (tier) {
         case 0: {
-          // Flower bed.
+          // Flower bed. No glow parts on purpose: this is the most numerous
+          // tier, and one mesh per flower keeps the denser map cheap.
           p.add(disc(4), 0x1f5f3a, 0, 0.1, 0);
           for (let i = 0; i < 3; i++) {
             const a = (i / 3) * Math.PI * 2;
             const x = Math.cos(a) * 1.8;
             const z = Math.sin(a) * 1.8;
             p.add(cyl(0.22, 0.22, 2.4, 5), 0x2e7d4f, x, 1.2, z);
-            p.addGlow(sph(1.1, 7), [0xff8fab, 0xfff1f0, 0xc8b6ff][i], x, 2.8, z, {}, 1.5);
+            p.add(sph(1.1, 7), [0xffa8c0, 0xfff6f2, 0xd8c8ff][i], x, 2.8, z);
           }
           break;
         }
@@ -438,7 +439,7 @@ const themes: Record<ThemeName, ThemeDef> = {
       // Islands: shallow water first, then sand, under every land prop.
       const land = props.filter((pr) => !PIRATE_WATER_TIERS.has(pr.kind));
       for (const pr of land) {
-        const r = (PROP_KINDS[pr.kind].r * 3 + 30) * k;
+        const r = (PROP_KINDS[pr.kind].r * 2.4 + 18) * k;
         const grad = ctx.createRadialGradient(pr.x * k, pr.y * k, r * 0.2, pr.x * k, pr.y * k, r * 1.6);
         grad.addColorStop(0, 'rgba(64,168,190,0.9)');
         grad.addColorStop(1, 'rgba(64,168,190,0)');
@@ -448,7 +449,7 @@ const themes: Record<ThemeName, ThemeDef> = {
         ctx.fill();
       }
       for (const pr of land) {
-        const r = (PROP_KINDS[pr.kind].r * 2.6 + 20) * k;
+        const r = (PROP_KINDS[pr.kind].r * 2 + 12) * k;
         const grad = ctx.createRadialGradient(pr.x * k, pr.y * k, r * 0.3, pr.x * k, pr.y * k, r);
         grad.addColorStop(0, '#d9b380');
         grad.addColorStop(0.75, '#c9a06b');
@@ -478,8 +479,8 @@ const themes: Record<ThemeName, ThemeDef> = {
           p.add(sph(3, 8), 0xe8384f, 0, 2, 0, { sy: 0.65 });
           p.add(sph(1.3, 6), 0xff6b81, -3.4, 1.6, 1.6);
           p.add(sph(1.3, 6), 0xff6b81, 3.4, 1.6, 1.6);
-          p.addGlow(sph(0.45, 5), 0xffffff, -1, 3.4, 1.8, {}, 1.6);
-          p.addGlow(sph(0.45, 5), 0xffffff, 1, 3.4, 1.8, {}, 1.6);
+          p.add(sph(0.45, 5), 0xffffff, -1, 3.4, 1.8);
+          p.add(sph(0.45, 5), 0xffffff, 1, 3.4, 1.8);
           break;
         case 3: // Barrel.
           p.add(cyl(2.6, 2.2, 6.4, 11), 0x9c6644, 0, 3.2, 0, { sy: 1 });
@@ -1006,8 +1007,11 @@ export class View {
     if (!template) {
       const parts = new Parts();
       // Grounding "stain" shadow baked into the body geometry. Kept small and
-      // barely darker than the ground — a big dark disc reads as a hole.
-      parts.add(disc(PROP_KINDS[tier].r * 0.8, 20), themes[theme].shadow, 0.8, 0.07, 1);
+      // barely darker than the ground — a big dark disc reads as a hole. On
+      // pirate maps, land props sit on painted sand, so their stain is sandy.
+      const stain =
+        theme === 'pirate' && !PIRATE_WATER_TIERS.has(tier) ? 0xb08f5f : themes[theme].shadow;
+      parts.add(disc(PROP_KINDS[tier].r * 0.8, 20), stain, 0.8, 0.07, 1);
       const anim = themes[theme].build(tier, parts);
       const { body, glow } = parts.build();
       body.userData.shared = true;

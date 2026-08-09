@@ -72,6 +72,11 @@ directory to invalidate it.
 - **Props never regrow under a hole** that could instantly re-eat them (the
   regrow check retries every 2s) — otherwise a parked hole becomes a point
   fountain.
+- **The arena is dense on purpose** (~580 props): there should always be
+  something to munch nearby. The four smallest tiers spawn in clumps of 4–8
+  (`CLUSTERED_KINDS`) so the map reads as flower fields and cone rows rather
+  than confetti; keep the numerous tiers to one mesh each (no glow parts) so
+  density stays cheap to draw.
 - **Themes are client-side only** (`themeForSeed` in rules.ts): same seed →
   same theme on every client, nothing on the wire, the server doesn't care.
   `?theme=city|moon|pirate` overrides it for testing/screenshots.
