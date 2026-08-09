@@ -54,7 +54,17 @@ const INVULN_TIME = 3; // spawn protection, so a respawn is never instantly re-e
 
 const PROP_RESPAWN_BASE = 16; // seconds; + points, so towers stay gone a while
 
-const BOT_THINK_TIME = 0.24; // seconds between bot decisions (plus jitter)
+// Bots are tuned to lose gracefully — the youngest player here is five. They
+// move slower than humans, react on a lazy clock, misjudge threats, and pick
+// good-enough snacks rather than optimal ones.
+const BOT_SPEED = 0.8; // fraction of human speed — a hungry kid can run one down
+const BOT_THINK_TIME = 0.5; // seconds between bot decisions (plus jitter)
+const BOT_FLEE_RADIUS = 190; // how close a bigger hole gets before they notice
+const BOT_FLEE_MISS = 0.25; // chance a think tick fails to spot the danger
+const BOT_DAWDLE = 0.15; // chance to just wander off mid-plan
+const BOT_CHASE_CHANCE = 0.3;
+const BOT_CHASE_RADIUS = 280;
+const BOT_GRAZE_RADIUS = 340;
 
 // --- Phases ----------------------------------------------------------------
 
@@ -399,27 +409,30 @@ export function resetRound(world: World): void {
 
 /**
  * One brain, three instincts, in priority order: run from anything that can
- * swallow you, chase anything you can swallow, otherwise graze the richest
- * nearby food. Retargeted every quarter second so chases track their prey.
+ * swallow you, chase anything you can swallow, otherwise graze good-enough
+ * nearby food. Deliberately fallible — see the BOT_* tuning above.
  */
 function thinkBot(world: World, bot: Hole): void {
-  bot.botTimer = BOT_THINK_TIME + Math.random() * BOT_THINK_TIME;
+  bot.botTimer = BOT_THINK_TIME + Math.random() * 0.4;
 
-  // Flee: sum of directions away from every nearby bigger hole.
+  // Flee: sum of directions away from every nearby bigger hole. Sometimes
+  // they simply fail to look over their shoulder.
   let fleeX = 0;
   let fleeY = 0;
   let threatened = false;
-  for (const other of world.holes) {
-    if (other === bot || !other.alive) continue;
-    if (other.r < bot.r * SWALLOW_RATIO) continue;
-    const dx = bot.x - other.x;
-    const dy = bot.y - other.y;
-    const d = Math.hypot(dx, dy);
-    if (d > other.r + 250 || d < 0.001) continue;
-    threatened = true;
-    const w = 1 / Math.max(30, d);
-    fleeX += (dx / d) * w;
-    fleeY += (dy / d) * w;
+  if (Math.random() >= BOT_FLEE_MISS) {
+    for (const other of world.holes) {
+      if (other === bot || !other.alive) continue;
+      if (other.r < bot.r * SWALLOW_RATIO) continue;
+      const dx = bot.x - other.x;
+      const dy = bot.y - other.y;
+      const d = Math.hypot(dx, dy);
+      if (d > other.r + BOT_FLEE_RADIUS || d < 0.001) continue;
+      threatened = true;
+      const w = 1 / Math.max(30, d);
+      fleeX += (dx / d) * w;
+      fleeY += (dy / d) * w;
+    }
   }
   if (threatened) {
     const d = Math.hypot(fleeX, fleeY) || 1;
@@ -432,34 +445,43 @@ function thinkBot(world: World, bot: Hole): void {
     return;
   }
 
+  // Sometimes a bot just... wanders off. Openings like this are how a kid
+  // lines up their first swallow.
+  if (Math.random() < BOT_DAWDLE) {
+    bot.botTx = 100 + Math.random() * (WORLD_W - 200);
+    bot.botTy = 100 + Math.random() * (WORLD_H - 200);
+    return;
+  }
+
   // Chase: nearest clearly-smaller hole. Kept half-hearted on purpose — bots
   // that hunt relentlessly snowball into unbeatable monsters within a round.
   let prey: Hole | null = null;
-  let preyDist = 370;
+  let preyDist = BOT_CHASE_RADIUS;
   for (const other of world.holes) {
     if (other === bot || !other.alive || other.invuln > 0) continue;
-    if (bot.r < other.r * SWALLOW_RATIO * 1.05) continue;
+    if (bot.r < other.r * SWALLOW_RATIO * 1.15) continue;
     const d = Math.hypot(bot.x - other.x, bot.y - other.y);
     if (d < preyDist) {
       preyDist = d;
       prey = other;
     }
   }
-  if (prey && Math.random() < 0.55) {
+  if (prey && Math.random() < BOT_CHASE_CHANCE) {
     bot.botTx = prey.x;
     bot.botTy = prey.y;
     return;
   }
 
-  // Graze: highest points-per-distance edible prop nearby.
+  // Graze: a good-enough nearby prop — the value estimate is noisy, so bots
+  // routinely trundle past the optimal snack.
   let best: Prop | null = null;
   let bestValue = 0;
   for (const prop of world.props) {
     if (!prop.alive) continue;
     if (!canEatKind(bot.r * 0.97, prop.kind)) continue;
     const d = Math.hypot(bot.x - prop.x, bot.y - prop.y);
-    if (d > 540) continue;
-    const value = PROP_KINDS[prop.kind].points / (d + 30);
+    if (d > BOT_GRAZE_RADIUS) continue;
+    const value = (PROP_KINDS[prop.kind].points / (d + 30)) * (0.6 + Math.random() * 0.8);
     if (value > bestValue) {
       bestValue = value;
       best = prop;
@@ -485,8 +507,9 @@ function driveBots(world: World, dt: number): void {
     const d = Math.hypot(dx, dy);
     if (bot.botTimer <= 0 || d < 24) thinkBot(world, bot);
     if (d > 0.001) {
-      bot.ix = dx / d;
-      bot.iy = dy / d;
+      // Bots never move at full human speed — see BOT_SPEED.
+      bot.ix = (dx / d) * BOT_SPEED;
+      bot.iy = (dy / d) * BOT_SPEED;
     } else {
       bot.ix = 0;
       bot.iy = 0;

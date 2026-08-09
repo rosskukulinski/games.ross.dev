@@ -66,6 +66,10 @@ directory to invalidate it.
 
 - **Bot ids start at 1000** in online rooms so they can never collide with
   human ids (humans count up from 0). In solo play ids 1–5 are bots.
+- **Bots are tuned to lose gracefully** (`BOT_*` constants): 80% of human
+  speed, a lazy ~0.5s decision clock, a 25% chance to miss a threat, random
+  dawdling, and noisy snack-picking. They should feel alive and occasionally
+  dangerous, but a kid who pays attention should out-eat and out-hunt them.
 - **Growth is a power curve** (`radiusForScore`): fast early, slow late, capped
   at `HOLE_MAX_R` (112 — a max hole is a fifth of the arena wide). Speed falls
   off with size, so big holes are menacing but escapable. The landmark ladder:
