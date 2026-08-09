@@ -152,6 +152,10 @@ function boot(): void {
     setAuto(on: boolean) {
       autoPilot = on;
     },
+    /** Solo-only test cheat: instantly add points so tests can go HUGE. */
+    grow(points: number) {
+      if (transport instanceof LocalTransport) transport.debugGrow(points);
+    },
   };
 }
 

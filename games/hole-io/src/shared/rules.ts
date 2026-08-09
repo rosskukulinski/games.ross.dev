@@ -30,16 +30,16 @@ export const MAX_HUMANS = 8;
 export const TARGET_POPULATION = 6;
 
 export const HOLE_BASE_R = 11;
-export const HOLE_MAX_R = 62;
+export const HOLE_MAX_R = 112;
 
 export const ROUND_TIME = 120;
 
 // --- Tuning ----------------------------------------------------------------
 
 const MOVE_SPEED = 138; // units/s at base radius
-const SPEED_FALLOFF = 0.35; // exponent — bigger holes move slower
-const GROWTH_POINTS = 40; // points that meaningfully grow the hole
-const GROWTH_EXP = 0.45;
+const SPEED_FALLOFF = 0.32; // exponent — bigger holes move slower
+const GROWTH_POINTS = 30; // points that meaningfully grow the hole
+const GROWTH_EXP = 0.5;
 const GROW_SMOOTH = 4; // 1/s — drawn radius eases toward the score's radius
 
 const EAT_RATIO = 0.82; // a prop must be at most this fraction of the hole radius
@@ -91,6 +91,8 @@ export const PROP_KINDS: PropKind[] = [
   { name: 'tree', r: 16, points: 12, count: 44 },
   { name: 'house', r: 24, points: 25, count: 18 },
   { name: 'tower', r: 32, points: 45, count: 9 },
+  { name: 'grand', r: 44, points: 80, count: 5 },
+  { name: 'colossus', r: 60, points: 150, count: 3 },
 ];
 
 /** Small tiers spawn in clumps — flower fields and cone rows, not confetti. */

@@ -7,10 +7,12 @@ Durable Object, with bots topping the arena up to six holes. Solo play runs
 the identical simulation in-page.
 
 Rendered in 3D from a gently tilted chase camera, with three map themes
-picked by the arena seed: a **city park** (glowing towers, houses, cars), a
-**moon base** (rockets, domes, antennas, crystals), and **pirate islands**
-(ships, palms, treasure, whales). The theme is pure cosmetics — one
-simulation, ten prop size-tiers, three sets of clothes for them.
+picked by the arena seed: a **city park** (glowing towers, houses, cars, a
+stadium, a skyscraper), a **moon base** (rockets, domes, an observatory, a
+colossal crystal spire), and **pirate islands** (ships, palms, whales, an
+island fortress, a kraken). The theme is pure cosmetics — one simulation,
+twelve prop size-tiers from flowers (r4) to colossi (r60), three sets of
+clothes for them.
 
 **Stack:** Three.js + TypeScript + Vite.
 **Server:** [`multiplayer-server/`](../../multiplayer-server) (`HoleRoom` Durable
@@ -65,8 +67,12 @@ directory to invalidate it.
 - **Bot ids start at 1000** in online rooms so they can never collide with
   human ids (humans count up from 0). In solo play ids 1–5 are bots.
 - **Growth is a power curve** (`radiusForScore`): fast early, slow late, capped
-  at `HOLE_MAX_R`. Speed falls off with size, so big holes are menacing but
-  escapable.
+  at `HOLE_MAX_R` (112 — a max hole is a fifth of the arena wide). Speed falls
+  off with size, so big holes are menacing but escapable. The landmark ladder:
+  towers open up around score ~350, the grand tier (stadium / observatory /
+  fortress) around ~800, and the colossus tier (skyscraper / crystal spire /
+  kraken) around ~1300 — usually reached by swallowing rivals, which is the
+  point.
 - **The swallow check runs biggest-first** so an A>B>C overlap resolves
   top-down in a single tick.
 - **Props never regrow under a hole** that could instantly re-eat them (the

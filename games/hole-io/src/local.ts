@@ -11,6 +11,7 @@ import {
   beginCountdown,
   createWorld,
   encodeSnapshot,
+  getHole,
   setHoleInput,
   step,
 } from './shared/rules';
@@ -63,6 +64,12 @@ export class LocalTransport implements Transport {
       this.onMessage?.({ t: 'roster', players: roster });
       this.loop = setInterval(() => this.tick(), 1000 / TICK_RATE);
     }, 0);
+  }
+
+  /** Debug/test hook: dump points onto the player's hole. Solo only. */
+  debugGrow(points: number): void {
+    const hole = getHole(this.world, PLAYER_ID);
+    if (hole?.alive) hole.score += points;
   }
 
   send(msg: ClientMessage): void {

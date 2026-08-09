@@ -159,7 +159,7 @@ interface ThemeDef {
 }
 
 /** Which pirate tiers sit on water (everything else gets an island). */
-const PIRATE_WATER_TIERS = new Set([5, 8, 9]);
+const PIRATE_WATER_TIERS = new Set([5, 8, 9, 11]);
 
 const themes: Record<ThemeName, ThemeDef> = {
   // ---- City park at dusk --------------------------------------------------
@@ -279,6 +279,49 @@ const themes: Record<ThemeName, ThemeDef> = {
             }
           }
           p.addGlow(sph(1.4, 7), 0xff6b6b, 0, 55.5, 0, {}, 3);
+          break;
+        }
+        case 10: {
+          // Stadium.
+          p.add(cyl(41, 45, 14, 20), 0xa3b3d6, 0, 7, 0);
+          p.add(cyl(35, 35, 14.6, 20), 0x27375c, 0, 7.2, 0);
+          p.addGlow(cyl(30, 30, 0.8, 20), 0x5fb04a, 0, 3.4, 0, {}, 1.35);
+          p.add(box(2.2, 0.9, 30), 0xf1f5ff, 0, 3.9, 0);
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            const x = Math.cos(a) * 41;
+            const z = Math.sin(a) * 41;
+            p.add(cyl(0.9, 1.3, 26, 6), 0x54689f, x, 13, z);
+            p.addGlow(box(5, 2.4, 1.2), 0xfff4c8, x, 27, z, { ry: -a + Math.PI / 2 }, 2.4);
+          }
+          break;
+        }
+        case 11: {
+          // Downtown skyscraper — the whole block in one building.
+          p.add(box(66, 52, 66), 0x2e3f6b, 0, 26, 0);
+          p.add(box(48, 46, 48), 0x3a4e82, 0, 75, 0);
+          p.add(box(30, 38, 30), 0x46598f, 0, 117, 0);
+          p.add(cyl(0.9, 1.4, 22, 6), 0xc8cede, 0, 147, 0);
+          p.addGlow(sph(1.8, 7), 0xff5d73, 0, 159, 0, {}, 3);
+          for (const [half, y0, floors, w] of [
+            [33.3, 6, 4, 44],
+            [24.3, 56, 4, 32],
+            [15.3, 100, 3, 20],
+          ]) {
+            for (let f = 0; f < floors; f++) {
+              for (const [dx, dz, rot] of [[0, half, 0], [0, -half, 0], [half, 0, 1], [-half, 0, 1]]) {
+                p.addGlow(
+                  box(rot ? 0.6 : w, 3, rot ? w : 0.6),
+                  f % 2 ? 0x9fd8ff : 0xffe4a8,
+                  dx,
+                  y0 + 4 + f * 11,
+                  dz,
+                  {},
+                  1.8
+                );
+              }
+            }
+          }
           break;
         }
       }
@@ -405,6 +448,30 @@ const themes: Record<ThemeName, ThemeDef> = {
           p.add(cyl(4, 5.6, 4, 12), 0x565c72, 0, 2, 0);
           p.addGlow(sph(2.4, 8), 0x9fd8ff, 0, 26, -6.4, {}, 2);
           p.addGlow(cyl(3.4, 3.4, 1, 12), 0xffb35c, 0, 0.6, 0, {}, 2.4);
+          break;
+        }
+        case 10: {
+          // Observatory.
+          p.add(cyl(30, 35, 14, 16), 0x8f97ad, 0, 7, 0);
+          const bigDome = new THREE.SphereGeometry(26, 16, 9, 0, Math.PI * 2, 0, Math.PI / 2);
+          p.add(bigDome, 0xdfe5f4, 0, 13, 0);
+          p.add(box(6, 24, 27), 0x3a4056, 0, 17, 0, { rx: 0.5 });
+          const sideDome = new THREE.SphereGeometry(11, 12, 7, 0, Math.PI * 2, 0, Math.PI / 2);
+          p.add(sideDome, 0xc8cede, 30, 1, 14);
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            p.addGlow(sph(1.1, 6), 0x64e8ff, Math.cos(a) * 32, 13, Math.sin(a) * 32, {}, 2.2);
+          }
+          break;
+        }
+        case 11: {
+          // Colossal crystal spire.
+          p.add(ico(30), 0x3a4056, 0, 8, 0, { sy: 0.45 });
+          p.add(ico(18), 0x4a5068, 20, 6, -12, { sy: 0.5 });
+          p.addGlow(cone(15, 95, 7), 0x64e8ff, 0, 47, 0, {}, 1.3);
+          p.addGlow(cone(8, 46, 6), 0xb388ff, -22, 23, 10, { rz: 0.24 }, 1.5);
+          p.addGlow(cone(6.5, 36, 6), 0x9ef0d0, 20, 18, 16, { rz: -0.28 }, 1.5);
+          p.addGlow(cone(5.5, 30, 6), 0xb388ff, 8, 15, -26, { rx: 0.26 }, 1.5);
           break;
         }
       }
@@ -547,6 +614,42 @@ const themes: Record<ThemeName, ThemeDef> = {
           p.addGlow(sph(0.55, 5), 0xffffff, -4.6, 8, 8.6, {}, 1.5);
           p.addGlow(sph(0.55, 5), 0xffffff, 4.6, 8, 8.6, {}, 1.5);
           p.addGlow(cone(1.4, 4.5, 7), 0xa5f3fc, 0, 12.4, 4, {}, 1.4);
+          return 'bob';
+        }
+        case 10: {
+          // Island fortress.
+          p.add(cyl(34, 39, 16, 14), 0x8d8577, 0, 8, 0);
+          p.add(box(30, 22, 30), 0xa39a8a, 0, 27, 0);
+          p.add(cyl(0.1, 17, 12, 4), 0xb54c3a, 0, 44, 0, { ry: Math.PI / 4 });
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+            const x = Math.cos(a) * 26;
+            const z = Math.sin(a) * 26;
+            p.add(cyl(7, 8, 30, 9), 0x968d7d, x, 23, z);
+            p.add(cone(8.5, 9, 9), 0xb54c3a, x, 42.5, z);
+            p.addGlow(sph(1, 6), 0xffb35c, x, 34, z, {}, 2.4);
+          }
+          p.addGlow(box(4.5, 5.5, 0.8), 0xffd766, 0, 24, 15.4, {}, 2);
+          break;
+        }
+        case 11: {
+          // The kraken (floats).
+          p.add(sph(24, 12), 0x4a2f6b, 0, 10, 0, { sy: 0.75 });
+          p.add(sph(17, 10), 0x5c3d82, 0, 22, 2, { sy: 0.9 });
+          p.addGlow(sph(2.6, 7), 0xffd766, -8, 26, 13, {}, 2.2);
+          p.addGlow(sph(2.6, 7), 0xffd766, 8, 26, 13, {}, 2.2);
+          p.add(sph(3.2, 6), 0x2e1d47, -8, 26, 14.6);
+          p.add(sph(3.2, 6), 0x2e1d47, 8, 26, 14.6);
+          for (let i = 0; i < 7; i++) {
+            const a = (i / 7) * Math.PI * 2 + 0.3;
+            const x = Math.cos(a) * 34;
+            const z = Math.sin(a) * 34;
+            p.add(cone(5.5, 34, 7), 0x5c3d82, x, 14, z, {
+              rx: Math.sin(a) * 0.5,
+              rz: -Math.cos(a) * 0.5,
+            });
+            p.add(sph(3.4, 6), 0x6b4a94, x * 1.22, 30, z * 1.22);
+          }
           return 'bob';
         }
       }
@@ -873,7 +976,7 @@ export class View {
     this.renderer.toneMappingExposure = 1.15;
     host.appendChild(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 5, 6000);
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 5, 9500);
 
     this.ringGeo.rotateX(-Math.PI / 2);
     this.discGeo.rotateX(-Math.PI / 2);
@@ -1136,8 +1239,9 @@ export class View {
   render(state: RenderState | null, focus: { x: number; y: number; r: number }, dt: number): void {
     this.time += dt;
 
-    // Camera: a gently tilted chase view that pulls back as you grow.
-    const targetDist = Math.min(940, 300 + focus.r * 9.5);
+    // Camera: a gently tilted chase view that pulls back as you grow — far
+    // enough that even a max-size hole and its next meal fit in frame.
+    const targetDist = Math.min(1500, 320 + focus.r * 9);
     if (!this.camInit) {
       this.camDist = targetDist;
       this.camX = focus.x;
