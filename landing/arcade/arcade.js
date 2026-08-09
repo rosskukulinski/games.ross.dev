@@ -220,8 +220,16 @@
     const root = host.attachShadow({ mode: 'open' });
     root.append(el('style', { textContent: STYLES }));
 
-    // Games listen for keys on window; typing a name must not steer the ship.
-    for (const type of ['keydown', 'keyup', 'keypress']) {
+    // Games listen for keys and pointers on window; typing a name must not
+    // steer the ship, and tapping the card must not restart the run (games
+    // like comet-dash treat any pointerup as "go").
+    const trapped = [
+      'keydown', 'keyup', 'keypress',
+      'pointerdown', 'pointerup', 'pointercancel',
+      'mousedown', 'mouseup', 'click',
+      'touchstart', 'touchend', 'touchcancel',
+    ];
+    for (const type of trapped) {
       root.addEventListener(type, (event) => event.stopPropagation());
     }
 
