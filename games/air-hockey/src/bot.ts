@@ -38,14 +38,46 @@ interface BotConfig {
   noise: number;
   /** How often the wobble is re-rolled, in seconds. */
   reaction: number;
+  /** Fraction of table depth (from the bot's end) it will chase the puck into. */
+  attackDepth: number;
+  /** 0..1 — how faithfully the bot mirrors the puck's x while guarding its goal. */
+  defendGain: number;
+  /** Chance per reaction re-roll that the bot loafs at home instead of playing. */
+  napChance: number;
 }
 
 const CONFIG: Record<Difficulty, BotConfig> = {
-  // Tuned by feel for a five-year-old: slow enough to beat, quick enough to
-  // look like it's trying.
-  easy: { speed: 74, lead: 0.02, noise: 11, reaction: 0.32 },
-  normal: { speed: 134, lead: 0.07, noise: 6, reaction: 0.17 },
-  hard: { speed: 206, lead: 0.13, noise: 2.5, reaction: 0.07 },
+  // Raw speed alone doesn't make a beatable opponent — a slow bot that never
+  // stops trying still blocks everything. Easy is tuned for a five-year-old:
+  // it dawdles, guards its goal half-heartedly, only chases the puck deep in
+  // its own end, and regularly naps at home while a goal sails past.
+  easy: {
+    speed: 46,
+    lead: 0,
+    noise: 16,
+    reaction: 0.55,
+    attackDepth: 0.38,
+    defendGain: 0.18,
+    napChance: 0.35,
+  },
+  normal: {
+    speed: 112,
+    lead: 0.06,
+    noise: 8,
+    reaction: 0.22,
+    attackDepth: 0.5,
+    defendGain: 0.3,
+    napChance: 0.08,
+  },
+  hard: {
+    speed: 206,
+    lead: 0.13,
+    noise: 2.5,
+    reaction: 0.07,
+    attackDepth: 0.55,
+    defendGain: 0.35,
+    napChance: 0,
+  },
 };
 
 /**
@@ -68,6 +100,7 @@ export class BotTransport implements Transport {
   private noiseX = 0;
   private noiseY = 0;
   private noiseTimer = 0;
+  private napping = false;
   private lastTime = performance.now();
   private accumulator = 0;
 
@@ -142,19 +175,26 @@ export class BotTransport implements Transport {
       this.noiseTimer = cfg.reaction;
       this.noiseX = (Math.random() * 2 - 1) * cfg.noise;
       this.noiseY = (Math.random() * 2 - 1) * cfg.noise * 0.6;
+      this.napping = Math.random() < cfg.napChance;
     }
 
     const homeY = PADDLE_R + 14;
     let wantX: number;
     let wantY: number;
+    let speed = cfg.speed;
 
-    if (puck.y < TABLE_H * 0.55) {
+    if (this.napping) {
+      // Zoned out — amble home and ignore the puck until the next re-roll.
+      wantX = TABLE_W / 2;
+      wantY = homeY;
+      speed *= 0.5;
+    } else if (puck.y < TABLE_H * cfg.attackDepth) {
       // Puck is in reach — line up behind it so the hit goes downfield.
       wantX = puck.x + puck.vx * cfg.lead;
       wantY = puck.y + puck.vy * cfg.lead - (PADDLE_R + PUCK_R) * 0.8;
     } else {
       // Puck is down the other end — shadow it from the goal line.
-      wantX = TABLE_W / 2 + (puck.x - TABLE_W / 2) * 0.35;
+      wantX = TABLE_W / 2 + (puck.x - TABLE_W / 2) * cfg.defendGain;
       wantY = homeY;
     }
 
@@ -164,7 +204,7 @@ export class BotTransport implements Transport {
     const dx = wantX - this.handX;
     const dy = wantY - this.handY;
     const d = Math.hypot(dx, dy);
-    const maxStep = cfg.speed * dt;
+    const maxStep = speed * dt;
     if (d > maxStep && d > 0) {
       this.handX += (dx / d) * maxStep;
       this.handY += (dy / d) * maxStep;
