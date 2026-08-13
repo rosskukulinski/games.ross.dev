@@ -1,23 +1,30 @@
-# Air Hockey multiplayer server
+# Arcade multiplayer server
 
-A Cloudflare Worker + Durable Object that hosts real-time air hockey matches
-for `games/air-hockey`. One Durable Object per room code; it is the authority
-for the puck, so the two browsers can never disagree.
+A Cloudflare Worker + Durable Objects that host the arcade's real-time games.
+One Durable Object per room code; it is the authority for the simulation, so
+browsers can never disagree.
 
-- **60Hz** physics tick, **30Hz** snapshot broadcast.
-- Simulation is shared verbatim with the client:
-  [`games/air-hockey/src/shared/rules.ts`](../games/air-hockey/src/shared/rules.ts).
-  The client uses the same file for solo-vs-bot play, so the puck behaves
-  identically whether you're playing a human or the computer.
-- Paddle input is clamped server-side to the sending player's own half, so a
-  tampered client can't reach across the table.
+Two games share the Worker, each with its own Durable Object class:
+
+- **Air Hockey** (`AirHockeyRoom`): two seats, **60Hz** physics tick, **30Hz**
+  snapshot broadcast. Paddle input is clamped server-side to the sending
+  player's own half, so a tampered client can't reach across the table.
+- **Hole Munchers** (`HoleRoom`, `games/hole-io`): a drop-in arena for up to 8
+  humans plus bots, **30Hz** tick and snapshots. The arena layout is
+  deterministic from a seed sent on join; movement input is a clamped
+  direction vector, so a tampered client can't speed-hack.
+
+Each simulation is shared verbatim with its client
+(`games/<slug>/src/shared/rules.ts`) — the clients use the same file for
+solo-vs-bot play, so the game behaves identically online and off.
 
 ## Endpoints
 
 | Route | Purpose |
 |-------|---------|
 | `GET /health` | Liveness probe — returns `{"ok":true}` |
-| `GET /room/<CODE>?name=<name>` | WebSocket upgrade into a room (4-char code) |
+| `GET /room/<CODE>?name=<name>` | WebSocket upgrade into an Air Hockey room (4-char code) |
+| `GET /hole/room/<CODE>?name=<name>` | WebSocket upgrade into a Hole Munchers arena (4-char code) |
 
 A `/mp` path prefix is stripped if present, so the same code works whether the
 Worker is on `*.workers.dev` or mounted at `games.ross.dev/mp/*`.
