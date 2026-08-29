@@ -21,6 +21,8 @@ html, body {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app, #app canvas {
@@ -122,6 +124,15 @@ html, body {
 /* ---------- Touch controls ---------- */
 #touch-ui { display: none; }
 body.touch #touch-ui { display: block; }
+
+/* Safari only honors touch-action reliably when it's on the touched
+   element itself, not just an ancestor — keep it on the controls too. */
+#touch-ui, #joy-zone, #jump-btn, #app canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 
 #joy-zone {
   position: fixed;
