@@ -9,4 +9,9 @@ export const songs = [
   { id: 'takedown', title: 'Takedown', file: 'songs/takedown.mp3', bpm: 136.0, offset: 0.998, stars: 4 },
   { id: 'how-its-done', title: "How It's Done", file: 'songs/how-its-done.mp3', bpm: 161.5, offset: 0.093, stars: 4 },
   { id: 'path', title: 'Path', file: 'songs/path.mp3', bpm: 172.3, offset: 0.279, stars: 5 },
+  { id: 'best-day', title: 'Best Day of My Life', file: 'songs/best-day.mp3', bpm: 149.0, offset: 0.5, stars: 3 },
+  { id: 'zoo', title: 'Zoo', file: 'songs/zoo.mp3', bpm: 105.0, offset: 0.5, stars: 2 },
+  { id: 'shake-it-off', title: 'Shake It Off', file: 'songs/shake-it-off.mp3', bpm: 160.0, offset: 0.5, stars: 3 },
+  { id: 'chicken-banana', title: 'Chicken Banana', file: 'songs/chicken-banana.mp3', bpm: 120.0, offset: 0.5, stars: 2 },
+  { id: 'better-when-im-dancing', title: "Better When I'm Dancing", file: 'songs/better-when-im-dancing.mp3', bpm: 100.0, offset: 0.5, stars: 1 },
 ];
