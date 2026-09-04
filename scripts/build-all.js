@@ -21,6 +21,7 @@ const staticGames = ['connect-four', 'hangman', 'number-line-monster', 'ojoj', '
 // old URL — silently, and for as long as nobody happens to edit the game.
 const BUILD_ENV = {
   'air-hockey': ['VITE_MP_SERVER_URL'],
+  'rocket-karts': ['VITE_MP_SERVER_URL'],
 };
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.DS_Store', '.wrangler', '.playwright-mcp', '.claude']);
