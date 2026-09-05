@@ -1,8 +1,12 @@
-# Air Hockey multiplayer server
+# Arcade multiplayer server
 
-A Cloudflare Worker + Durable Object that hosts real-time air hockey matches
-for `games/air-hockey`. One Durable Object per room code; it is the authority
-for the puck, so the two browsers can never disagree.
+A Cloudflare Worker that hosts the real-time rooms for every multiplayer game
+in the arcade, one Durable Object class per game and one object per room code.
+(The Worker is still named `air-hockey-server`, from when Air Hockey was the
+only game, so existing deployments carry over.)
+
+**Air Hockey** (`AirHockeyRoom`, `src/airHockeyRoom.ts`) — the object is the
+authority for the puck, so the two browsers can never disagree.
 
 - **60Hz** physics tick, **30Hz** snapshot broadcast.
 - Simulation is shared verbatim with the client:
@@ -12,12 +16,24 @@ for the puck, so the two browsers can never disagree.
 - Paddle input is clamped server-side to the sending player's own half, so a
   tampered client can't reach across the table.
 
+**Rocket Karts** (`KartRoom`, `src/kartRoom.ts`) — up to four drivers. Each
+browser simulates its own kart and reports it at 20Hz; the object owns the
+race itself: lobby, countdown, checkpoints and laps, standings, item boxes,
+rockets and traps, and the computer drivers filling empty seats.
+
+- **60Hz** race tick, **20Hz** snapshot broadcast.
+- Race logic is shared verbatim with the client:
+  [`games/rocket-karts/src/shared/race.ts`](../games/rocket-karts/src/shared/race.ts),
+  which runs it in-page for solo play.
+- A driver who disconnects mid-race is handed to the computer.
+
 ## Endpoints
 
 | Route | Purpose |
 |-------|---------|
-| `GET /health` | Liveness probe — returns `{"ok":true}` |
-| `GET /room/<CODE>?name=<name>` | WebSocket upgrade into a room (4-char code) |
+| `GET /health` | Liveness probe — returns `{"ok":true, ...}` |
+| `GET /room/<CODE>?name=<name>` | Air Hockey: WebSocket upgrade into a room (4-char code); `/air-hockey/room/<CODE>` also works |
+| `GET /rocket-karts/room/<CODE>?name=<name>&kart=<id>` | Rocket Karts: WebSocket upgrade into a room |
 
 A `/mp` path prefix is stripped if present, so the same code works whether the
 Worker is on `*.workers.dev` or mounted at `games.ross.dev/mp/*`.
@@ -33,7 +49,7 @@ npm run dev          # wrangler dev on http://localhost:8787
 Then run the game against it:
 
 ```bash
-cd ../games/air-hockey
+cd ../games/air-hockey        # or ../games/rocket-karts
 npm install
 npm run dev
 # open http://localhost:5173/?server=ws://localhost:8787

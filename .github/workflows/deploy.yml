@@ -71,6 +71,7 @@ jobs:
             games/hanyverse/node_modules
             games/pet-care-game/node_modules
             games/phase-10/node_modules
+            games/rocket-karts/node_modules
             games/sir-name-alot/node_modules
             games/treasure-hunt-island/node_modules
             games/unicorn-dragon/node_modules

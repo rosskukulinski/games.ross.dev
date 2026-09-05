@@ -17,18 +17,30 @@ games.ross.dev/
 ## Multiplayer
 
 `multiplayer-server/` is a Cloudflare Worker with a Durable Object per game
-room, deployed separately from the static site. It hosts the real-time matches
-for Air Hockey: 60Hz authoritative physics, 30Hz snapshots over WebSockets.
+room, deployed separately from the static site. One Worker hosts every game's
+rooms, one Durable Object class per game:
 
-The simulation lives in `games/air-hockey/src/shared/rules.ts` and is imported
-by both the Worker and the game client (the client uses it for solo-vs-bot
-play). It lives in the game directory on purpose — the build cache only hashes
-`games/<slug>/`, so rules changes must live there to invalidate it.
+| Game | Room path | Class | Model |
+|------|-----------|-------|-------|
+| Air Hockey | `/room/<CODE>` (also `/air-hockey/room/<CODE>`) | `AirHockeyRoom` | Server-authoritative physics: 60Hz sim, 30Hz snapshots |
+| Rocket Karts | `/rocket-karts/room/<CODE>` | `KartRoom` | Each browser drives its own kart and reports it at 20Hz; the room owns the race (laps, standings, items, projectiles, bots) |
+
+Each game's simulation lives in its own directory (`games/air-hockey/src/shared/`,
+`games/rocket-karts/src/shared/`) and is imported by both the Worker and the
+game client (the client uses it for solo play against bots). It lives in the
+game directory on purpose — the build cache only hashes `games/<slug>/`, so
+rules changes must live there to invalidate it. Adding a game to the server
+means: a new Durable Object class in `multiplayer-server/src/`, a binding plus
+a `[[migrations]]` entry in `wrangler.toml` (for the top level **and**
+`[env.preview]`), a route in `index.ts`, and the game's slug in `BUILD_ENV`
+in `scripts/build-all.js` so a changed server URL rebuilds it.
 
 It deploys twice: `air-hockey-server` from `main`, and
 `air-hockey-server-preview` from every PR, so a preview client never joins a
 room on the production server. Each build is pointed at the right one by the
-`MP_SERVER_URL` / `MP_PREVIEW_SERVER_URL` repository variables.
+`MP_SERVER_URL` / `MP_PREVIEW_SERVER_URL` repository variables. (The Worker
+is still named `air-hockey-server` so existing deployments and their Durable
+Objects carry over.)
 
 The API token needs `Workers Scripts: Edit`, which is separate from the
 `Cloudflare Pages: Edit` the site uses. The Worker deploys as its own CI job,
@@ -59,6 +71,7 @@ one-time setup needed to point the game at the deployed Worker.
 | phase-10 | Phase 10 | React + Vite | `vite build` |
 | pinball | Cosmic Pinball | PixiJS v8 + pixi-filters + TS + Vite | `tsc && vite build` |
 | robot-rally | Robot Rally | Three.js + glTF assets + TS + Vite | `vite build` |
+| rocket-karts | Rocket Karts | Babylon.js + TS + Vite (+ Cloudflare Worker/DO) | `tsc && vite build` |
 | sir-name-alot | Sir-Name-Alot | Vue + Vite | `vite build` |
 | skee-ball | Skee-Ball | React + Vite | `vite build` |
 | sudoku | Sudoku | Static (HTML/CSS/JS) | copy only |

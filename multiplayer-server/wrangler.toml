@@ -1,3 +1,5 @@
+# The Worker keeps its original name so the deployed Durable Objects and
+# their room codes carry over; it now hosts every game's rooms.
 name = "air-hockey-server"
 main = "src/index.ts"
 compatibility_date = "2025-09-01"
@@ -7,12 +9,20 @@ workers_dev = true
 name = "ROOMS"
 class_name = "AirHockeyRoom"
 
+[[durable_objects.bindings]]
+name = "KART_ROOMS"
+class_name = "KartRoom"
+
 # SQLite-backed Durable Objects are the ones available on the Workers free
 # plan. The room keeps its state in memory anyway — a match that outlives the
 # two browsers playing it is not worth persisting.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["AirHockeyRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["KartRoom"]
 
 # Optional: serve the game server from the same origin as the site, which lets
 # the client skip configuration entirely (it falls back to `<origin>/mp`).
@@ -47,3 +57,7 @@ new_sqlite_classes = ["AirHockeyRoom"]
 [[env.preview.durable_objects.bindings]]
 name = "ROOMS"
 class_name = "AirHockeyRoom"
+
+[[env.preview.durable_objects.bindings]]
+name = "KART_ROOMS"
+class_name = "KartRoom"
