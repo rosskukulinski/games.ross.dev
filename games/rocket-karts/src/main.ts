@@ -107,7 +107,7 @@ function boot(): void {
   window.addEventListener('pointerdown', () => audio.unlock(), { passive: true });
   el('menu-hint').textContent = isTouchDevice()
     ? 'Steer with the arrows, hold DRIFT through corners, tap the gift box to use an item.'
-    : 'Arrows or WASD to steer · hold Shift or Space to drift · Enter to use an item · gamepads work too';
+    : 'Arrows or WASD to steer · hold Shift to drift · Space to use an item · gamepads work too';
 
   let last = performance.now();
   rig.engine.runRenderLoop(() => {
@@ -170,6 +170,12 @@ function boot(): void {
     },
     get reports() {
       return reportsSent;
+    },
+    get boxesVisible() {
+      return world ? world.boxes.filter((b) => b.outer.isEnabled()).length : 0;
+    },
+    get boxesTotal() {
+      return world ? world.boxes.length : 0;
     },
     /** Test hook: drive the kart like a bot regardless of real input. */
     autopilot: false,
@@ -442,6 +448,8 @@ function beginRace(state: LobbyState): void {
   inRace = true;
   ensureWorld(state.track);
   refreshDrivers(state);
+  // A menu button may still have focus; Space must fire items, not buttons.
+  (document.activeElement as HTMLElement | null)?.blur?.();
   hud.reset();
   hud.setLap(1, findTrack(state.track).laps);
   hud.show(true);

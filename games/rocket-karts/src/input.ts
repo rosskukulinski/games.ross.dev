@@ -31,7 +31,7 @@ export class Input {
   constructor() {
     window.addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
-      if (!this.keys.has(k) && (k === 'enter' || k === 'x' || k === 'control' || k === 'e')) this.usePending = true;
+      if (!this.keys.has(k) && (k === ' ' || k === 'enter' || k === 'x' || k === 'control' || k === 'e')) this.usePending = true;
       this.keys.add(k);
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
       this.onAnyPress?.();
@@ -99,7 +99,7 @@ export class Input {
     if (k.has('arrowleft') || k.has('a') || this.touch.left) target -= 1;
     if (k.has('arrowright') || k.has('d') || this.touch.right) target += 1;
     let brake = k.has('arrowdown') || k.has('s') || this.touch.brake;
-    let drift = k.has('shift') || k.has(' ') || k.has('z') || this.touch.drift;
+    let drift = k.has('shift') || k.has('z') || this.touch.drift;
     let use = this.usePending;
     this.usePending = false;
 

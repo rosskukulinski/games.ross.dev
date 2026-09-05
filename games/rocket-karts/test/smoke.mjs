@@ -120,6 +120,9 @@ async function main() {
     // Items get picked up somewhere in the first lap or so.
     await waitFor(page, () => window.__game.snapshot?.karts.some((k) => k.item) || window.__game.local.item, { label: 'any item pickup', timeout: 90000 });
     console.log('✓ items are being picked up');
+    // A taken box must actually vanish from the world for a while.
+    await waitFor(page, () => window.__game.boxesVisible < window.__game.boxesTotal, { label: 'a hidden item box', timeout: 60000, interval: 100 });
+    console.log('✓ taken item boxes disappear');
 
     // Warp forward around the loop in small hops (each under the checkpoint
     // window) until the race declares us finished.

@@ -87,7 +87,7 @@ export class Hud {
     const hint = el('item-hint');
     if (item && !this.seenHints.has(item)) {
       this.seenHints.add(item);
-      hint.textContent = `${ITEMS[item].hint}. Press Enter or tap the box to use it.`;
+      hint.textContent = `${ITEMS[item].hint}. Press Space or tap the box to use it.`;
       hint.classList.remove('hidden');
       setTimeout(() => hint.classList.add('hidden'), 4500);
     } else if (!item) {

@@ -598,8 +598,14 @@ export function buildWorld(scene: Scene, geom: TrackGeom, theme: Theme, rand: ()
     ground2.emissiveColor = new Color3(0.03, 0.03, 0.07);
   }
 
-  // Everything under one parent, so the world can be swapped as a unit.
-  for (const m of root.getChildMeshes()) m.freezeWorldMatrix();
+  // Everything under one parent, so the world can be swapped as a unit. The
+  // static meshes freeze their world matrices; item boxes keep moving.
+  const animated = new Set<Mesh>();
+  for (const b of boxes) {
+    animated.add(b.outer);
+    animated.add(b.inner);
+  }
+  for (const m of root.getChildMeshes()) if (!animated.has(m as Mesh)) m.freezeWorldMatrix();
 
   return {
     root,

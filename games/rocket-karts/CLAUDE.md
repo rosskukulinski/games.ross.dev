@@ -70,6 +70,9 @@ that too.
   without a time.
 - **A driver who disconnects mid-race becomes a bot**, so the race stays a
   race; their seat is freed when the room returns to the lobby.
+- **The world's meshes have frozen world matrices** for speed. Anything that
+  moves after build (the item boxes) is skipped from the freeze in
+  `buildWorld`; freeze it and it silently stops animating or hiding.
 - **Headless CSS animations may stall** on the software renderer; the
   countdown pop is transform-only so it can never be invisible.
 

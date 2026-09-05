@@ -22,7 +22,7 @@ export const ROCKET_LIFE = 9;
 export const ROCKET_HIT_RADIUS = 1.7;
 export const TRAP_LIFE = 45;
 export const TRAP_HIT_RADIUS = 1.5;
-export const BOX_RESPAWN = 3;
+export const BOX_RESPAWN = 4;
 
 type Weights = Partial<Record<ItemId, number>>;
 
