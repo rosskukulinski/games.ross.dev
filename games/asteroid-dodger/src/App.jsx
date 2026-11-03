@@ -98,6 +98,8 @@ export default function App() {
   }, [])
 
   const startGame = useCallback(() => {
+    // the arcade score card from the last game shouldn't sit over the new one
+    window.Arcade?.dismiss?.()
     const g = game.current
     g.ship = { x: 60, y: H / 2 }
     g.asteroids = []

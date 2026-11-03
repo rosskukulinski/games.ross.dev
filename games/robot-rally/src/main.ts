@@ -161,6 +161,8 @@ function scorePopup(worldPos: THREE.Vector3, text: string): void {
 /* Game flow                                                           */
 /* ------------------------------------------------------------------ */
 function startRound(): void {
+  // the arcade score card from the last rally shouldn't sit over the new one
+  (window as any).Arcade?.dismiss?.();
   collected = 0;
   timeLeft = ROUND_SECONDS;
   elapsed = 0;

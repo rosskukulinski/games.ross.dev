@@ -1155,6 +1155,8 @@ export class Game {
   // -------------------------------------------------------------- game flow
 
   private startGame(): void {
+    // the arcade score card from the last game shouldn't sit over the new one
+    (window as any).Arcade?.dismiss?.();
     killAllTweens();
     this.clearOverlay();
     this.flipL.pressed = false;

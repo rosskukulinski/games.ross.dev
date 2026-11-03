@@ -626,6 +626,8 @@ export class Game {
 
   /** Every run starts at level 1 with a fresh score — dying costs you the run. */
   private startGame(): void {
+    // the arcade score card from the last game shouldn't sit over the new one
+    (window as any).Arcade?.dismiss?.();
     this.score = 0;
     this.displayScore = 0;
     this.lives = START_LIVES;

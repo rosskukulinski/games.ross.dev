@@ -103,6 +103,8 @@ export default function App() {
 
   const selectSong = useCallback(
     async (song, difficulty = 'medium') => {
+      // the arcade score card from the last song shouldn't sit over the new one
+      window.Arcade?.dismiss?.();
       updateUi({ phase: 'loading', songTitle: song.title, loading: true });
 
       try {
