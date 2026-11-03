@@ -325,6 +325,8 @@ export class Game {
   }
 
   private restart(): void {
+    // the score card from the last crash shouldn't sit over the new run
+    (window as any).Arcade?.dismiss?.();
     // clear all live objects
     for (const o of [...this.pillars, ...this.barriers]) {
       o.active = false;

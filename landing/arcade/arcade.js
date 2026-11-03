@@ -4,6 +4,9 @@
 //   <script defer src="/arcade/arcade.js"></script>
 // and one line wherever it already records a personal best:
 //   window.Arcade?.submit({ game: 'neon-bricks', value: this.score });
+// A game that restarts on any input should also call
+//   window.Arcade?.dismiss?.();
+// when the new run starts, so a card left open doesn't cover live play.
 //
 // The `?.` matters: running a game on its own `vite dev` server means this file
 // 404s and `window.Arcade` is undefined, which must stay harmless.
@@ -27,7 +30,16 @@
   // deployment asks for a name exactly zero times.
   let apiUnavailable = false;
   let openCard = null;
+  let dismissCard = null;
   let registryPromise = null;
+
+  /**
+   * Close the open score card, if any. Games call this when a new run starts,
+   * so a card left open from the last game over doesn't sit over live play.
+   */
+  function dismiss() {
+    if (dismissCard) dismissCard();
+  }
 
   /** Lazily load the shared game registry (slug -> name, direction, bounds). */
   function registry() {
@@ -214,7 +226,7 @@
     }
 
     // A second game over shouldn't stack cards.
-    if (openCard) openCard.remove();
+    dismiss();
 
     const host = el('div');
     const root = host.attachShadow({ mode: 'open' });
@@ -230,10 +242,14 @@
 
     return new Promise((resolve) => {
       const finish = (result) => {
-        if (openCard === host) openCard = null;
+        if (openCard === host) {
+          openCard = null;
+          dismissCard = null;
+        }
         host.remove();
         resolve(result);
       };
+      dismissCard = () => finish(null);
 
       const card = el('div', { className: 'card' });
       const closeBtn = el('button', { className: 'close', title: 'Close', textContent: '×' });
@@ -391,5 +407,5 @@
     }
   }
 
-  window.Arcade = { submit, scores, registry };
+  window.Arcade = { submit, scores, registry, dismiss };
 })();
