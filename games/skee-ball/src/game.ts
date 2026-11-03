@@ -173,6 +173,8 @@ export class Game {
   }
 
   startGame(): void {
+    // the arcade score card from the last game shouldn't sit over the new one
+    (window as any).Arcade?.dismiss?.();
     this.score = 0;
     this.ballsUsed = 0;
     this.streak = 0;

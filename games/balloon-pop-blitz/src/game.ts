@@ -494,6 +494,8 @@ export class Game {
   // -------------------------------------------------------------------------
 
   start(): void {
+    // the arcade score card from the last game shouldn't sit over the new one
+    (window as any).Arcade?.dismiss?.();
     // pop away any menu decor balloons with a little celebration
     for (const b of [...this.balloons]) this.explodeBalloon(b, false);
     this.balloons.length = 0;

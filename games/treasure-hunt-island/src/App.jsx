@@ -32,6 +32,8 @@ export default function App() {
   const updateUi = useCallback((patch) => setUi(u => ({ ...u, ...patch })), []);
 
   const startGame = useCallback(() => {
+    // the arcade score card from the last hunt shouldn't sit over the new one
+    window.Arcade?.dismiss?.();
     gs.current = newGame();
     updateUi({
       phase: 'playing',

@@ -35,7 +35,13 @@ export class Input {
     window.addEventListener('pointerdown', () => this.fireGesture(), { passive: true });
 
     this.setupTouch();
-    if (window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) {
+    // maxTouchPoints covers iPadOS Safari in desktop mode, which hides
+    // ontouchstart while still being a touch device.
+    if (
+      window.matchMedia('(pointer: coarse)').matches ||
+      navigator.maxTouchPoints > 0 ||
+      'ontouchstart' in window
+    ) {
       document.body.classList.add('touch');
     }
   }
@@ -64,10 +70,28 @@ export class Input {
 
     const MAX = 46;
 
+    // iOS Safari ignores touch-action for its own gestures — the left-edge
+    // back-swipe starts exactly where the joystick lives, and a recognised
+    // scroll/zoom fires pointercancel and drops the stick mid-drag. Only
+    // preventDefault on the raw touch events stops that. Pointer events
+    // still fire normally and keep driving the controls below.
+    const swallowTouch = (e: TouchEvent) => e.preventDefault();
+    zone.addEventListener('touchstart', swallowTouch, { passive: false });
+    zone.addEventListener('touchmove', swallowTouch, { passive: false });
+    jumpBtn.addEventListener('touchstart', swallowTouch, { passive: false });
+    // Two-finger play (joystick + jump) reads as a pinch in a Safari tab.
+    document.addEventListener('gesturestart', swallowTouch as EventListener, { passive: false });
+
     zone.addEventListener('pointerdown', (e) => {
       if (this.joyPointer !== null) return;
       this.joyPointer = e.pointerId;
-      zone.setPointerCapture(e.pointerId);
+      // Safari can throw if the touch ended before capture lands; the
+      // joystick still works without capture since the zone is huge.
+      try {
+        zone.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
       this.joyOrigin = { x: e.clientX, y: e.clientY };
       base.style.display = 'block';
       base.style.left = `${e.clientX}px`;
