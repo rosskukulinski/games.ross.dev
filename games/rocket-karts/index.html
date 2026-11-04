@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#1a1040" />
+    <title>Rocket Karts</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a1040'/%3E%3Ccircle cx='16' cy='16' r='9' fill='%23ff8a3d'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%23fff1c9'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <canvas id="game-canvas"></canvas>
+
+    <!-- In-race HUD -->
+    <div id="hud" class="hidden">
+      <div id="hud-top">
+        <button id="btn-quit" class="chip" type="button" aria-label="Back to menu">‹ Menu</button>
+        <div id="conn" class="chip chip-quiet"></div>
+        <button id="btn-mute" class="chip" type="button" aria-label="Toggle sound">🔊</button>
+      </div>
+      <div id="place"><span id="place-num">1</span><span id="place-suffix">st</span></div>
+      <div id="lap">LAP <span id="lap-num">1</span><span id="lap-total">/3</span></div>
+      <div id="countdown" class="hidden"></div>
+      <div id="banner" class="hidden"></div>
+      <div id="wrongway" class="hidden">⟲ Wrong way!</div>
+      <div id="tags"></div>
+      <div id="item-slot" class="empty"><div id="item-icon"></div><div id="item-name">No item</div></div>
+      <div id="item-hint" class="hidden"></div>
+      <canvas id="minimap" width="220" height="220"></canvas>
+      <div id="speedlines"></div>
+      <div id="flash"></div>
+      <div id="touch" class="hidden">
+        <div class="touch-left">
+          <button class="tbtn steer" id="t-left" type="button" aria-label="Steer left">◀</button>
+          <button class="tbtn steer" id="t-right" type="button" aria-label="Steer right">▶</button>
+        </div>
+        <div class="touch-right">
+          <button class="tbtn round" id="t-item" type="button" aria-label="Use item">🎁</button>
+          <button class="tbtn round big" id="t-drift" type="button" aria-label="Drift">DRIFT</button>
+          <button class="tbtn small" id="t-brake" type="button" aria-label="Brake">▼</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="overlay">
+      <!-- Main menu -->
+      <section class="screen" id="screen-menu">
+        <h1 class="title"><span class="t1">ROCKET</span><span class="t2">KARTS</span></h1>
+        <p class="tagline">Drift, boost and blast your way to first place</p>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-solo" type="button"><span class="btn-icon">🏁</span> Race the Computer</button>
+          <button class="btn btn-secondary" id="btn-friend" type="button"><span class="btn-icon">👋</span> Race with Friends</button>
+        </div>
+        <p class="hint" id="menu-hint">Arrows or WASD to steer · hold Shift to drift · Space to use an item</p>
+      </section>
+
+      <!-- Solo: pick a kart -->
+      <section class="screen hidden" id="screen-kart">
+        <h2 class="heading">Pick Your Kart</h2>
+        <div class="kart-grid" id="kart-picker"></div>
+        <div class="stack row">
+          <button class="btn btn-ghost" data-back="menu" type="button">Back</button>
+          <button class="btn btn-primary" id="btn-kart-next" type="button">Next ›</button>
+        </div>
+      </section>
+
+      <!-- Solo: pick a track -->
+      <section class="screen hidden" id="screen-track">
+        <h2 class="heading">Pick a Track</h2>
+        <div class="track-grid" id="track-picker"></div>
+        <div class="difficulty" role="group" aria-label="Computer difficulty">
+          <button class="diff" data-diff="easy" type="button">Easy</button>
+          <button class="diff is-active" data-diff="normal" type="button">Normal</button>
+          <button class="diff" data-diff="hard" type="button">Hard</button>
+        </div>
+        <div class="stack row">
+          <button class="btn btn-ghost" data-back="kart" type="button">Back</button>
+          <button class="btn btn-primary btn-go" id="btn-race" type="button">Race! 🚀</button>
+        </div>
+      </section>
+
+      <!-- Friends: host / join -->
+      <section class="screen hidden" id="screen-friend">
+        <h2 class="heading">Race with Friends</h2>
+        <p class="tagline">Up to four karts, each on its own device.</p>
+        <label class="field">
+          <span>Your name</span>
+          <input id="name-input" maxlength="12" autocomplete="off" placeholder="Player" />
+        </label>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-host" type="button"><span class="btn-icon">✨</span> Start a New Race</button>
+          <button class="btn btn-secondary" id="btn-join" type="button"><span class="btn-icon">🔑</span> Join With a Code</button>
+          <button class="btn btn-ghost" data-back="menu" type="button">Back</button>
+        </div>
+      </section>
+
+      <!-- Joining: enter a code -->
+      <section class="screen hidden" id="screen-join">
+        <h2 class="heading">Enter the Code</h2>
+        <label class="field">
+          <span>Your name</span>
+          <input id="name-input-join" maxlength="12" autocomplete="off" placeholder="Player" />
+        </label>
+        <div class="code-input">
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 1" />
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 2" />
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 3" />
+          <input class="code-box" maxlength="1" inputmode="text" autocomplete="off" aria-label="Code letter 4" />
+        </div>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-join-go" type="button">Join Race</button>
+          <button class="btn btn-ghost" data-back="friend" type="button">Back</button>
+        </div>
+      </section>
+
+      <!-- Online lobby -->
+      <section class="screen wide hidden" id="screen-lobby">
+        <div class="lobby-head">
+          <div>
+            <div class="code-label">Race code</div>
+            <div class="code" id="lobby-code">----</div>
+          </div>
+          <button class="btn btn-secondary btn-small" id="btn-copy" type="button">Copy Invite Link</button>
+        </div>
+        <div class="lobby-cols">
+          <div class="lobby-col">
+            <h3>Drivers</h3>
+            <ul id="lobby-players" class="players"></ul>
+            <p class="hint" id="lobby-hint">Empty seats are filled by computer drivers.</p>
+          </div>
+          <div class="lobby-col">
+            <h3>Your kart</h3>
+            <div class="kart-grid small" id="lobby-kart-picker"></div>
+            <div id="lobby-host-controls">
+              <h3>Track</h3>
+              <div class="track-grid small" id="lobby-track-picker"></div>
+              <div class="difficulty" role="group" aria-label="Computer difficulty" id="lobby-difficulty">
+                <button class="diff" data-diff="easy" type="button">Easy</button>
+                <button class="diff is-active" data-diff="normal" type="button">Normal</button>
+                <button class="diff" data-diff="hard" type="button">Hard</button>
+              </div>
+            </div>
+            <div id="lobby-guest-info" class="hidden">
+              <h3>Track</h3>
+              <p class="tagline" id="lobby-track-name">—</p>
+            </div>
+          </div>
+        </div>
+        <div class="stack row">
+          <button class="btn btn-ghost" data-back="menu" type="button">Leave</button>
+          <button class="btn btn-secondary" id="btn-ready" type="button">I'm Ready</button>
+          <button class="btn btn-primary btn-go" id="btn-start" type="button">Start Race! 🚀</button>
+        </div>
+        <p class="hint" id="lobby-status"></p>
+      </section>
+
+      <!-- Connecting spinner -->
+      <section class="screen hidden" id="screen-connecting">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="tagline" id="connecting-text">Connecting…</p>
+        <button class="btn btn-ghost" data-back="menu" type="button">Cancel</button>
+      </section>
+
+      <!-- Something went wrong -->
+      <section class="screen hidden" id="screen-error">
+        <h2 class="heading">Hmm.</h2>
+        <p class="tagline" id="error-text"></p>
+        <div class="stack">
+          <button class="btn btn-primary" id="btn-error-solo" type="button">Race the Computer Instead</button>
+          <button class="btn btn-ghost" data-back="menu" type="button">Back to Menu</button>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section class="screen hidden" id="screen-results">
+        <h2 class="heading" id="results-title">Race Over!</h2>
+        <ol id="results-list" class="results"></ol>
+        <div class="stack row">
+          <button class="btn btn-ghost" data-back="menu" type="button">Menu</button>
+          <button class="btn btn-secondary" id="btn-change-track" type="button">Change Track</button>
+          <button class="btn btn-primary" id="btn-again" type="button">Race Again</button>
+        </div>
+        <p class="hint" id="results-status"></p>
+      </section>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

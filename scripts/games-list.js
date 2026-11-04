@@ -18,6 +18,7 @@ module.exports = [
   'phase-10',
   'pinball',
   'robot-rally',
+  'rocket-karts',
   'sir-name-alot',
   'skee-ball',
   'sudoku',

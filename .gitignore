@@ -5,3 +5,6 @@ dist/
 .playwright-mcp/
 .build-cache.json
 .dev.vars
+
+# Claude Code worktrees - working copies, never commit
+.claude/worktrees/
