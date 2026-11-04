@@ -26,8 +26,11 @@ play). It lives in the game directory on purpose — the build cache only hashes
 `games/<slug>/`, so rules changes must live there to invalidate it.
 
 It deploys twice: `air-hockey-server` from `main`, and
-`air-hockey-server-preview` from every PR, so a preview client never joins a
-room on the production server. Each build is pointed at the right one by the
+`air-hockey-server-preview` from PRs, so a preview client never joins a room on
+the production server. The preview Worker is shared by every PR, so it only
+redeploys for PRs that touch `multiplayer-server/` or `games/*/src/shared/`.
+Otherwise a PR from `main` would try to undo migrations an open multiplayer PR
+had already applied, which Cloudflare rejects. Each build is pointed at the right one by the
 `MP_SERVER_URL` / `MP_PREVIEW_SERVER_URL` repository variables.
 
 The API token needs `Workers Scripts: Edit`, which is separate from the
