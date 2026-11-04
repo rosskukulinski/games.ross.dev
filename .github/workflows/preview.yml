@@ -13,25 +13,55 @@ jobs:
   # production workflow: a multiplayer hiccup should never stop the rest of the
   # arcade from being previewable. The URL is static, so the build does not
   # need to wait for this job to finish.
+  #
+  # Every PR shares this one preview Worker, so only PRs that change it
+  # redeploy it. Otherwise a PR from main would roll back migrations an open
+  # multiplayer PR had already applied, and Cloudflare rejects that (10074),
+  # failing unrelated PRs. The Worker is `multiplayer-server/` plus the
+  # `games/*/src/shared/` rules it imports. Skipped steps still pass, so the
+  # check stays green on PRs that don't touch it.
   worker:
     name: Deploy preview multiplayer server
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for multiplayer server changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" -- \
+            multiplayer-server/ \
+            'games/*/src/shared/**')
+          if [ -n "$changed" ]; then
+            echo "Multiplayer server changes:"; echo "$changed"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No multiplayer server changes; skipping the preview Worker deploy."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-node@v7
+        if: steps.changes.outputs.changed == 'true'
         with:
           node-version: 22
 
       - name: Install
+        if: steps.changes.outputs.changed == 'true'
         working-directory: multiplayer-server
         run: npm ci
 
       - name: Typecheck
+        if: steps.changes.outputs.changed == 'true'
         working-directory: multiplayer-server
         run: npm run typecheck
 
       - name: Deploy preview Worker + Durable Object
+        if: steps.changes.outputs.changed == 'true'
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
