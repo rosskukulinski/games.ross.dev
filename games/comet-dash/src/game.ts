@@ -17,7 +17,7 @@ import { CubicEase, EasingFunction } from "@babylonjs/core/Animations/easing";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 
 import {
-  LANE_X, SHIP_BASE_Y, SPEED_START, SPEED_MAX, SPEED_RAMP,
+  LANE_X, SHIP_BASE_Y, SPEED_START, SPEED_KNEE, SPEED_MAX, SPEED_RAMP, SPEED_RAMP_LATE,
   JUMP_VELOCITY, GRAVITY, SPAWN_Z, KILL_Z, SEGMENT_COUNT, SEGMENT_LENGTH,
   PICKUP_SCORE, PALETTE, hex,
 } from "./config";
@@ -505,9 +505,18 @@ export class Game {
   // ------------------------------------------------------------- per-frame update
 
   private update(): void {
-    const rawDt = this.engine.getDeltaTime() / 1000;
-    const dt = Math.min(rawDt, 0.05);
     if (this.paused) return;
+    // On a slow device (an iPhone rendering at 15-20 fps) a single clamped
+    // step would run the game in slow motion — slower world, slower speed
+    // ramp, easier score. Sub-step instead so game time keeps pace with the
+    // wall clock, while each step stays short enough that collisions can't
+    // tunnel. The outer clamp only absorbs real hitches (tab switches etc).
+    const frameDt = Math.min(this.engine.getDeltaTime() / 1000, 0.25);
+    const steps = Math.max(1, Math.ceil(frameDt / 0.034));
+    for (let i = 0; i < steps; i++) this.step(frameDt / steps);
+  }
+
+  private step(dt: number): void {
     this.elapsed += dt;
 
     // idle scene drift on the start screen
@@ -518,7 +527,8 @@ export class Game {
       this.deadTimer += dt;
       this.speed = Math.max(0, this.speed - dt * 60); // world screeches to a halt
     } else if (!idle) {
-      this.speed = Math.min(SPEED_MAX, this.speed + SPEED_RAMP * dt);
+      const ramp = this.speed < SPEED_KNEE ? SPEED_RAMP : SPEED_RAMP_LATE;
+      this.speed = Math.min(SPEED_MAX, this.speed + ramp * dt);
     } else {
       this.speed = 14; // gentle cruise behind the start screen
     }
