@@ -47,37 +47,140 @@
             font-size: 3rem;
             font-weight: bold;
             color: #6b21a8;
-            margin-bottom: 40px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .target-monster {
+            font-size: 3.2rem;
+            display: inline-block;
+            animation: monster-bob 1.6s ease-in-out infinite;
+        }
+
+        @keyframes monster-bob {
+            0%, 100% { transform: translateY(0) rotate(-4deg); }
+            50% { transform: translateY(-6px) rotate(4deg); }
         }
 
         .target-label {
-            font-size: 1rem;
+            font-size: 1.1rem;
             color: #888;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
+        /* The whole band is the tap zone: a near miss above or below the bar
+           still counts, and taps past either end clamp to that end. */
         .number-line-container {
             position: relative;
-            padding: 40px 0;
-            margin-bottom: 30px;
+            padding: 56px 0;
+            margin-bottom: 16px;
+            background: #f7f1fc;
+            border: 2px dashed #e4d4f4;
+            border-radius: 18px;
+            cursor: pointer;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .number-line-container.disabled {
+            cursor: default;
+            border-color: transparent;
+        }
+
+        .number-line-container.nudge {
+            animation: nudge 0.5s ease-in-out;
+        }
+
+        @keyframes nudge {
+            0%, 100% { transform: translateX(0); background: #f7f1fc; }
+            20% { transform: translateX(-6px); background: #ecdcfa; }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); background: #ecdcfa; }
+            80% { transform: translateX(4px); }
         }
 
         .number-line {
             position: relative;
-            height: 12px;
-            background: #e0e0e0;
-            border-radius: 6px;
-            cursor: pointer;
-            margin: 0 40px;
+            height: 16px;
+            background: #ddd3e8;
+            border-radius: 8px;
+            margin: 0 50px;
         }
 
-        .number-line:hover {
-            background: #d0d0d0;
+        .number-line-container:not(.disabled):hover .number-line {
+            background: #cfc1de;
         }
 
-        .number-line.disabled {
-            cursor: not-allowed;
-            opacity: 0.7;
+        .tick {
+            position: absolute;
+            top: 50%;
+            width: 2px;
+            height: 26px;
+            background: #b8a6cc;
+            border-radius: 1px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .tick.minor {
+            height: 16px;
+            width: 1px;
+            opacity: 0.6;
+        }
+
+        .tick.major {
+            height: 32px;
+            width: 3px;
+            background: #9b84b5;
+        }
+
+        .tick-label {
+            position: absolute;
+            top: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #9b84b5;
+        }
+
+        .gap-bar {
+            position: absolute;
+            top: 50%;
+            height: 8px;
+            transform: translateY(-50%);
+            border-radius: 4px;
+            pointer-events: none;
+            display: none;
+        }
+
+        .gap-bar.miss { background: rgba(231, 76, 60, 0.55); }
+        .gap-bar.hit { background: rgba(39, 174, 96, 0.55); }
+
+        .tap-hint {
+            position: absolute;
+            left: 50%;
+            top: 4px;
+            font-size: 2.2rem;
+            transform: translateX(-50%);
+            pointer-events: none;
+            animation: tap-bounce 1.2s ease-in-out infinite;
+        }
+
+        .number-line-container.disabled .tap-hint,
+        .number-line-container.aiming .tap-hint {
+            display: none;
+        }
+
+        @keyframes tap-bounce {
+            0%, 100% { transform: translate(-50%, 0); }
+            50% { transform: translate(-50%, 12px); }
         }
 
         .endpoint {
@@ -90,11 +193,11 @@
         }
 
         .endpoint.left {
-            left: 0;
+            left: 10px;
         }
 
         .endpoint.right {
-            right: 0;
+            right: 10px;
         }
 
         .marker {
@@ -129,13 +232,34 @@
             top: 30px;
         }
 
+        /* While the finger is down the marker follows it, bigger and with no
+           number, so it shows where the guess will land without giving it away. */
+        .marker.guess.aiming {
+            width: 34px;
+            height: 34px;
+            transition: none;
+            background: rgba(52, 152, 219, 0.75);
+            box-shadow: 0 0 0 8px rgba(52, 152, 219, 0.2);
+        }
+
         .marker.actual {
-            background: #6b21a8;
-            border: 3px solid #581c87;
+            width: auto;
+            height: auto;
+            border-radius: 0;
+            font-size: 2.4rem;
+            line-height: 1;
+            animation: monster-pop 0.5s ease-out;
         }
 
         .marker.actual::after {
             color: #6b21a8;
+            top: -26px;
+        }
+
+        @keyframes monster-pop {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            70% { transform: translate(-50%, -50%) scale(1.3); }
+            100% { transform: translate(-50%, -50%) scale(1); }
         }
 
         .feedback {
@@ -247,9 +371,13 @@
             background: #6b21a8;
             color: white;
             border: none;
-            padding: 12px 30px;
-            font-size: 1rem;
-            border-radius: 25px;
+            min-height: 72px;
+            min-width: 280px;
+            padding: 14px 36px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            border-radius: 32px;
+            touch-action: manipulation;
             cursor: pointer;
             transition: all 0.3s ease;
             display: none;
@@ -317,19 +445,39 @@
             font-size: 1.4rem;
         }
 
-        .play-again-btn {
+        .summary-buttons {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .play-again-btn,
+        .change-level-btn {
             background: #27ae60;
             color: white;
             border: none;
-            padding: 15px 40px;
-            font-size: 1.1rem;
-            border-radius: 25px;
+            min-height: 64px;
+            padding: 14px 36px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            border-radius: 32px;
             cursor: pointer;
             transition: all 0.3s ease;
+            touch-action: manipulation;
+        }
+
+        .change-level-btn {
+            background: #6b21a8;
         }
 
         .play-again-btn:hover {
             background: #219a52;
+            transform: translateY(-2px);
+        }
+
+        .change-level-btn:hover {
+            background: #581c87;
             transform: translateY(-2px);
         }
 
@@ -342,9 +490,10 @@
         }
 
         .instructions {
-            color: #888;
-            font-size: 0.9rem;
-            margin-top: 20px;
+            color: #6b21a8;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-top: 8px;
         }
 
         .level-select {
@@ -388,9 +537,22 @@
             transform: translateX(5px);
         }
 
+        .level-btn {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-height: 72px;
+            touch-action: manipulation;
+        }
+
+        .level-btn .level-icon {
+            font-size: 2.2rem;
+            line-height: 1;
+        }
+
         .level-btn .level-name {
             font-weight: bold;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
         }
 
         .level-btn .level-desc {
@@ -412,31 +574,49 @@
             <p>How tricky should the monsters be?</p>
             <div class="level-buttons">
                 <button class="level-btn" data-level="1">
-                    <div class="level-name">Level 1</div>
-                    <div class="level-desc">Number line from 0 to 20</div>
+                    <span class="level-icon" aria-hidden="true">🐣</span>
+                    <div>
+                        <div class="level-name">Level 1</div>
+                        <div class="level-desc">Number line from 0 to 20</div>
+                    </div>
                 </button>
                 <button class="level-btn" data-level="2">
-                    <div class="level-name">Level 2</div>
-                    <div class="level-desc">Number line from 0 to 100</div>
+                    <span class="level-icon" aria-hidden="true">🐸</span>
+                    <div>
+                        <div class="level-name">Level 2</div>
+                        <div class="level-desc">Number line from 0 to 100</div>
+                    </div>
                 </button>
                 <button class="level-btn" data-level="3">
-                    <div class="level-name">Level 3</div>
-                    <div class="level-desc">Number line from 0 to 1000</div>
+                    <span class="level-icon" aria-hidden="true">🦖</span>
+                    <div>
+                        <div class="level-name">Level 3</div>
+                        <div class="level-desc">Number line from 0 to 1000</div>
+                    </div>
                 </button>
                 <button class="level-btn" data-level="4">
-                    <div class="level-name">Level 4</div>
-                    <div class="level-desc">Mystery range - 100 spaces, random endpoints!</div>
+                    <span class="level-icon" aria-hidden="true">❓</span>
+                    <div>
+                        <div class="level-name">Level 4</div>
+                        <div class="level-desc">Mystery range - 100 spaces, random endpoints!</div>
+                    </div>
                 </button>
             </div>
         </div>
 
         <div class="game-content hidden" id="game-content">
             <div class="target-label">The monster is hiding at:</div>
-            <div class="target-display" id="target-number">50</div>
+            <div class="target-display">
+                <span class="target-monster" id="target-monster" aria-hidden="true">👾</span>
+                <span id="target-number">50</span>
+            </div>
 
-            <div class="number-line-container">
+            <div class="number-line-container" id="line-zone">
+                <span class="tap-hint" aria-hidden="true">👇</span>
                 <span class="endpoint left" id="endpoint-left">0</span>
                 <div class="number-line" id="number-line">
+                    <div id="ticks"></div>
+                    <div class="gap-bar" id="gap-bar"></div>
                     <div class="marker guess" id="guess-marker" style="display: none;"></div>
                     <div class="marker actual" id="actual-marker" style="display: none;"></div>
                 </div>
@@ -445,9 +625,9 @@
 
             <div class="feedback" id="feedback"></div>
 
-            <button class="next-btn" id="next-btn">Hunt next monster</button>
+            <button class="next-btn" id="next-btn">Next monster ➜</button>
 
-            <p class="instructions" id="instructions">Click on the number line to catch the monster!</p>
+            <p class="instructions" id="instructions">👆 Tap the line!</p>
         </div>
 
         <div class="summary" id="summary">
@@ -465,7 +645,10 @@
             <div class="perfect-stat" id="perfect-stat">
                 <span class="star">&#11088;</span> <span id="final-perfect">0</span> perfect catches!
             </div>
-            <button class="play-again-btn" id="play-again-btn">Hunt again</button>
+            <div class="summary-buttons">
+                <button class="play-again-btn" id="play-again-btn">🔁 Hunt again</button>
+                <button class="change-level-btn" id="change-level-btn">🗺️ Levels</button>
+            </div>
         </div>
     </div>
 
@@ -481,6 +664,12 @@
         let rangeMin = 0;
         let rangeMax = 100;
         let accuracyMargin = 5;
+        let currentLevel = 1;
+        let aiming = false;
+        let aimPointerId = null;
+
+        const MONSTERS = ['👹', '👺', '👻', '👾', '🧟', '🐉'];
+        let trialMonster = '👾';
 
         const numberLine = document.getElementById('number-line');
         const targetDisplay = document.getElementById('target-number');
@@ -502,6 +691,11 @@
         const levelSelect = document.getElementById('level-select');
         const endpointLeft = document.getElementById('endpoint-left');
         const endpointRight = document.getElementById('endpoint-right');
+        const lineZone = document.getElementById('line-zone');
+        const ticks = document.getElementById('ticks');
+        const gapBar = document.getElementById('gap-bar');
+        const targetMonster = document.getElementById('target-monster');
+        const changeLevelBtn = document.getElementById('change-level-btn');
 
         function setLevel(level) {
             switch(level) {
@@ -509,29 +703,53 @@
                     rangeMin = 0;
                     rangeMax = 20;
                     accuracyMargin = 2;
-                    numberLine.style.margin = '0 40px';
+                    numberLine.style.margin = '0 50px';
                     break;
                 case 2:
                     rangeMin = 0;
                     rangeMax = 100;
                     accuracyMargin = 5;
-                    numberLine.style.margin = '0 40px';
+                    numberLine.style.margin = '0 50px';
                     break;
                 case 3:
                     rangeMin = 0;
                     rangeMax = 1000;
                     accuracyMargin = 50;
-                    numberLine.style.margin = '0 55px';
+                    numberLine.style.margin = '0 65px';
                     break;
                 case 4:
                     rangeMin = Math.floor(Math.random() * 451) + 50;
                     rangeMax = rangeMin + 100;
                     accuracyMargin = 5;
-                    numberLine.style.margin = '0 45px';
+                    numberLine.style.margin = '0 55px';
                     break;
             }
             endpointLeft.textContent = rangeMin;
             endpointRight.textContent = rangeMax;
+            drawTicks();
+        }
+
+        // Tick marks help judge distance. Only the middle gets a number:
+        // halfway is a landmark, not the answer.
+        function drawTicks() {
+            ticks.innerHTML = '';
+            const range = rangeMax - rangeMin;
+            const step = range <= 20 ? 1 : range / 10;
+            const count = Math.round(range / step);
+            for (let i = 1; i < count; i++) {
+                const tick = document.createElement('div');
+                const isMid = i * 2 === count;
+                const isMajor = range <= 20 && i % 5 === 0;
+                tick.className = 'tick' + (isMid ? ' major' : isMajor ? '' : range <= 20 ? ' minor' : '');
+                tick.style.left = (i / count) * 100 + '%';
+                if (isMid) {
+                    const label = document.createElement('span');
+                    label.className = 'tick-label';
+                    label.textContent = rangeMin + range / 2;
+                    tick.appendChild(label);
+                }
+                ticks.appendChild(tick);
+            }
         }
 
         function generateAllTargets() {
@@ -555,6 +773,7 @@
         }
 
         function startGame(level) {
+            currentLevel = level;
             setLevel(level);
             currentTrial = 1;
             score = 0;
@@ -579,28 +798,91 @@
         function nextTrial() {
             targetNumber = targetNumbers[currentTrial - 1];
             targetDisplay.textContent = targetNumber;
+            trialMonster = MONSTERS[Math.floor(Math.random() * MONSTERS.length)];
+            targetMonster.textContent = trialMonster;
             hasClicked = false;
+            aiming = false;
+            aimPointerId = null;
 
             guessMarker.style.display = 'none';
+            guessMarker.classList.remove('aiming');
             actualMarker.style.display = 'none';
+            actualMarker.textContent = '';
+            gapBar.style.display = 'none';
             feedback.innerHTML = '';
             feedback.className = 'feedback';
             nextBtn.classList.remove('visible');
             numberLine.classList.remove('disabled');
+            lineZone.classList.remove('disabled', 'aiming');
             instructions.style.visibility = 'visible';
         }
 
-        function handleClick(event) {
+        function valueAt(clientX) {
+            const rect = numberLine.getBoundingClientRect();
+            const percentage = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            return Math.round(rangeMin + percentage * (rangeMax - rangeMin));
+        }
+
+        function percentOf(value) {
+            return ((value - rangeMin) / (rangeMax - rangeMin)) * 100;
+        }
+
+        // Finger down: a marker appears and follows the finger. Finger up: that
+        // is the guess. Anywhere in the tall band counts.
+        function aimAt(clientX) {
+            guessMarker.style.left = percentOf(valueAt(clientX)) + '%';
+        }
+
+        lineZone.addEventListener('pointerdown', (event) => {
+            if (hasClicked || aiming) return;
+            if (event.pointerType === 'mouse' && event.button !== 0) return;
+            event.preventDefault();
+            aiming = true;
+            aimPointerId = event.pointerId;
+            try { lineZone.setPointerCapture(event.pointerId); } catch (e) {}
+            lineZone.classList.add('aiming');
+            guessMarker.removeAttribute('data-value');
+            guessMarker.classList.add('aiming');
+            guessMarker.style.display = 'block';
+            aimAt(event.clientX);
+        });
+
+        lineZone.addEventListener('pointermove', (event) => {
+            if (!aiming || event.pointerId !== aimPointerId) return;
+            aimAt(event.clientX);
+        });
+
+        lineZone.addEventListener('pointerup', (event) => {
+            if (!aiming || event.pointerId !== aimPointerId) return;
+            aiming = false;
+            commitGuess(valueAt(event.clientX));
+        });
+
+        lineZone.addEventListener('pointercancel', () => {
+            if (!aiming) return;
+            aiming = false;
+            lineZone.classList.remove('aiming');
+            guessMarker.classList.remove('aiming');
+            guessMarker.style.display = 'none';
+        });
+
+        // A tap that misses the band entirely still gets an answer: the band wiggles.
+        gameContent.addEventListener('pointerdown', (event) => {
+            if (hasClicked || lineZone.contains(event.target) || nextBtn.contains(event.target)) return;
+            lineZone.classList.remove('nudge');
+            void lineZone.offsetWidth;
+            lineZone.classList.add('nudge');
+        });
+        lineZone.addEventListener('animationend', () => lineZone.classList.remove('nudge'));
+
+        function commitGuess(guessValue) {
             if (hasClicked) return;
             hasClicked = true;
             numberLine.classList.add('disabled');
+            lineZone.classList.add('disabled');
+            lineZone.classList.remove('aiming');
+            guessMarker.classList.remove('aiming');
             instructions.style.visibility = 'hidden';
-
-            const rect = numberLine.getBoundingClientRect();
-            const clickX = event.clientX - rect.left;
-            const percentage = Math.max(0, Math.min(1, clickX / rect.width));
-            const guessValue = Math.round(rangeMin + percentage * (rangeMax - rangeMin));
-
             showResult(guessValue);
         }
 
@@ -614,16 +896,22 @@
             guessMarker.setAttribute('data-value', 'Your guess: ' + guessValue);
 
             actualMarker.style.left = actualPercentage + '%';
+            actualMarker.textContent = trialMonster;
             actualMarker.style.display = 'block';
             actualMarker.setAttribute('data-value', 'Monster: ' + targetNumber);
 
             const difference = Math.abs(guessValue - targetNumber);
             const isCorrect = difference <= accuracyMargin;
 
+            // Bar from the guess to the monster: how far off, at a glance.
+            gapBar.className = 'gap-bar ' + (isCorrect ? 'hit' : 'miss');
+            gapBar.style.left = Math.min(guessPercentage, actualPercentage) + '%';
+            gapBar.style.width = Math.abs(actualPercentage - guessPercentage) + '%';
+            gapBar.style.display = difference === 0 ? 'none' : 'block';
+
             if (isCorrect) {
                 score++;
-                const monsterEmojis = ['👹', '👺', '👻', '👾', '🧟', '🐉'];
-                const randomMonster = monsterEmojis[Math.floor(Math.random() * monsterEmojis.length)];
+                const randomMonster = trialMonster;
                 feedback.className = 'feedback success';
 
                 if (difference === 0) {
@@ -643,19 +931,20 @@
                 }
             } else {
                 feedback.className = 'feedback fail';
+                const arrow = targetNumber > guessValue ? '➡️' : '⬅️';
                 feedback.innerHTML = `
-                    <div class="feedback-icon">&#128168;</div>
-                    <div class="feedback-message">The monster got away! You were ${difference} away.</div>
+                    <div class="feedback-icon">&#128168; ${arrow}</div>
+                    <div class="feedback-message">It got away! You were ${difference} away.</div>
                 `;
             }
 
             updateDisplay();
 
             if (currentTrial < TOTAL_TRIALS) {
-                nextBtn.textContent = 'Hunt next monster';
+                nextBtn.textContent = 'Next monster ➜';
                 nextBtn.classList.add('visible');
             } else {
-                nextBtn.textContent = 'See results';
+                nextBtn.textContent = 'See results 🏆';
                 nextBtn.classList.add('visible');
             }
         }
@@ -699,7 +988,6 @@
             perfectStat.style.display = perfectScore > 0 ? 'block' : 'none';
         }
 
-        numberLine.addEventListener('click', handleClick);
 
         nextBtn.addEventListener('click', () => {
             if (currentTrial >= TOTAL_TRIALS) {
@@ -711,7 +999,21 @@
             }
         });
 
-        playAgainBtn.addEventListener('click', showLevelSelect);
+        playAgainBtn.addEventListener('click', () => startGame(currentLevel));
+        changeLevelBtn.addEventListener('click', showLevelSelect);
+
+        // Read-only state for play-test tooling.
+        window.__game = {
+            get state() {
+                return {
+                    level: currentLevel, trial: currentTrial, score, perfectScore,
+                    target: targetNumber, rangeMin, rangeMax, accuracyMargin,
+                    hasClicked, aiming,
+                    screen: summary.classList.contains('visible') ? 'summary'
+                        : gameContent.classList.contains('hidden') ? 'levels' : 'play',
+                };
+            },
+        };
 
         document.querySelectorAll('.level-btn').forEach(btn => {
             btn.addEventListener('click', () => {
