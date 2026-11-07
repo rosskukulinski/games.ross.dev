@@ -649,10 +649,29 @@ const BUILDERS: (() => LevelSeed)[] = [
 
 export const LEVEL_COUNT = BUILDERS.length;
 
+/**
+ * The first levels are a warm-up a five-year-old can actually clear: the ball
+ * starts at 420 and eases up to meet the regular ramp at level 5.
+ */
+const WARMUP_SPEEDS = [420, 470, 520, 570];
+
 /** Ball speed ramps steadily from level 1 to the last, staying under the 980 cap. */
 function speedFor(idx: number): number {
+  if (idx < WARMUP_SPEEDS.length) return WARMUP_SPEEDS[idx];
   return Math.round(620 + (idx / (BUILDERS.length - 1)) * 310);
 }
+
+/**
+ * Paddle width per level: extra-wide while learning, narrowing to the classic
+ * 150 by level 7.
+ */
+const WARMUP_PADDLES = [220, 220, 220, 200, 180, 165];
+export function paddleWidthFor(idx: number): number {
+  return idx < WARMUP_PADDLES.length ? WARMUP_PADDLES[idx] : 150;
+}
+
+/** Levels 1-3 have a once-per-life safety shield under the paddle. */
+export const SHIELD_LEVELS = 3;
 
 export function getLevels(): LevelDef[] {
   return BUILDERS.map((build, i) => {
