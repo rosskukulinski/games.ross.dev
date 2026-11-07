@@ -228,6 +228,29 @@ function drawBombEmblem(ctx: CanvasRenderingContext2D): void {
   ctx.restore();
 }
 
+/** Big red X over the bomb: "don't pop" for kids who can't read. */
+function drawNoX(ctx: CanvasRenderingContext2D): void {
+  ctx.save();
+  ctx.translate(CX, CY + 4);
+  const a = 40;
+  ctx.lineCap = 'round';
+  const cross = (): void => {
+    ctx.beginPath();
+    ctx.moveTo(-a, -a);
+    ctx.lineTo(a, a);
+    ctx.moveTo(a, -a);
+    ctx.lineTo(-a, a);
+    ctx.stroke();
+  };
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = 24;
+  cross();
+  ctx.strokeStyle = '#ff2d3f';
+  ctx.lineWidth = 14;
+  cross();
+  ctx.restore();
+}
+
 function bakeKind(kind: BalloonKind): Texture {
   const c = document.createElement('canvas');
   c.width = TEX_W;
@@ -289,6 +312,7 @@ function bakeKind(kind: BalloonKind): Texture {
   if (kind.special === 'bomb') drawBombEmblem(ctx);
 
   finish(ctx, kind.color);
+  if (kind.special === 'bomb') drawNoX(ctx);
   return Texture.from(c);
 }
 
@@ -325,6 +349,7 @@ function glowFor(kind: BalloonKind): GlowFilter | null {
 }
 
 let uid = 0;
+const clampN = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
 export class Balloon {
   id = uid++;
@@ -394,9 +419,25 @@ export class Balloon {
     return this.root.y < -(this.r + L + 24);
   }
 
+  /**
+   * How far (px) the tap is outside this balloon's touch area; <= 0 is a hit.
+   *
+   * Little fingers are slow and imprecise: by the time a 5-year-old's tap
+   * lands, the balloon has already risen past where they aimed. So ordinary
+   * balloons get a generous radius (1.5x + 12px) stretched downward into a
+   * capsule covering the last ~0.45s of travel. Bombs stay strict (visual
+   * size only) so a near-miss never punishes a kid.
+   */
+  hitGap(px: number, py: number): number {
+    const x = this.root.x;
+    const y = this.root.y;
+    if (this.kind.special === 'bomb') return Math.hypot(px - x, py - y) - this.r * 0.95;
+    const trail = Math.min(this.speed * 0.45, this.r * 1.8);
+    const cy = clampN(py, y, y + trail);
+    return Math.hypot(px - x, py - cy) - (this.r * 1.5 + 12);
+  }
+
   hitTest(px: number, py: number): boolean {
-    const dx = px - this.root.x;
-    const dy = py - this.root.y;
-    return Math.hypot(dx, dy) <= this.r * 1.2;
+    return this.hitGap(px, py) <= 0;
   }
 }
