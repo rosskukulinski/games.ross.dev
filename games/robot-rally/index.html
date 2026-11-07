@@ -38,20 +38,34 @@
     <div id="joy-zone">
       <div id="joy-base"><div id="joy-knob"></div></div>
     </div>
-    <button id="jump-btn" aria-label="Jump">JUMP</button>
+    <!-- "drag here" demo until the robot first moves -->
+    <div id="joy-hint" aria-hidden="true"><div class="hint-knob"></div><div class="hint-hand">&#x1F446;</div></div>
+    <button id="jump-btn" aria-label="Jump"><svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path d="M12 3l8 9h-5v9H9v-9H4z" fill="currentColor"/></svg><span>JUMP</span></button>
   </div>
 
   <!-- Start screen -->
   <div id="start-screen" class="panel-wrap">
     <div class="panel">
       <h1 class="game-title"><span>Robot</span> <span class="t2">Rally</span></h1>
-      <p class="tagline">Help the little robot gather every energy orb!</p>
-      <div class="controls-grid">
-        <div class="ctl"><span class="kbd">W A S D</span><span>run around</span></div>
-        <div class="ctl"><span class="kbd">SPACE</span><span>jump</span></div>
-        <div class="ctl"><span class="kbd">TOUCH</span><span>joystick + jump button</span></div>
-        <div class="ctl"><span class="kbd">TIP</span><span>bounce on the mushrooms!</span></div>
+      <p class="tagline">Grab all the glowing orbs!</p>
+      <!-- Picture instructions: a pre-reader gets it from the icons alone -->
+      <div class="how">
+        <div class="how-item">
+          <div class="how-ico ico-joy only-touch"><span class="mini-knob"></span><span class="mini-hand">&#x1F446;</span></div>
+          <div class="how-ico ico-keys only-keys"><span class="key k-up">&#x25B2;</span><span class="key k-l">&#x25C0;</span><span class="key k-dn">&#x25BC;</span><span class="key k-r">&#x25B6;</span></div>
+          <span class="how-word">move</span>
+        </div>
+        <div class="how-item">
+          <div class="how-ico ico-jump"><svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M12 3l8 9h-5v9H9v-9H4z" fill="currentColor"/></svg></div>
+          <span class="how-word">jump</span>
+        </div>
+        <div class="how-item">
+          <div class="how-ico ico-orb"><span class="big-orb"></span></div>
+          <span class="how-word">grab!</span>
+        </div>
       </div>
+      <p class="keys-hint only-keys">W A S D or arrow keys &middot; SPACE jumps &middot; bounce on mushrooms!</p>
+      <p class="keys-hint only-touch">Follow the yellow arrow &middot; bounce on mushrooms!</p>
       <button id="play-btn" class="big-btn">PLAY</button>
       <div id="loading-note">warming up the robot&hellip;</div>
     </div>

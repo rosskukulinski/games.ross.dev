@@ -233,6 +233,50 @@ function buildMiniIsland(cx: number, cy: number, cz: number, radius: number): TH
 }
 
 /* ------------------------------------------------------------------ */
+/* See-through occluders                                               */
+/* ------------------------------------------------------------------ */
+/**
+ * Robot (focus) position shared by every see-through material. The camera
+ * trails the robot, so a tree between the two would hide it completely —
+ * fragments inside a cone around the camera→robot sight line are dithered
+ * away instead (screen-door, so it stays in the opaque pass and the tree's
+ * shadow is untouched). A faint stipple stays so the tree reads as a ghost.
+ */
+export const occluderFocus = { value: new THREE.Vector3(0, 14, 34) }; // = camera start: effect off
+
+function seeThroughNearRobot(mat: THREE.MeshStandardMaterial): void {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uRRFocus = occluderFocus;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRRWorld;')
+      .replace(
+        '#include <project_vertex>',
+        '#include <project_vertex>\nvRRWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;',
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vRRWorld;\nuniform vec3 uRRFocus;')
+      .replace(
+        '#include <clipping_planes_fragment>',
+        `#include <clipping_planes_fragment>
+        {
+          vec3 seg = uRRFocus - cameraPosition;
+          float segLen = length(seg);
+          vec3 dir = seg / max(segLen, 0.001);
+          vec3 rel = vRRWorld - cameraPosition;
+          float along = dot(rel, dir);
+          if (along > 0.0 && along < segLen - 0.6) {
+            float dist = length(rel - dir * along);
+            float radius = mix(1.2, 2.4, along / segLen);
+            float cut = 1.0 - smoothstep(radius * 0.7, radius, dist);
+            float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+            if (n < cut * 0.82) discard;
+          }
+        }`,
+      );
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Decor: trees, rocks, flowers (merged into one mesh)                 */
 /* ------------------------------------------------------------------ */
 function buildDecor(avoid: Array<{ x: number; z: number; r: number }>): THREE.Mesh {
@@ -319,10 +363,9 @@ function buildDecor(avoid: Array<{ x: number; z: number; r: number }>): THREE.Me
   }
 
   const merged = mergeGeometries(parts);
-  const mesh = new THREE.Mesh(
-    merged,
-    new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 }),
-  );
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 });
+  seeThroughNearRobot(mat);
+  const mesh = new THREE.Mesh(merged, mat);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
@@ -612,22 +655,16 @@ export class World {
     this.movers.push(m1, m2);
     this.group.add(m1.group, m2.group);
 
-    /* Decor (avoid pads, spawn, platform lanes) */
-    const avoid = [
-      { x: 0, z: 2, r: 3.5 }, // spawn
-      ...padSpots.map(([x, z]) => ({ x, z, r: 3 })),
-      { x: 12, z: 9, r: 2.5 }, // small rise kept open
-    ];
-    this.group.add(buildDecor(avoid));
-
-    /* Orb spots: mix of ground, hills, pads, platforms, mini island */
+    /* Orb spots: mix of ground, hills, pads, platforms, mini island.
+       The first two sit a few steps from spawn, in view at the start, so
+       even a first-time player gets a reward within seconds. */
     const groundSpot = (x: number, z: number, lift = 1.3) =>
       new THREE.Vector3(x, terrainHeight(x, z) + lift, z);
     this.orbSpots.push(
+      groundSpot(0, -2.5), // straight ahead of spawn
+      groundSpot(-3.5, -4.5), // a few steps further
       groundSpot(4, -6),
       groundSpot(-6, 9),
-      groundSpot(14, 3),
-      groundSpot(-15.5, -4),
       groundSpot(0.5, 15),
       groundSpot(-9, -7, 1.5), // top of the big hill
       groundSpot(12, 9, 1.4), // small rise
@@ -635,6 +672,15 @@ export class World {
       new THREE.Vector3(5.5, 5.8, -15.2), // over the moving platform lane
       new THREE.Vector3(mini.x, mini.y + 1.4, mini.z), // mini island
     );
+
+    /* Decor (avoid pads, spawn, platform lanes, ground orbs) */
+    const avoid = [
+      { x: 0, z: 2, r: 3.5 }, // spawn
+      ...padSpots.map(([x, z]) => ({ x, z, r: 3 })),
+      { x: 12, z: 9, r: 2.5 }, // small rise kept open
+      ...this.orbSpots.map((o) => ({ x: o.x, z: o.z, r: 1.2 })),
+    ];
+    this.group.add(buildDecor(avoid));
 
     /* Clouds */
     for (let i = 0; i < 7; i++) {

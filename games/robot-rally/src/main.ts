@@ -7,14 +7,16 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { World } from './world.ts';
+import { World, occluderFocus } from './world.ts';
 import { Player } from './player.ts';
-import { Orb } from './orbs.ts';
+import { Orb, OrbGuide } from './orbs.ts';
 import { Particles } from './particles.ts';
 import { GameAudio } from './audio.ts';
 import { Input } from './input.ts';
 
-const ROUND_SECONDS = 90;
+// Generous, and the clock only starts once the robot first moves, so a
+// young player who is still finding the joystick loses no time.
+const ROUND_SECONDS = 120;
 const TOTAL_ORBS = 10;
 const BEST_KEY = 'robot-rally-best-time';
 const SPAWN = new THREE.Vector3(0, 1, 2);
@@ -40,6 +42,7 @@ const playBtn = $('play-btn') as HTMLButtonElement;
 const againBtn = $('again-btn') as HTMLButtonElement;
 const loadingNote = $('loading-note');
 const popups = $('popups');
+const joyHint = $('joy-hint');
 
 /* ------------------------------------------------------------------ */
 /* Renderer / scene / camera                                           */
@@ -105,6 +108,8 @@ input.onGesture = () => audio.ensure();
 
 const orbs: Orb[] = world.orbSpots.slice(0, TOTAL_ORBS).map((p) => new Orb(p));
 for (const orb of orbs) scene.add(orb.group);
+const guide = new OrbGuide();
+scene.add(guide.group);
 
 let player: Player | null = null;
 let state: GameState = 'loading';
@@ -112,6 +117,8 @@ let collected = 0;
 let timeLeft = ROUND_SECONDS;
 let elapsed = 0;
 let paused = false;
+/** The round clock waits for the first move/jump of the round. */
+let clockRunning = false;
 let startOrbit = 0;
 
 const camPos = new THREE.Vector3(0, 14, 34);
@@ -166,6 +173,7 @@ function startRound(): void {
   collected = 0;
   timeLeft = ROUND_SECONDS;
   elapsed = 0;
+  clockRunning = false;
   for (const orb of orbs) orb.reset();
   if (player) {
     player.frozen = false;
@@ -175,11 +183,35 @@ function startRound(): void {
   startScreen.classList.add('hidden');
   endScreen.classList.add('hidden');
   hud.classList.remove('hidden');
+  joyHint.classList.add('show');
   updateHud();
+}
+
+function nearestOrb(from: THREE.Vector3): Orb | null {
+  let best: Orb | null = null;
+  let bestD = Infinity;
+  for (const orb of orbs) {
+    if (orb.collected) continue;
+    const d = Math.hypot(orb.position.x - from.x, orb.position.z - from.z);
+    if (d < bestD) {
+      bestD = d;
+      best = orb;
+    }
+  }
+  return best;
+}
+
+function orbRow(): string {
+  let html = '<span class="orb-row">';
+  for (let i = 0; i < TOTAL_ORBS; i++) {
+    html += `<span class="orb-ico${i < collected ? '' : ' dim'}"></span>`;
+  }
+  return html + '</span>';
 }
 
 function endRound(won: boolean): void {
   state = won ? 'won' : 'timeup';
+  joyHint.classList.remove('show');
   if (player) {
     player.frozen = true;
     player.play(won ? 'Dance' : 'ThumbsUp', 0.3);
@@ -197,6 +229,7 @@ function endRound(won: boolean): void {
     endTitle.textContent = 'You Win!';
     endSub.textContent = 'Every orb collected — great flying, robot!';
     endStats.innerHTML =
+      orbRow() +
       `<span>Your time: ${time.toFixed(1)}s</span>` +
       (isBest
         ? `<span class="new-best">NEW BEST TIME!</span>`
@@ -205,7 +238,7 @@ function endRound(won: boolean): void {
     audio.timeUp();
     endTitle.textContent = "Time's Up!";
     endSub.textContent = 'Nice try! Ready for another rally?';
-    endStats.innerHTML = `<span>Orbs collected: ${collected} / ${TOTAL_ORBS}</span>`;
+    endStats.innerHTML = orbRow() + `<span>Orbs collected: ${collected} / ${TOTAL_ORBS}</span>`;
   }
   window.setTimeout(() => endScreen.classList.remove('hidden'), won ? 1500 : 600);
   updateHud();
@@ -295,6 +328,29 @@ Object.defineProperty(window, '__rr', {
   },
 });
 
+/* Read-only state for play-test validators */
+Object.defineProperty(window, '__game', {
+  value: Object.freeze({
+    get state() { return state; },
+    get orbsCollected() { return collected; },
+    get totalOrbs() { return TOTAL_ORBS; },
+    get timeLeft() { return timeLeft; },
+    get roundSeconds() { return ROUND_SECONDS; },
+    get clockRunning() { return clockRunning; },
+    get elapsed() { return elapsed; },
+    get playerPos() { return player ? player.root.position.toArray() : null; },
+    get nearestOrbDist() {
+      if (!player) return null;
+      const o = nearestOrb(player.root.position);
+      return o ? o.position.distanceTo(player.root.position) : null;
+    },
+    get orbPositions() {
+      return orbs.map((o) => ({ pos: o.position.toArray(), collected: o.collected }));
+    },
+    get guideVisible() { return guide.group.visible; },
+  }),
+});
+
 function tick(): void {
   requestAnimationFrame(tick);
   const rawDt = clock.getDelta();
@@ -316,9 +372,16 @@ function tick(): void {
     );
     player.update(dt, move, jump, camForwardYaw, world);
 
+    if (state === 'playing' && !clockRunning && (jump || Math.hypot(move.x, move.y) > 0.15)) {
+      clockRunning = true;
+      joyHint.classList.remove('show');
+    }
+
     if (state === 'playing') {
-      timeLeft -= dt;
-      elapsed += dt;
+      if (clockRunning) {
+        timeLeft -= dt;
+        elapsed += dt;
+      }
       if (timeLeft <= 0) {
         timeLeft = 0;
         endRound(false);
@@ -353,6 +416,13 @@ function tick(): void {
       );
       camera.lookAt(camLook);
     }
+
+    /* Guide arrow + see-through trees follow the robot */
+    const pos = player.root.position;
+    const next = state === 'playing' ? nearestOrb(pos) : null;
+    guide.update(t, dt, pos, (x, z) => world.heightAt(x, z), next ? next.position : null);
+    if (state === 'start') occluderFocus.value.copy(camera.position); // off
+    else occluderFocus.value.set(pos.x, pos.y + 0.9, pos.z);
 
     /* Keep the sun shadow frustum roughly over the action */
     world.sun.target.position.set(0, 0, 0);
