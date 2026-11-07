@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Car Racing Game</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+    <div id="stage">
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
 
@@ -15,7 +16,21 @@
             <h1>Car Racing</h1>
             <p>Race against 4 opponents! Most lives wins!</p>
             <button id="start-btn">START</button>
-            <div class="controls-info">
+            <div class="controls-info touch-only" aria-label="How to play">
+                <div class="touch-hint">
+                    <span class="hint-icon">&#x1F697;&#x1F4A8;</span>
+                    <span class="hint-text">Drives by itself!</span>
+                </div>
+                <div class="touch-hint">
+                    <span class="hint-icon hint-arrows">&#x2B06;&#xFE0F;&#x2B07;&#xFE0F;</span>
+                    <span class="hint-text">Tap to dodge</span>
+                </div>
+                <div class="touch-hint">
+                    <span class="hint-icon">&#x1F525;&#x274C;</span>
+                    <span class="hint-text">Miss the fire</span>
+                </div>
+            </div>
+            <div class="controls-info keys-only">
                 <h3>Controls:</h3>
                 <p><span class="key">Arrow Right</span> / <span class="key">D</span> - Accelerate</p>
                 <p><span class="key">Arrow Left</span> / <span class="key">A</span> - Slow Down</p>
@@ -46,6 +61,23 @@
             </div>
             <button id="race-btn" class="hidden">RACE!</button>
         </div>
+
+        <!-- Race end: big buttons over the results drawn on the canvas -->
+        <div id="end-overlay" class="hidden">
+            <button id="again-btn" aria-label="Race again">&#x1F501; RACE AGAIN</button>
+            <button id="change-car-btn" aria-label="Pick a different car">&#x1F697; New car</button>
+            <p class="keys-only end-keys"><span class="key">Enter</span> race again &middot; <span class="key">Space</span> new car</p>
+        </div>
+    </div>
+    </div>
+
+    <!-- Touch driving controls (shown only while racing on a touch screen) -->
+    <div id="touch-controls" class="hidden" aria-hidden="true">
+        <div class="lane-buttons">
+            <button id="lane-up-btn" class="touch-btn" aria-label="Move up a lane">&#x25B2;</button>
+            <button id="lane-down-btn" class="touch-btn" aria-label="Move down a lane">&#x25BC;</button>
+        </div>
+        <button id="brake-btn" class="touch-btn" aria-label="Hold to slow down"><span>&#x1F422;</span></button>
     </div>
 
     <script src="js/constants.js"></script>
