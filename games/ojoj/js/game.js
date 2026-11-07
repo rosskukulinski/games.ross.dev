@@ -323,6 +323,7 @@ class Game {
         this.createConfetti();
 
         this.state = GameState.RACE_END;
+        if (this.onRaceEnd) this.onRaceEnd();
         if (this.audio) {
             const playerResult = this.raceResults.find(r => r.isPlayer);
             const playerPlace = this.raceResults.indexOf(playerResult) + 1;
@@ -363,6 +364,19 @@ class Game {
                 c.x = Math.random() * this.canvas.width;
             }
         }
+    }
+
+    // Live race position (1 = leading): finished racers by finish time, then by distance
+    getLivePosition() {
+        if (!this.player) return 0;
+        const racers = [this.player, ...this.aiPlayers].filter(r => !r.eliminated || r === this.player);
+        racers.sort((a, b) => {
+            if (a.finished && b.finished) return a.finishTime - b.finishTime;
+            if (a.finished) return -1;
+            if (b.finished) return 1;
+            return b.x - a.x;
+        });
+        return racers.indexOf(this.player) + 1;
     }
 
     getPlayerPlacement() {

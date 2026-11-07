@@ -113,7 +113,17 @@ class Player {
             this.laneChangeKeyReleased = true;
         }
 
-        if (this.laneChangeKeyReleased && !this.isChangingLane) {
+        // A tapped lane change waits until any lane change in progress is done
+        const tapped = !this.isChangingLane && input.takeQueuedLane ? input.takeQueuedLane() : 0;
+        if (tapped) {
+            const lane = Math.max(0, Math.min(LANE_COUNT - 1, this.currentLane + tapped));
+            if (lane !== this.currentLane) {
+                this.currentLane = lane;
+                this.isChangingLane = true;
+                this.targetLaneY = this.getLaneY(this.currentLane);
+                if (audio) audio.playLaneChange();
+            }
+        } else if (this.laneChangeKeyReleased && !this.isChangingLane) {
             if (input.isPressed('up') && this.currentLane > 0) {
                 this.currentLane--;
                 this.isChangingLane = true;

@@ -4,17 +4,37 @@
     box-sizing: border-box;
 }
 
-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    font-family: 'Arial', sans-serif;
+html, body {
+    height: 100%;
+    overflow: hidden;
 }
 
+body {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    font-family: 'Arial', sans-serif;
+    /* No double-tap zoom or scroll while a kid hammers the screen */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Clips the unscaled layout box so phones don't widen the layout viewport */
+#stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+}
+
+/* The game is laid out at a fixed 1000x600 and scaled to fit the window
+   by main.js (--game-scale), so every overlay scales with the canvas. */
 #game-container {
-    position: relative;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(var(--game-scale, 1));
+    transform-origin: center center;
     border: 4px solid #333;
     border-radius: 10px;
     overflow: hidden;
@@ -219,4 +239,176 @@ body {
 
 #race-btn.hidden {
     display: none;
+}
+
+button {
+    touch-action: manipulation;
+    font-family: inherit;
+}
+
+/* Touch screens get pictures instead of keyboard keys */
+.touch-only { display: none; }
+body.touch .touch-only { display: flex; }
+body.touch .keys-only { display: none; }
+
+.controls-info.touch-only {
+    gap: 18px;
+    padding: 16px 22px;
+}
+
+.touch-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 130px;
+}
+
+.hint-icon {
+    font-size: 44px;
+    line-height: 1;
+}
+
+.hint-text {
+    font-size: 16px;
+    font-weight: bold;
+    color: #FFD700;
+}
+
+/* Race end buttons */
+#end-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 405px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    z-index: 10;
+    animation: pop-in 0.35s ease-out;
+}
+
+#end-overlay.hidden {
+    display: none;
+}
+
+#again-btn,
+#change-car-btn {
+    border: none;
+    border-radius: 16px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: transform 0.15s;
+}
+
+#again-btn {
+    padding: 22px 48px;
+    font-size: 34px;
+    background: linear-gradient(180deg, #4CAF50, #2E7D32);
+    box-shadow: 0 6px 0 #1B5E20, 0 0 30px rgba(76, 175, 80, 0.5);
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+#change-car-btn {
+    padding: 18px 28px;
+    font-size: 24px;
+    background: linear-gradient(180deg, #FF9800, #E65100);
+    box-shadow: 0 5px 0 #8a3200;
+}
+
+#again-btn:active,
+#change-car-btn:active {
+    transform: translateY(4px) scale(0.97);
+}
+
+.end-keys {
+    flex-basis: 100%;
+    text-align: center;
+    color: #aaa;
+    font-size: 16px;
+}
+
+.end-keys .key {
+    display: inline-block;
+    background: #444;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    border: 1px solid #666;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+}
+
+@keyframes pop-in {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Touch driving controls: fixed to the screen edges (not scaled with the
+   canvas) so they stay thumb-sized on every device. */
+#touch-controls {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 20;
+}
+
+#touch-controls.hidden {
+    display: none;
+}
+
+.touch-btn {
+    pointer-events: auto;
+    position: absolute;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    transition: transform 0.08s, background 0.08s;
+}
+
+.lane-buttons {
+    position: absolute;
+    left: calc(14px + env(safe-area-inset-left));
+    top: 50%;
+    transform: translateY(-50%);
+    width: 96px;
+    height: 220px;
+}
+
+#lane-up-btn,
+#lane-down-btn {
+    width: 96px;
+    height: 96px;
+    left: 0;
+    font-size: 46px;
+    background: rgba(30, 136, 229, 0.75);
+}
+
+#lane-up-btn { top: 0; }
+#lane-down-btn { bottom: 0; }
+
+#brake-btn {
+    right: calc(16px + env(safe-area-inset-right));
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: 88px;
+    height: 88px;
+    font-size: 44px;
+    background: rgba(229, 57, 53, 0.55);
+}
+
+.touch-btn.pressed {
+    transform: scale(0.9);
+    background: rgba(255, 215, 0, 0.85) !important;
 }

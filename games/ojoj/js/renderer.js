@@ -460,7 +460,7 @@ class Renderer {
 
         ctx.fillStyle = '#FFF';
         ctx.font = '28px Arial';
-        ctx.fillText('Press SPACE to try again', canvasWidth / 2, canvasHeight / 2 + 40);
+        ctx.fillText('Try again!', canvasWidth / 2, canvasHeight / 2 + 40);
         ctx.textAlign = 'left';
     }
 
@@ -488,9 +488,14 @@ class Renderer {
         const placementText = this.getPlacementText(placement);
         const isWinner = placement === 1;
 
+        // A big medal a pre-reader can understand without the words
+        const medals = ['\u{1F3C6}', '\u{1F948}', '\u{1F949}'];
+        ctx.textAlign = 'center';
+        ctx.font = '84px Arial';
+        ctx.fillText(medals[placement - 1] || '\u2B50', canvasWidth / 2, canvasHeight / 2 - 150);
+
         ctx.fillStyle = isWinner ? '#FFD700' : '#FFF';
         ctx.font = 'bold 64px Arial';
-        ctx.textAlign = 'center';
         ctx.fillText(isWinner ? 'You Won!' : placementText, canvasWidth / 2, canvasHeight / 2 - 80);
 
         // Stats box
@@ -519,10 +524,7 @@ class Renderer {
         ctx.font = 'bold 32px Arial';
         ctx.fillText(`${seconds} seconds`, canvasWidth / 2, boxY + 95);
 
-        // Play again prompt
-        ctx.fillStyle = '#AAA';
-        ctx.font = '24px Arial';
-        ctx.fillText('Press SPACE to race again', canvasWidth / 2, canvasHeight / 2 + 130);
+        // The RACE AGAIN / New car buttons are DOM elements (#end-overlay) drawn below this box
 
         ctx.textAlign = 'left';
     }

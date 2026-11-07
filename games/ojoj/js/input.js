@@ -7,6 +7,12 @@ class InputHandler {
             down: false
         };
 
+        // Touch play: the car drives itself (autoAccelerate) unless the brake
+        // is held, and lane changes arrive as one-shot taps (-1 up, +1 down).
+        this.autoAccelerate = false;
+        this.touchBrake = false;
+        this.pendingLane = 0;
+
         this.setupEventListeners();
     }
 
@@ -63,7 +69,27 @@ class InputHandler {
     }
 
     isPressed(action) {
+        if (this.autoAccelerate) {
+            if (action === 'backward' && this.touchBrake) return true;
+            if (action === 'forward' && !this.touchBrake && !this.keys.backward) return true;
+        }
         return this.keys[action] || false;
+    }
+
+    // Queue a lane change from a tap; the player consumes it on its next free frame.
+    queueLane(direction) {
+        this.pendingLane = direction;
+    }
+
+    takeQueuedLane() {
+        const d = this.pendingLane;
+        this.pendingLane = 0;
+        return d;
+    }
+
+    clearTouch() {
+        this.touchBrake = false;
+        this.pendingLane = 0;
     }
 
     // Reset lane change keys after processing
