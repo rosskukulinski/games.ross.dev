@@ -13,27 +13,34 @@
         <div id="start-screen" class="screen">
             <h1 class="title">Guess the Drawing</h1>
             <div class="instructions">
-                <p>A pencil will draw a picture.</p>
-                <p>Guess what it is in 30 seconds!</p>
+                <p>✏️ A pencil draws a picture.</p>
+                <p>Guess what it is!</p>
             </div>
             <div class="mode-selector">
                 <p>How do you want to answer?</p>
                 <div class="mode-options">
                     <label class="mode-option">
-                        <input type="radio" name="input-mode" id="mode-speak" value="speak" checked>
-                        <span>🎤 Say it</span>
+                        <input type="radio" name="input-mode" id="mode-pick" value="pick" checked>
+                        <span class="mode-emoji" aria-hidden="true">👆</span>
+                        <span>Pick it</span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="input-mode" id="mode-speak" value="speak">
+                        <span class="mode-emoji" aria-hidden="true">🎤</span>
+                        <span>Say it</span>
                     </label>
                     <label class="mode-option">
                         <input type="radio" name="input-mode" id="mode-type" value="type">
-                        <span>⌨️ Type it</span>
+                        <span class="mode-emoji" aria-hidden="true">⌨️</span>
+                        <span>Type it</span>
                     </label>
                 </div>
             </div>
             <div class="scoring-info">
-                <p><span class="star-icon">&#9733;</span> +1 star for correct guess</p>
-                <p><span class="penalty">-2 stars</span> if time runs out</p>
+                <p><span class="star-icon">&#9733;</span> +1 star for every right guess</p>
+                <p>💡 Stuck? Wait for a hint!</p>
             </div>
-            <button id="start-btn" class="btn btn-start">Start Game</button>
+            <button id="start-btn" class="btn btn-start">▶ Start Game</button>
         </div>
 
         <!-- Game Screen -->
@@ -80,18 +87,28 @@
                     <div class="timer" id="timer">0:30</div>
                 </div>
 
-                <button class="mic-button" id="mic-btn" aria-label="Start voice input">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                    </svg>
-                </button>
+                <div class="mic-area" id="mic-area">
+                    <button class="mic-button" id="mic-btn" aria-label="Say what you see">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                        </svg>
+                    </button>
+                    <div class="sound-wave" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="say-bubble" id="say-bubble" aria-hidden="true">🗣️ Say it!</div>
+                </div>
+
+                <div class="choices hidden" id="choices" role="group" aria-label="Pick the picture"></div>
+
+                <div class="hint hidden" id="hint" aria-live="polite"></div>
 
                 <div class="guess-area">
                     <div class="guess-display" id="guess-display">
                         Press the microphone and say what you see...
                     </div>
-                    <input type="text" id="text-fallback" class="text-fallback hidden" placeholder="Type your guess...">
+                    <input type="text" id="text-fallback" class="text-fallback hidden" placeholder="Type your guess..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
                 </div>
             </div>
 
@@ -99,6 +116,7 @@
             <div id="feedback-overlay" class="feedback-overlay hidden">
                 <div class="feedback-content">
                     <div id="feedback-icon" class="feedback-icon"></div>
+                    <div id="feedback-picture" class="feedback-picture" aria-hidden="true"></div>
                     <div id="feedback-text" class="feedback-text"></div>
                 </div>
             </div>
@@ -117,20 +135,21 @@
                 <div class="stats">
                     <div class="stat-item">
                         <span class="stat-value" id="correct-count">0</span>
-                        <span class="stat-label">correct</span>
+                        <span class="stat-label">✓ correct</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-value" id="timeout-count">0</span>
-                        <span class="stat-label">ran out of time</span>
+                        <span class="stat-label">⏱ ran out of time</span>
                     </div>
                 </div>
             </div>
 
-            <button id="play-again-btn" class="btn btn-start">Play Again</button>
+            <button id="play-again-btn" class="btn btn-start">↻ Play Again</button>
         </div>
     </div>
 
     <script src="js/paths.js"></script>
+    <script src="js/pictures.js"></script>
     <script src="js/audio.js"></script>
     <script src="js/timer.js"></script>
     <script src="js/drawing.js"></script>

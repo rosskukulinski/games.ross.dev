@@ -15,7 +15,13 @@ const Game = {
 
     usedDrawings: [],
     isMicActive: false,
-    inputMode: 'speak', // 'speak' or 'type' - set from main.js before start()
+    inputMode: 'pick', // 'pick', 'speak' or 'type' - set from main.js before start()
+    choiceCount: 4,    // picture buttons shown in pick mode
+    hintAt: 15,        // seconds left when the hint appears
+    secondHintAt: 8,   // seconds left when pick mode removes another wrong picture
+    roundSeconds: 30,
+    hintShown: false,
+    currentChoices: [],
 
     init() {
         this.reset();
@@ -40,8 +46,11 @@ const Game = {
         // Mic button click
         UI.onMicClick(() => this.toggleMic());
 
-        // Text fallback input
-        UI.onTextInput((text) => this.checkGuess(text));
+        // Typed guesses (type mode, or the fallback when speech is unavailable)
+        UI.onTextInput((text) => this.submitTypedGuess(text));
+
+        // Picture buttons (pick mode)
+        UI.onChoiceClick((id) => this.pickChoice(id));
 
         // Speech recognition results
         Speech.onResult((text) => this.checkGuess(text));
@@ -50,6 +59,11 @@ const Game = {
         // Timer callbacks
         Timer.onTick((seconds) => {
             UI.updateTimer(seconds);
+            if (this.state !== 'PLAYING') return;
+            if (seconds === this.hintAt) this.showHint();
+            if (seconds === this.secondHintAt && this.inputMode === 'pick') {
+                UI.removeWrongChoice(this.data.currentDrawing.id);
+            }
         });
 
         Timer.onWarning((seconds) => {
@@ -90,17 +104,27 @@ const Game = {
         UI.resetTimer();
         UI.clearGuessDisplay(this.inputMode);
         UI.setMicActive(false);
+        UI.hideHint();
+        UI.hideChoices();
+        UI.hideMicArea();
+        if (this.inputMode !== 'type') UI.hideTextFallback();
         this.isMicActive = false;
+        this.hintShown = false;
+        this.currentChoices = [];
 
         // Auto-start input based on mode
-        if (this.inputMode === 'speak') {
+        if (this.inputMode === 'pick') {
+            this.currentChoices = this.buildChoices(this.data.currentDrawing.id);
+            UI.showChoices(this.currentChoices);
+        } else if (this.inputMode === 'speak') {
+            UI.showMicArea();
             Audio.resume();
             const started = Speech.startListening();
             if (started) {
                 UI.setMicActive(true);
                 this.isMicActive = true;
             } else {
-                UI.showTextFallback();
+                this.fallBackFromSpeech();
             }
         } else {
             UI.showTypingInput();
@@ -112,7 +136,59 @@ const Game = {
         });
 
         // Start timer
-        Timer.start(30, () => this.onTimeout());
+        Timer.start(this.roundSeconds, () => this.onTimeout());
+    },
+
+    // Pick mode: the answer plus random other drawings, shuffled.
+    buildChoices(answerId) {
+        const others = getDrawingIds().filter(id => id !== answerId);
+        for (let i = others.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [others[i], others[j]] = [others[j], others[i]];
+        }
+        const ids = [answerId, ...others.slice(0, this.choiceCount - 1)];
+        for (let i = ids.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+        }
+        return ids.map(id => ({ id, name: DRAWINGS[id].name, picture: getPicture(id) }));
+    },
+
+    pickChoice(id) {
+        if (this.state !== 'PLAYING' || !this.data.currentDrawing) return;
+        if (id === this.data.currentDrawing.id) {
+            UI.markChoice(id, true);
+            this.onCorrectGuess();
+        } else {
+            // No penalty: the wrong picture wobbles and greys out, try again.
+            UI.markChoice(id, false);
+            Audio.playWrong();
+        }
+    },
+
+    // Speech is unavailable or was refused: a pre-reader can still play by
+    // picking the picture, and the typing box stays for older players.
+    fallBackFromSpeech() {
+        if (this.state !== 'PLAYING' || !this.data.currentDrawing) return;
+        UI.setMicActive(false);
+        this.isMicActive = false;
+        UI.showTextFallback();
+        if (!this.currentChoices.length) {
+            this.currentChoices = this.buildChoices(this.data.currentDrawing.id);
+            UI.showChoices(this.currentChoices);
+        }
+    },
+
+    showHint() {
+        if (this.hintShown || !this.data.currentDrawing) return;
+        this.hintShown = true;
+        Audio.playHint();
+        if (this.inputMode === 'pick' || this.currentChoices.length) {
+            UI.removeWrongChoice(this.data.currentDrawing.id);
+        }
+        if (this.inputMode !== 'pick') {
+            UI.showHint(this.data.currentDrawing.name);
+        }
     },
 
     selectRandomDrawing() {
@@ -128,26 +204,68 @@ const Game = {
         return DRAWINGS[selectedId];
     },
 
+    // The mic listens on its own in speak mode. Tapping it makes sure it is
+    // (re)listening and shows a big "Say it!" cue, so the tap always does
+    // something a pre-reader can see.
     toggleMic() {
         if (this.state !== 'PLAYING') return;
-        if (this.inputMode === 'speak') return; // mic is always on in speak mode
+        if (this.inputMode !== 'speak') return;
+        Audio.resume();
+        if (!Speech.isListening) {
+            const started = Speech.startListening();
+            if (!started) {
+                this.fallBackFromSpeech();
+                return;
+            }
+        }
+        UI.setMicActive(true);
+        this.isMicActive = true;
+        UI.pulseSayIt();
+        Audio.playPop();
+    },
+
+    isMatch(text, fuzzy = false) {
+        const normalized = (text || '').toLowerCase().trim();
+        if (!normalized) return false;
+        const accepted = this.data.currentDrawing.acceptedAnswers.map(a => a.toLowerCase());
+
+        // Any accepted answer contained in the text
+        if (accepted.some(answer => normalized.includes(answer))) return true;
+        if (!fuzzy) return false;
+
+        // Typed guesses forgive small spelling slips ("elefant", "buterfly").
+        // Short words must be exact so "car" never matches "cat".
+        const words = normalized.split(/[^a-z]+/).filter(Boolean);
+        words.push(normalized.replace(/[^a-z]/g, ''));
+        return accepted.some(answer => {
+            const target = answer.replace(/[^a-z]/g, '');
+            const allowed = target.length >= 8 ? 2 : target.length >= 5 ? 1 : 0;
+            if (!allowed) return false;
+            return words.some(w => Math.abs(w.length - target.length) <= allowed &&
+                editDistance(w, target) <= allowed);
+        });
     },
 
     checkGuess(spokenText) {
-        if (this.state !== 'PLAYING' || !this.data.currentDrawing) return;
-
-        const normalized = spokenText.toLowerCase().trim();
-        const accepted = this.data.currentDrawing.acceptedAnswers;
-
-        // Check if any accepted answer is contained in the spoken text
-        const isCorrect = accepted.some(answer =>
-            normalized.includes(answer.toLowerCase())
-        );
-
-        if (isCorrect) {
+        if (this.state !== 'PLAYING' || !this.data.currentDrawing) return false;
+        if (this.isMatch(spokenText)) {
             this.onCorrectGuess();
+            return true;
         }
         // Don't penalize wrong guesses - just keep listening
+        return false;
+    },
+
+    submitTypedGuess(text) {
+        if (this.state !== 'PLAYING' || !this.data.currentDrawing) return false;
+        if (!text || !text.trim()) return false;
+        if (this.isMatch(text, true)) {
+            this.onCorrectGuess();
+            return true;
+        }
+        UI.showTryAgain(text.trim());
+        Audio.playWrong();
+        return false;
     },
 
     onCorrectGuess() {
@@ -168,7 +286,7 @@ const Game = {
         // Play sound and show feedback
         Audio.playCorrect();
         UI.updateStars(this.data.stars);
-        UI.showCorrectFeedback();
+        UI.showCorrectFeedback(this.data.currentDrawing);
 
         // Next round after delay
         setTimeout(() => {
@@ -187,14 +305,12 @@ const Game = {
         this.isMicActive = false;
         if (this.inputMode === 'type') UI.hideTypingInput();
 
-        // Update score (minimum 0 stars)
-        this.data.stars = Math.max(0, this.data.stars - 2);
+        // No stars are taken away: the round just ends and shows the answer
         this.data.timeouts++;
 
         // Play sound and show feedback
         Audio.playTimeout();
-        UI.updateStars(this.data.stars);
-        UI.showTimeoutFeedback(this.data.currentDrawing.name);
+        UI.showTimeoutFeedback(this.data.currentDrawing);
 
         // Next round after delay
         setTimeout(() => {
@@ -211,6 +327,8 @@ const Game = {
         Speech.stopListening();
         Drawing.stopDrawing();
         UI.setMicActive(false);
+        UI.hideChoices();
+        UI.hideHint();
 
         // Show end screen with stats
         UI.showEndScreen({
@@ -228,4 +346,33 @@ const Game = {
     getData() {
         return { ...this.data };
     }
+};
+
+// Levenshtein distance, for forgiving typed spellings
+function editDistance(a, b) {
+    const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+        let diag = prev[0];
+        prev[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const tmp = prev[j];
+            prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+            diag = tmp;
+        }
+    }
+    return prev[b.length];
+}
+
+// Read-only debug view for play-test harnesses
+window.__game = {
+    get state() { return Game.state; },
+    get mode() { return Game.inputMode; },
+    get round() { return Game.data.currentRound; },
+    get stars() { return Game.data.stars; },
+    get correct() { return Game.data.correctGuesses; },
+    get timeouts() { return Game.data.timeouts; },
+    get answer() { return Game.data.currentDrawing ? Game.data.currentDrawing.id : null; },
+    get choices() { return Game.currentChoices.map(c => c.id); },
+    get hintShown() { return Game.hintShown; },
+    get timeLeft() { return Timer.getRemainingTime(); }
 };

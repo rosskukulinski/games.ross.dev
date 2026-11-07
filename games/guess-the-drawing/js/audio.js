@@ -48,9 +48,34 @@ const Audio = {
         this.resume();
 
         const now = this.context.currentTime;
-        // Descending buzzer
-        this.playTone(400, now, 0.3, 'square', 0.2);
-        this.playTone(300, now + 0.15, 0.3, 'square', 0.2);
+        // Gentle "aww" slide rather than a harsh buzzer
+        this.playTone(392, now, 0.25, 'triangle', 0.2);
+        this.playTone(330, now + 0.2, 0.35, 'triangle', 0.2);
+    },
+
+    // Soft "nope" for a wrong picture or typed guess
+    playWrong() {
+        if (!this.enabled || !this.context) return;
+        this.resume();
+        const now = this.context.currentTime;
+        this.playTone(260, now, 0.12, 'triangle', 0.18);
+        this.playTone(220, now + 0.09, 0.14, 'triangle', 0.18);
+    },
+
+    // Bright chime when a hint appears
+    playHint() {
+        if (!this.enabled || !this.context) return;
+        this.resume();
+        const now = this.context.currentTime;
+        this.playTone(880, now, 0.1, 'sine', 0.15);
+        this.playTone(1174.66, now + 0.08, 0.15, 'sine', 0.15);
+    },
+
+    // Little pop when the mic button is tapped
+    playPop() {
+        if (!this.enabled || !this.context) return;
+        this.resume();
+        this.playTone(660, this.context.currentTime, 0.08, 'sine', 0.2);
     },
 
     // Generate a tick sound
