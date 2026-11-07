@@ -61,37 +61,72 @@ body {
   text-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
 }
 
-.subtitle {
-  color: #7788aa;
-  font-size: 13px;
-  margin-bottom: 28px;
+.legend {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: min(100%, 300px);
+  margin: 16px 0 24px;
+}
+
+.legend-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 6px 10px;
+  border: 2px solid #2a2a4a;
+  border-radius: 10px;
+  background: rgba(20, 20, 45, 0.8);
+}
+
+.legend-card.good { border-color: #1f6a3a; }
+.legend-card.bad { border-color: #6a2a2a; }
+
+.legend-word {
+  color: #ccd6e6;
+  font-size: 16px;
+  font-weight: bold;
   letter-spacing: 2px;
 }
 
-.legend {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 28px;
+.icon {
+  width: 64px;
+  height: 48px;
 }
 
-.legend-row {
+.icon-small {
+  width: 26px;
+  height: 26px;
+  vertical-align: middle;
+}
+
+.icon-big {
+  width: 56px;
+  height: 56px;
+}
+
+.reason {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #aabbcc;
-  font-size: 13px;
+  gap: 12px;
+  font-size: 24px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  margin: 8px 0 6px;
 }
 
-.legend-icon {
-  width: 22px;
-  text-align: center;
-  font-size: 16px;
-}
+.reason-fuel { color: #ff6655; }
+.reason-crash { color: #ffaa66; }
 
-.ship-icon { color: #ccccdd; }
-.fuel-icon { color: #00cc44; }
-.shield-icon { color: #44ccff; }
+.reason-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #aaffaa;
+  font-size: 18px;
+  margin-bottom: 14px;
+}
 
 .high-score {
   color: #aaffaa;
@@ -121,18 +156,27 @@ body {
 }
 
 .start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: min(100%, 320px);
+  min-height: 72px;
   background: linear-gradient(180deg, #2266aa, #1144aa);
   color: #ffffff;
-  border: 2px solid #44ccff;
-  padding: 12px 40px;
-  font-size: 18px;
+  border: 3px solid #44ccff;
+  border-radius: 14px;
+  padding: 12px 24px;
+  font-size: 28px;
   font-family: monospace;
   font-weight: bold;
   letter-spacing: 4px;
   cursor: pointer;
   margin-top: 8px;
-  transition: background 0.2s, transform 0.1s;
+  transition: background 0.2s, transform 0.1s, opacity 0.2s;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 24px rgba(68, 204, 255, 0.35);
+  touch-action: manipulation;
 }
 
 .start-btn:hover {
@@ -143,9 +187,12 @@ body {
   transform: scale(0.96);
 }
 
-.touch-hint {
-  color: #445566;
-  font-size: 11px;
-  margin-top: 16px;
-  letter-spacing: 1px;
+.start-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-icon {
+  width: 26px;
+  height: 26px;
 }
