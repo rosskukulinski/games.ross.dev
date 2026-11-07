@@ -6,17 +6,51 @@ import { AudioEngine } from './audio.js';
 
 const W = 400;
 const H = 700;
-const LANE_W = W / 4;
 const HIT_Y = 580;
-const SCROLL_DURATION = 2.0;
-const NOTE_R = 20;
-const LANE_COLORS = ['#FF69B4', '#00D4FF', '#39FF14', '#BF40FF'];
-const LANE_LABELS = ['←', '↓', '↑', '→'];
+const LANE_COLORS_4 = ['#FF69B4', '#00D4FF', '#39FF14', '#BF40FF'];
+const LANE_LABELS_4 = ['←', '↓', '↑', '→'];
+const LANE_COLORS_2 = ['#FF69B4', '#00D4FF'];
+const LANE_LABELS_2 = ['◀', '▶'];
 
-const PERFECT_WINDOW = 0.050;
-const GREAT_WINDOW = 0.100;
-const GOOD_WINDOW = 0.150;
-const MISS_WINDOW = 0.200;
+// Seconds of countdown before the first note reaches the line. Songs with a
+// long intro skip ahead; songs whose first note is right at the start get a
+// silent pre-roll instead, so there is never a long blank wait.
+const LEAD_IN = 3.5;
+
+// Hit windows are seconds either side of the note. Starter ("kid") is the
+// default: two wide lanes, slower notes, double-width windows and a short song.
+const MODES = {
+  kid: {
+    label: 'Starter', icon: '🐣', desc: '2 big lanes · slow · short song',
+    lanes: 2, noteR: 34, scroll: 2.6,
+    perfect: 0.12, great: 0.2, good: 0.3, miss: 0.35,
+    maxSongSec: 60, laneSlop: 0.25,
+  },
+  easy: {
+    label: 'Easy', icon: '🙂', desc: 'Drums only — relaxed pace',
+    lanes: 4, noteR: 20, scroll: 2.0,
+    perfect: 0.05, great: 0.1, good: 0.15, miss: 0.2,
+  },
+  medium: {
+    label: 'Medium', icon: '😎', desc: 'Drums + melody — balanced',
+    lanes: 4, noteR: 20, scroll: 2.0,
+    perfect: 0.05, great: 0.1, good: 0.15, miss: 0.2,
+  },
+  hard: {
+    label: 'Hard', icon: '🔥', desc: 'All events — intense',
+    lanes: 4, noteR: 20, scroll: 2.0,
+    perfect: 0.05, great: 0.1, good: 0.15, miss: 0.2,
+  },
+};
+const MODE_ORDER = ['kid', 'easy', 'medium', 'hard'];
+
+const COMBO_CHEERS = { 5: 'Nice!', 10: 'Great!', 20: 'Super!', 30: 'Amazing!', 50: 'Superstar!' };
+
+function starsFor(accuracy) {
+  if (accuracy >= 0.8) return 3;
+  if (accuracy >= 0.5) return 2;
+  return 1;
+}
 
 function getHighScore(songId) {
   try {
@@ -53,10 +87,45 @@ export default function App() {
     results: null,
     loading: false,
     selectedSong: null,
-    difficulty: 'medium',
+    difficulty: 'kid',
   });
 
   const updateUi = useCallback((patch) => setUi((u) => ({ ...u, ...patch })), []);
+
+  // Read-only hook for automated play-tests.
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
+  useEffect(() => {
+    const hook = {};
+    const def = (k, fn) => Object.defineProperty(hook, k, { get: fn, enumerable: true });
+    const g = () => gs.current;
+    def('phase', () => uiRef.current.phase);
+    def('mode', () => g()?.mode ?? uiRef.current.difficulty);
+    def('lanes', () => g()?.cfg.lanes ?? MODES[uiRef.current.difficulty].lanes);
+    def('score', () => g()?.score ?? 0);
+    def('combo', () => g()?.combo ?? 0);
+    def('maxCombo', () => g()?.maxCombo ?? 0);
+    def('hits', () => {
+      const j = g()?.judgments;
+      return j ? j.perfect + j.great + j.good : 0;
+    });
+    def('misses', () => g()?.judgments.miss ?? 0);
+    def('emptyTaps', () => g()?.emptyTaps ?? 0);
+    def('judgments', () => ({ ...(g()?.judgments ?? {}) }));
+    def('totalNotes', () => g()?.totalNotes ?? 0);
+    def('songTime', () => (g()?.active ? getAudio().getCurrentTime() : null));
+    def('firstNoteTime', () => g()?.beatmap[0]?.time ?? null);
+    def('endTime', () => g()?.endTime ?? null);
+    def('notes', () => (g()?.beatmap ?? []).map((n) => ({ time: n.time, lane: n.lane })));
+    def('windows', () => {
+      const c = MODES[g()?.mode ?? uiRef.current.difficulty];
+      return { perfect: c.perfect, great: c.great, good: c.good, miss: c.miss };
+    });
+    window.__game = Object.freeze(hook);
+    return () => {
+      if (window.__game === hook) delete window.__game;
+    };
+  }, []);
 
   // Lazily create AudioEngine
   const getAudio = useCallback(() => {
@@ -64,11 +133,12 @@ export default function App() {
     return audioRef.current;
   }, []);
 
-  const finishSong = useCallback(() => {
+  const finishSong = useCallback((fade = false) => {
     const g = gs.current;
     if (!g || !g.active) return;
     g.active = false;
-    getAudio().stop();
+    if (fade) getAudio().fadeOutAndStop(1.5);
+    else getAudio().stop();
 
     const { judgments, score, maxCombo, totalNotes } = g;
     const hitNotes = judgments.perfect + judgments.great + judgments.good;
@@ -79,6 +149,8 @@ export default function App() {
       score,
       accuracy,
       grade,
+      stars: starsFor(accuracy),
+      mode: g.mode,
       maxCombo,
       ...judgments,
       totalNotes,
@@ -97,12 +169,12 @@ export default function App() {
       game: 'kpop-rythm-tap',
       value: score,
       variant: g.song.id,
-      meta: { song: g.song.title, grade, accuracy: Number(accuracy.toFixed(3)) },
+      meta: { song: g.song.title, grade, accuracy: Number(accuracy.toFixed(3)), mode: g.mode },
     });
   }, [updateUi, getAudio]);
 
   const selectSong = useCallback(
-    async (song, difficulty = 'medium') => {
+    async (song, difficulty = 'kid') => {
       // the arcade score card from the last song shouldn't sit over the new one
       window.Arcade?.dismiss?.();
       updateUi({ phase: 'loading', songTitle: song.title, loading: true });
@@ -110,12 +182,29 @@ export default function App() {
       try {
         const audio = getAudio();
         const actualDuration = await audio.load(song.file);
-        const beatmap = generateBeatmap(song, difficulty);
+        const cfg = MODES[difficulty] ?? MODES.kid;
+        let beatmap = generateBeatmap(song, difficulty);
+        const firstNote = beatmap.length ? beatmap[0].time : 0;
+        const startAt = Math.min(firstNote - LEAD_IN, Math.max(0, actualDuration - 5));
+        // Starter plays a short version of the song so little kids reach the end
+        const endTime = cfg.maxSongSec
+          ? Math.min(actualDuration, firstNote + cfg.maxSongSec)
+          : actualDuration;
+        if (endTime < actualDuration) beatmap = beatmap.filter((n) => n.time < endTime - 1);
 
         gs.current = {
           song,
+          mode: difficulty,
+          cfg,
           beatmap,
           duration: actualDuration,
+          endTime,
+          startAt,
+          emptyTaps: 0,
+          laneFlash: Array(cfg.lanes).fill(0),
+          missFlash: Array(cfg.lanes).fill(0),
+          targetPop: Array(cfg.lanes).fill(0),
+          shake: 0,
           score: 0,
           combo: 0,
           maxCombo: 0,
@@ -133,7 +222,6 @@ export default function App() {
             size: 1 + Math.random() * 2,
             alpha: 0.3 + Math.random() * 0.5,
           })),
-          laneFlash: [0, 0, 0, 0],
           lastTime: 0,
           active: true,
           paused: false,
@@ -143,7 +231,7 @@ export default function App() {
           if (gs.current && gs.current.active) finishSong();
         };
 
-        audio.play();
+        audio.play(startAt);
         updateUi({
           phase: 'playing',
           score: 0,
@@ -182,46 +270,77 @@ export default function App() {
     updateUi({ phase: 'select', selectedSong: null });
   }, [updateUi, getAudio]);
 
-  // Handle lane tap
+  // Handle lane tap. `x` is the canvas x of a touch/click (undefined for keys).
   const handleTap = useCallback(
-    (lane) => {
+    (lane, x) => {
       const g = gs.current;
       if (!g || !g.active || g.paused) return;
+      const { cfg } = g;
+      const laneW = W / cfg.lanes;
+      const colors = cfg.lanes === 2 ? LANE_COLORS_2 : LANE_COLORS_4;
 
       const currentTime = getAudio().getCurrentTime();
       g.laneFlash[lane] = 1.0;
 
-      // Find closest unhit note in this lane within GOOD window
-      let closest = null;
-      let closestDiff = Infinity;
-
-      for (const note of g.activeNotes) {
-        if (note.judged || note.lane !== lane) continue;
-        const diff = Math.abs(note.time - currentTime);
-        if (diff < closestDiff && diff <= GOOD_WINDOW) {
-          closest = note;
-          closestDiff = diff;
+      const closestIn = (l) => {
+        let best = null;
+        let bestDiff = Infinity;
+        for (const note of g.activeNotes) {
+          if (note.judged || note.lane !== l) continue;
+          const diff = Math.abs(note.time - currentTime);
+          if (diff < bestDiff && diff <= cfg.good) {
+            best = note;
+            bestDiff = diff;
+          }
         }
+        return best ? { note: best, diff: bestDiff } : null;
+      };
+
+      let found = closestIn(lane);
+      // Fat-finger tolerance: a touch near the lane edge also counts for the
+      // neighbouring lane when this one has nothing to hit.
+      if (!found && cfg.laneSlop && x !== undefined) {
+        const within = x / laneW - lane;
+        const slop = cfg.laneSlop;
+        if (within < slop && lane > 0) found = closestIn(lane - 1);
+        else if (within > 1 - slop && lane < cfg.lanes - 1) found = closestIn(lane + 1);
       }
 
-      if (!closest) return;
+      if (!found) {
+        // Nothing to hit: still answer the tap with a ripple on the target.
+        g.emptyTaps++;
+        g.effects.push({
+          kind: 'ring',
+          x: (lane + 0.5) * laneW,
+          y: HIT_Y,
+          color: colors[lane],
+          r0: cfg.noteR * 0.6,
+          r1: cfg.noteR * 1.8,
+          width: 3,
+          age: 0,
+          life: 0.35,
+        });
+        return;
+      }
 
+      const closest = found.note;
+      const closestDiff = found.diff;
       closest.judged = true;
       closest.hit = true;
 
       let judgment, points, color;
-      if (closestDiff <= PERFECT_WINDOW) {
+      if (closestDiff <= cfg.perfect) {
         judgment = 'PERFECT';
         points = 100;
         color = '#FFD700';
-      } else if (closestDiff <= GREAT_WINDOW) {
+      } else if (closestDiff <= cfg.great) {
         judgment = 'GREAT';
         points = 75;
         color = '#FFFFFF';
       } else {
         judgment = 'GOOD';
         points = 50;
-        color = '#AAAAAA';
+        color = '#9CFFB0';
       }
 
       g.combo++;
@@ -230,17 +349,38 @@ export default function App() {
       g.score += points * g.multiplier;
       g.judgments[judgment.toLowerCase()]++;
 
-      const noteX = (closest.lane + 0.5) * LANE_W;
+      const noteLane = closest.lane;
+      const noteX = (noteLane + 0.5) * laneW;
+      const big = cfg.lanes === 2;
+      g.targetPop[noteLane] = 1;
       g.effects.push({
+        kind: 'text',
         text: judgment,
         color,
         x: noteX,
-        y: HIT_Y - 40,
+        y: HIT_Y - cfg.noteR - 30,
+        size: big ? 30 : 20,
         age: 0,
+        life: 0.6,
+      });
+      g.effects.push({
+        kind: 'ring',
+        x: noteX,
+        y: HIT_Y,
+        color: colors[noteLane],
+        r0: cfg.noteR,
+        r1: cfg.noteR * (judgment === 'PERFECT' ? 3.2 : 2.5),
+        width: 6,
+        age: 0,
+        life: 0.4,
       });
 
-      // Particles for Perfect/Great
-      const particleCount = judgment === 'PERFECT' ? 12 : judgment === 'GREAT' ? 6 : 0;
+      const cheer = COMBO_CHEERS[g.combo] || (g.combo > 50 && g.combo % 25 === 0 ? 'Superstar!' : null);
+      if (cheer) {
+        g.effects.push({ kind: 'banner', text: cheer, sub: `${g.combo} in a row`, age: 0, life: 1.2 });
+      }
+
+      const particleCount = judgment === 'PERFECT' ? 14 : judgment === 'GREAT' ? 9 : 6;
       for (let i = 0; i < particleCount; i++) {
         const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.3;
         const speed = 2 + Math.random() * 3;
@@ -249,8 +389,8 @@ export default function App() {
           y: HIT_Y,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed - 2,
-          color: LANE_COLORS[closest.lane],
-          size: 3 + Math.random() * 3,
+          color: i % 3 === 0 ? '#FFD700' : colors[noteLane],
+          size: (big ? 4 : 3) + Math.random() * 3,
           age: 0,
         });
       }
@@ -268,15 +408,23 @@ export default function App() {
       ArrowUp: 2, j: 2, J: 2,
       ArrowRight: 3, k: 3, K: 3,
     };
+    // Two-lane Starter: left-hand keys hit the left lane, right-hand the right
+    const keyMap2 = {
+      ArrowLeft: 0, ArrowDown: 0, d: 0, D: 0, f: 0, F: 0,
+      ArrowUp: 1, ArrowRight: 1, j: 1, J: 1, k: 1, K: 1,
+    };
 
     const onKey = (e) => {
       if (ui.phase === 'playing') {
         if (e.key === 'Escape') {
           e.preventDefault();
           pauseGame();
-        } else if (keyMap[e.key] !== undefined) {
+        } else {
+          const map = gs.current?.cfg.lanes === 2 ? keyMap2 : keyMap;
+          if (map[e.key] === undefined) return;
           e.preventDefault();
-          handleTap(keyMap[e.key]);
+          if (e.repeat) return;
+          handleTap(map[e.key]);
         }
       } else if (ui.phase === 'paused' && e.key === 'Escape') {
         e.preventDefault();
@@ -288,30 +436,43 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [ui.phase, handleTap, pauseGame, resumeGame]);
 
-  // Touch input on canvas
+  // Touch / mouse / pen input on canvas. Pointer events fire once per finger,
+  // so two-finger chords still work.
   useEffect(() => {
     const el = cvs.current;
     if (!el) return;
 
-    const onTouch = (e) => {
+    const onPointer = (e) => {
       if (ui.phase !== 'playing') return;
       e.preventDefault();
-      for (const touch of e.changedTouches) {
-        const rect = el.getBoundingClientRect();
-        const x = (touch.clientX - rect.left) * (W / rect.width);
-        const lane = Math.min(3, Math.floor(x / LANE_W));
-        handleTap(lane);
-      }
+      const lanes = gs.current?.cfg.lanes ?? 4;
+      const rect = el.getBoundingClientRect();
+      const x = Math.min(W - 0.01, Math.max(0, (e.clientX - rect.left) * (W / rect.width)));
+      handleTap(Math.floor(x / (W / lanes)), x);
     };
+    // stop iOS from turning taps into scrolls / zooms
+    const block = (e) => e.preventDefault();
 
-    el.addEventListener('touchstart', onTouch, { passive: false });
-    return () => el.removeEventListener('touchstart', onTouch);
+    el.addEventListener('pointerdown', onPointer);
+    el.addEventListener('touchstart', block, { passive: false });
+    return () => {
+      el.removeEventListener('pointerdown', onPointer);
+      el.removeEventListener('touchstart', block);
+    };
   }, [ui.phase, handleTap]);
 
   // Main game loop
   useEffect(() => {
     if (ui.phase !== 'playing' || !gs.current || !gs.current.active) return;
     const g = gs.current;
+    const { cfg } = g;
+    const LANES = cfg.lanes;
+    const LANE_W = W / LANES;
+    const NOTE_R = cfg.noteR;
+    const SCROLL_DURATION = cfg.scroll;
+    const LANE_COLORS = LANES === 2 ? LANE_COLORS_2 : LANE_COLORS_4;
+    const LANE_LABELS = LANES === 2 ? LANE_LABELS_2 : LANE_LABELS_4;
+    const firstNote = g.beatmap.length ? g.beatmap[0].time : null;
     let raf;
     const ctx = cvs.current.getContext('2d');
 
@@ -321,10 +482,12 @@ export default function App() {
       g.lastTime = ts;
 
       const currentTime = getAudio().getCurrentTime();
-      const duration = getAudio().getDuration();
+      const duration = g.endTime;
+      const dts = dt / 1000;
 
       if (duration > 0) {
-        updateUi({ progress: currentTime / duration });
+        const span = duration - Math.max(0, g.startAt);
+        updateUi({ progress: Math.max(0, Math.min(1, (currentTime - Math.max(0, g.startAt)) / span)) });
       }
 
       // --- Spawn notes ---
@@ -337,7 +500,7 @@ export default function App() {
 
       // --- Auto-miss old notes ---
       for (const note of g.activeNotes) {
-        if (!note.judged && currentTime - note.time > MISS_WINDOW) {
+        if (!note.judged && currentTime - note.time > cfg.miss) {
           note.judged = true;
           note.hit = false;
           g.judgments.miss++;
@@ -345,13 +508,30 @@ export default function App() {
           g.multiplier = 1;
 
           const noteX = (note.lane + 0.5) * LANE_W;
+          g.missFlash[note.lane] = 1;
+          g.shake = 0.18;
           g.effects.push({
+            kind: 'text',
             text: 'MISS',
-            color: '#FF4444',
+            color: '#FF5A5A',
             x: noteX,
-            y: HIT_Y - 40,
+            y: HIT_Y - NOTE_R - 30,
+            size: LANES === 2 ? 30 : 22,
             age: 0,
+            life: 0.7,
           });
+          // the missed note drops away in grey bits so it's clear what happened
+          for (let i = 0; i < 6; i++) {
+            g.particles.push({
+              x: noteX + (Math.random() - 0.5) * NOTE_R,
+              y: HIT_Y + 10,
+              vx: (Math.random() - 0.5) * 2,
+              vy: 1 + Math.random() * 2,
+              color: '#777788',
+              size: 3 + Math.random() * 3,
+              age: 0,
+            });
+          }
 
           updateUi({ combo: 0, multiplier: 1 });
         }
@@ -363,7 +543,13 @@ export default function App() {
       );
 
       // === DRAW ===
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, W, H);
+      if (g.shake > 0) {
+        const k = (g.shake / 0.18) * 5;
+        ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
+        g.shake = Math.max(0, g.shake - dts);
+      }
 
       // Background gradient
       const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -396,21 +582,33 @@ export default function App() {
       // Lane dividers
       ctx.strokeStyle = 'rgba(255,255,255,0.08)';
       ctx.lineWidth = 1;
-      for (let i = 1; i < 4; i++) {
+      for (let i = 1; i < LANES; i++) {
         ctx.beginPath();
         ctx.moveTo(i * LANE_W, 0);
         ctx.lineTo(i * LANE_W, H);
         ctx.stroke();
       }
 
-      // Lane flashes
-      for (let i = 0; i < 4; i++) {
+      // Lane flashes (every tap) and red miss flashes
+      for (let i = 0; i < LANES; i++) {
         const flash = g.laneFlash[i];
         if (flash > 0) {
-          ctx.fillStyle = LANE_COLORS[i] + Math.floor(flash * 40).toString(16).padStart(2, '0');
+          const lg = ctx.createLinearGradient(0, 0, 0, H);
+          const a = Math.floor(flash * 90).toString(16).padStart(2, '0');
+          lg.addColorStop(0, LANE_COLORS[i] + '00');
+          lg.addColorStop(0.8, LANE_COLORS[i] + a);
+          lg.addColorStop(1, LANE_COLORS[i] + '00');
+          ctx.fillStyle = lg;
           ctx.fillRect(i * LANE_W, 0, LANE_W, H);
-          g.laneFlash[i] = Math.max(0, flash - dt * 0.003);
+          g.laneFlash[i] = Math.max(0, flash - dt * 0.004);
         }
+        const mf = g.missFlash[i];
+        if (mf > 0) {
+          ctx.fillStyle = `rgba(255,50,50,${mf * 0.35})`;
+          ctx.fillRect(i * LANE_W, HIT_Y - 120, LANE_W, H - HIT_Y + 120);
+          g.missFlash[i] = Math.max(0, mf - dts * 2.5);
+        }
+        g.targetPop[i] = Math.max(0, g.targetPop[i] - dts * 4);
       }
 
       // Hit zone line
@@ -422,16 +620,21 @@ export default function App() {
       ctx.stroke();
 
       // Hit zone targets
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < LANES; i++) {
         const x = (i + 0.5) * LANE_W;
         const flash = g.laneFlash[i];
+        const pop = g.targetPop[i];
         ctx.beginPath();
-        ctx.arc(x, HIT_Y, NOTE_R + 2, 0, Math.PI * 2);
-        ctx.strokeStyle = LANE_COLORS[i] + (flash > 0 ? 'FF' : '55');
-        ctx.lineWidth = 3;
+        ctx.arc(x, HIT_Y, (NOTE_R + 2) * (1 + pop * 0.25), 0, Math.PI * 2);
+        if (pop > 0) {
+          ctx.fillStyle = LANE_COLORS[i] + Math.floor(pop * 120).toString(16).padStart(2, '0');
+          ctx.fill();
+        }
+        ctx.strokeStyle = LANE_COLORS[i] + (flash > 0 ? 'FF' : '66');
+        ctx.lineWidth = LANES === 2 ? 4 : 3;
         ctx.stroke();
 
-        ctx.font = 'bold 13px Arial,sans-serif';
+        ctx.font = `bold ${LANES === 2 ? 22 : 13}px Arial,sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = LANE_COLORS[i] + '77';
@@ -484,27 +687,85 @@ export default function App() {
         ctx.fill();
       }
 
-      // Judgment effects
+      // Effects: judgment text, tap / hit rings, combo cheers
       const keepFx = [];
       for (const eff of g.effects) {
-        eff.age += dt / 1000;
-        if (eff.age > 0.5) continue;
-        const p = eff.age / 0.5;
+        eff.age += dts;
+        if (eff.age > eff.life) continue;
+        const p = eff.age / eff.life;
         ctx.save();
-        ctx.globalAlpha = 1 - p;
-        ctx.font = `bold ${Math.floor(18 * (1 + p * 0.3))}px Arial,sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        const fy = eff.y - p * 20;
-        ctx.strokeText(eff.text, eff.x, fy);
-        ctx.fillStyle = eff.color;
-        ctx.fillText(eff.text, eff.x, fy);
+        if (eff.kind === 'ring') {
+          ctx.globalAlpha = 1 - p;
+          ctx.beginPath();
+          ctx.arc(eff.x, eff.y, eff.r0 + (eff.r1 - eff.r0) * p, 0, Math.PI * 2);
+          ctx.strokeStyle = eff.color;
+          ctx.lineWidth = eff.width * (1 - p * 0.6);
+          ctx.stroke();
+        } else if (eff.kind === 'banner') {
+          const pop = p < 0.15 ? p / 0.15 : 1;
+          ctx.globalAlpha = p > 0.7 ? (1 - p) / 0.3 : 1;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = `900 ${Math.floor(46 * (0.6 + 0.4 * pop))}px Arial,sans-serif`;
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = '#2a0040';
+          ctx.strokeText(eff.text, W / 2, H * 0.36);
+          const tg = ctx.createLinearGradient(0, H * 0.33, 0, H * 0.39);
+          tg.addColorStop(0, '#FFE066');
+          tg.addColorStop(1, '#FF69B4');
+          ctx.fillStyle = tg;
+          ctx.fillText(eff.text, W / 2, H * 0.36);
+          ctx.font = 'bold 18px Arial,sans-serif';
+          ctx.lineWidth = 4;
+          ctx.strokeText(eff.sub, W / 2, H * 0.36 + 40);
+          ctx.fillStyle = '#fff';
+          ctx.fillText(eff.sub, W / 2, H * 0.36 + 40);
+        } else {
+          const pop = p < 0.12 ? 0.7 + (p / 0.12) * 0.5 : 1.2 - Math.min(0.2, (p - 0.12));
+          ctx.globalAlpha = p > 0.6 ? (1 - p) / 0.4 : 1;
+          ctx.font = `900 ${Math.floor(eff.size * pop)}px Arial,sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 4;
+          const fy = eff.y - p * 24;
+          ctx.strokeText(eff.text, eff.x, fy);
+          ctx.fillStyle = eff.color;
+          ctx.fillText(eff.text, eff.x, fy);
+        }
         ctx.restore();
         keepFx.push(eff);
       }
       g.effects = keepFx;
+
+      // Countdown to the first note: 3, 2, 1, GO!
+      if (firstNote !== null) {
+        const t = firstNote - currentTime;
+        if (t > -0.3 && t <= LEAD_IN) {
+          const n = Math.ceil(t - 0.5);
+          const label = n >= 1 ? String(Math.min(3, n)) : 'GO!';
+          const frac = n >= 1 ? 1 - ((t - 0.5) - (n - 1)) : (0.5 - t) / 0.8;
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, 1 - frac * 0.8);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = `900 ${Math.floor((label === 'GO!' ? 80 : 110) * (1.15 - frac * 0.3))}px Arial,sans-serif`;
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = '#2a0040';
+          ctx.strokeText(label, W / 2, H * 0.4);
+          ctx.fillStyle = label === 'GO!' ? '#39FF14' : '#FFFFFF';
+          ctx.fillText(label, W / 2, H * 0.4);
+          ctx.restore();
+        }
+        if (t > 1.5 && t <= LEAD_IN) {
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.font = 'bold 20px Arial,sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.8)';
+          ctx.fillText('Tap when a gem hits its circle!', W / 2, H * 0.4 + 90);
+          ctx.restore();
+        }
+      }
 
       // Particles
       const keepP = [];
@@ -525,9 +786,9 @@ export default function App() {
       }
       g.particles = keepP;
 
-      // Song ended fallback
-      if (currentTime >= duration - 0.1 && duration > 0) {
-        finishSong();
+      // Song ended (Starter stops early and fades the music out)
+      if (duration > 0 && currentTime >= duration - 0.1) {
+        finishSong(duration < g.duration - 0.5);
         return;
       }
 
@@ -545,7 +806,7 @@ export default function App() {
   // --- SONG SELECT ---
   if (phase === 'select' && !selectedSong) {
     return (
-      <div className="app">
+      <div className="app app-wide">
         <h1 className="title">K-Pop Rhythm Tap</h1>
         <p className="subtitle">Tap to the beat!</p>
         <div className="song-list">
@@ -579,8 +840,7 @@ export default function App() {
           })}
         </div>
         <div className="controls-hint">
-          <p>Desktop: ← ↓ ↑ → or D F J K</p>
-          <p>Mobile: Tap the 4 lanes</p>
+          <p>Keys: ← ↓ ↑ → or D F J K · Touch or click: tap the lanes</p>
         </div>
       </div>
     );
@@ -593,24 +853,26 @@ export default function App() {
         <h1 className="title">{selectedSong.title}</h1>
         <p className="subtitle">Choose difficulty</p>
         <div className="difficulty-picker">
-          {['easy', 'medium', 'hard'].map((d) => (
-            <button
-              key={d}
-              className={`diff-btn diff-${d}${difficulty === d ? ' diff-active' : ''}`}
-              onClick={() => updateUi({ difficulty: d })}
-            >
-              <span className="diff-label">{d.charAt(0).toUpperCase() + d.slice(1)}</span>
-              <span className="diff-desc">
-                {d === 'easy' && 'Drums only — relaxed pace'}
-                {d === 'medium' && 'Drums + melody — balanced'}
-                {d === 'hard' && 'All events — intense'}
-              </span>
-            </button>
-          ))}
+          {MODE_ORDER.map((d) => {
+            const m = MODES[d];
+            return (
+              <button
+                key={d}
+                className={`diff-btn diff-${d}${difficulty === d ? ' diff-active' : ''}`}
+                onClick={() => updateUi({ difficulty: d })}
+              >
+                <span className="diff-icon" aria-hidden="true">{m.icon}</span>
+                <span className="diff-text">
+                  <span className="diff-label">{m.label}</span>
+                  <span className="diff-desc">{m.desc}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
         <div className="difficulty-actions">
-          <button className="btn" onClick={() => selectSong(selectedSong, difficulty)}>
-            Play
+          <button className="btn btn-play" onClick={() => selectSong(selectedSong, difficulty)}>
+            ▶ Play
           </button>
           <button className="btn btn-secondary" onClick={() => updateUi({ selectedSong: null })}>
             Back
@@ -638,7 +900,20 @@ export default function App() {
       <div className="app">
         <div className="results">
           <h1 className="results-title">Song Complete!</h1>
-          <div className={`results-grade grade-${results.grade}`}>{results.grade}</div>
+          <div className="results-stars" aria-label={`${results.stars} of 3 stars`}>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className={`rstar${i < results.stars ? ' rstar-on' : ''}`}
+                style={{ animationDelay: `${0.2 + i * 0.25}s` }}
+              >
+                ★
+              </span>
+            ))}
+          </div>
+          {results.mode !== 'kid' && (
+            <div className={`results-grade grade-${results.grade}`}>{results.grade}</div>
+          )}
           <div className="results-score">{results.score.toLocaleString()}</div>
           {results.isNewHs && <div className="new-hs">New High Score!</div>}
           <div className="results-accuracy">
@@ -664,8 +939,8 @@ export default function App() {
             </div>
           </div>
           <div className="results-actions">
-            <button className="btn" onClick={() => selectSong(gs.current.song, ui.difficulty)}>
-              Play Again
+            <button className="btn btn-play" onClick={() => selectSong(gs.current.song, results.mode)}>
+              ↻ Play Again
             </button>
             <button className="btn btn-secondary" onClick={quitToSelect}>
               Song Select
@@ -692,7 +967,7 @@ export default function App() {
           <div className="sl">Multi</div>
           <div className="sv">{multiplier > 1 ? `${multiplier}x` : '—'}</div>
         </div>
-        <button className="pause-btn" onClick={pauseGame}>⏸</button>
+        <button className="pause-btn" onClick={pauseGame} aria-label="Pause">⏸</button>
       </div>
 
       <div className="progress-bar">
@@ -707,7 +982,7 @@ export default function App() {
             <div className="ov-inner">
               <h1>Paused</h1>
               <p className="pause-song">{songTitle}</p>
-              <button className="btn" onClick={resumeGame}>Resume</button>
+              <button className="btn btn-play" onClick={resumeGame}>▶ Resume</button>
               <button className="btn btn-secondary" onClick={quitToSelect}>
                 Quit
               </button>

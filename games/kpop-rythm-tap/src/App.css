@@ -14,6 +14,12 @@ body {
   color: #fff;
 }
 
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -41,10 +47,15 @@ body {
   margin-bottom: 20px;
 }
 
+.app-wide {
+  max-width: 760px;
+}
+
+/* two columns on tablets so all ten songs fit without scrolling */
 .song-list {
   width: 100%;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 8px;
 }
 
@@ -139,8 +150,9 @@ body {
 
 .diff-btn {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
   background: rgba(255, 255, 255, 0.06);
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
@@ -159,6 +171,22 @@ body {
 
 .diff-btn:active {
   transform: scale(0.98);
+}
+
+.diff-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.diff-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.diff-active.diff-kid {
+  border-color: #FF69B4;
+  background: rgba(255, 105, 180, 0.14);
 }
 
 .diff-active.diff-easy {
@@ -181,6 +209,7 @@ body {
   font-weight: 700;
 }
 
+.diff-kid .diff-label { color: #FF69B4; }
 .diff-easy .diff-label { color: #39FF14; }
 .diff-medium .diff-label { color: #FFD700; }
 .diff-hard .diff-label { color: #FF4444; }
@@ -231,7 +260,7 @@ body {
   gap: 8px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 8px 12px;
+  padding: 4px 8px 4px 12px;
   margin-bottom: 4px;
   width: 100%;
   max-width: 400px;
@@ -264,13 +293,14 @@ body {
 }
 
 .pause-btn {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #aaa;
-  font-size: 16px;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ddd;
+  font-size: 24px;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -306,7 +336,13 @@ body {
 .wrap {
   position: relative;
   width: 100%;
-  max-width: 400px;
+  max-width: min(400px, calc((100vh - 100px) * 4 / 7));
+}
+
+@supports (height: 100dvh) {
+  .wrap {
+    max-width: min(400px, calc((100dvh - 100px) * 4 / 7));
+  }
 }
 
 .cvs {
@@ -427,6 +463,30 @@ body {
   text-align: right;
 }
 
+.results-stars {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.rstar {
+  font-size: 3.4rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+.rstar-on {
+  color: #FFD700;
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.7);
+  animation: star-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+@keyframes star-pop {
+  from { transform: scale(0) rotate(-40deg); opacity: 0; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+
 .results-actions {
   display: flex;
   flex-direction: column;
@@ -459,7 +519,15 @@ body {
   transform: scale(0.97);
 }
 
+.btn-play {
+  min-height: 60px;
+  min-width: 200px;
+  font-size: 1.3rem;
+}
+
 .btn-secondary {
+  min-height: 48px;
+  min-width: 160px;
   background: rgba(255, 255, 255, 0.1);
   box-shadow: none;
   border: 1px solid rgba(255, 255, 255, 0.2);
