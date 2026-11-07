@@ -81,11 +81,11 @@ const copyToClipboard = async () => {
     </div>
 
     <div class="actions" :class="{ visible: showName }">
-      <button class="action-btn copy-btn" @click="copyToClipboard">
-        {{ copied ? '✅ Copied!' : '📋 Copy Name' }}
-      </button>
       <button class="action-btn reset-btn" @click="$emit('reset')">
         🔄 Try Again
+      </button>
+      <button class="action-btn copy-btn" @click="copyToClipboard">
+        {{ copied ? '✅ Copied!' : '📋 Copy Name' }}
       </button>
     </div>
 
@@ -190,9 +190,11 @@ const copyToClipboard = async () => {
 
 .actions {
   display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 420px;
+  gap: 0.75rem;
   opacity: 0;
   transform: translateY(20px);
   transition: all 0.5s ease;
@@ -205,7 +207,9 @@ const copyToClipboard = async () => {
 }
 
 .action-btn {
+  min-height: 60px;
   padding: 0.875rem 1.5rem;
+  touch-action: manipulation;
   font-family: 'Fredoka', sans-serif;
   font-weight: 600;
   font-size: 1.1rem;
@@ -226,21 +230,32 @@ const copyToClipboard = async () => {
   transform: translateY(-2px);
 }
 
+/* Try Again is the main action: big, pink, like the "Get Your Name" button. */
 .reset-btn {
-  background: #7c3aed;
-  border-color: #6d28d9;
+  min-height: 76px;
+  font-family: 'Bangers', cursive;
+  font-weight: 400;
+  font-size: 1.9rem;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #f472b6 0%, #ec4899 50%, #db2777 100%);
+  border-color: #fef08a;
   color: white;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 0 #9d174d;
+}
+
+.reset-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 #9d174d;
 }
 
 .reset-btn:hover {
-  background: #6d28d9;
   transform: translateY(-2px);
 }
 
 .boombox {
-  font-size: 4rem;
+  font-size: 3.5rem;
   animation: bounce 1s ease-in-out infinite;
-  margin-top: 1rem;
 }
 
 @keyframes bounce {

@@ -1,8 +1,12 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import NameForm from './components/NameForm.vue'
 import NameReveal from './components/NameReveal.vue'
 import { generateNickname } from './data/nicknames.js'
+
+// Answers live here, not in the form, so "Try Again" comes back with them
+// still filled in — one tap on a new dessert and you have a new name.
+const answers = reactive({ name: '', month: null, dessert: null, step: 'name' })
 
 const formData = ref(null)
 const nickname = computed(() => {
@@ -20,6 +24,22 @@ const handleGenerate = (data) => {
 
 const handleReset = () => {
   formData.value = null
+  // Land on the dessert step: the quickest way to a brand-new name.
+  answers.step = 'dessert'
+}
+
+// Read-only debug hook for play-test harnesses.
+window.__sirName = {
+  get state() {
+    return {
+      screen: formData.value ? 'reveal' : 'form',
+      step: answers.step,
+      name: answers.name,
+      month: answers.month,
+      dessert: answers.dessert,
+      nickname: nickname.value || null
+    }
+  }
 }
 </script>
 
@@ -47,7 +67,7 @@ const handleReset = () => {
           :nickname="nickname"
           @reset="handleReset"
         />
-        <NameForm v-else @generate="handleGenerate" />
+        <NameForm v-else :answers="answers" @generate="handleGenerate" />
       </Transition>
     </main>
 
@@ -63,7 +83,7 @@ const handleReset = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem 1rem;
+  padding: 0.75rem 1rem 0;
   position: relative;
   overflow: hidden;
 }
@@ -123,14 +143,14 @@ const handleReset = () => {
 
 .header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 0.9rem;
   position: relative;
   z-index: 1;
 }
 
 .title {
   font-family: 'Bangers', cursive;
-  font-size: 4rem;
+  font-size: 3.2rem;
   margin: 0;
   line-height: 1;
   letter-spacing: 4px;
@@ -159,18 +179,18 @@ const handleReset = () => {
 
 .subtitle {
   font-family: 'Fredoka', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   color: white;
-  margin-top: 0.75rem;
+  margin-top: 0.35rem;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .main-card {
   background: linear-gradient(145deg, rgba(124, 58, 237, 0.9) 0%, rgba(109, 40, 217, 0.95) 100%);
   border-radius: 24px;
-  padding: 2rem;
+  padding: 1.1rem 1.4rem 1.25rem;
   width: 100%;
-  max-width: 500px;
+  max-width: 640px;
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.3),
     0 0 0 4px rgba(254, 240, 138, 0.5),
@@ -181,7 +201,7 @@ const handleReset = () => {
 
 .footer {
   margin-top: auto;
-  padding-top: 2rem;
+  padding: 1rem 0 0.75rem;
   position: relative;
   z-index: 1;
 }
@@ -218,7 +238,7 @@ const handleReset = () => {
   }
 
   .main-card {
-    padding: 1.5rem;
+    padding: 1rem 0.9rem 1rem;
   }
 }
 </style>
