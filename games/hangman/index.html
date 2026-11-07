@@ -16,6 +16,14 @@
         <h1>Word Guess</h1>
       </div>
       <p class="subtitle">Pick a topic and guess the word!</p>
+      <div class="level-toggle" role="group" aria-label="Level">
+        <button class="level-btn" data-level="easy" onclick="setLevel('easy')">
+          <span class="level-emoji">🐣</span><span>Easy</span>
+        </button>
+        <button class="level-btn" data-level="tricky" onclick="setLevel('tricky')">
+          <span class="level-emoji">🦉</span><span>Tricky</span>
+        </button>
+      </div>
       <div class="mode-grid">
         <button class="mode-card" style="border-color:#fca5a5" onclick="startGame('Animals')">
           <div class="mode-emoji">🐾</div>
@@ -57,10 +65,15 @@
         </button>
       </div>
 
-      <div class="mood">
+      <div class="clue-row">
         <div class="mood-face" id="mood-face">😄</div>
-        <div class="hearts" id="hearts"></div>
+        <div class="clue" id="clue" aria-label="Picture clue"></div>
+        <button class="hint-btn" id="hint-btn" onclick="hint()" title="Show me a letter" aria-label="Hint: show me a letter">
+          <span class="hint-bulb">💡</span>
+          <span class="hint-count" hidden></span>
+        </button>
       </div>
+      <div class="hearts" id="hearts"></div>
 
       <div class="word" id="word"></div>
 
@@ -71,6 +84,7 @@
     <div id="win-screen">
       <div class="win-content">
         <div class="win-emoji" id="win-emoji">🎉</div>
+        <div class="win-stars" id="win-stars">⭐ ⭐ ⭐</div>
         <h2 id="win-title">You got it!</h2>
         <p class="reveal" id="reveal"></p>
         <button class="primary-btn" onclick="newRound()">Play Again</button>
