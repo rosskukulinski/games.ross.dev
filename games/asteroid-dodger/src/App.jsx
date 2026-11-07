@@ -5,11 +5,26 @@ const H = 700
 const SHIP_W = 24
 const SHIP_H = 18
 const FUEL_MAX = 100
-const FUEL_DRAIN = 4        // per second
+// 2/s gives ~50s on a full tank. At the old 4/s every run that missed the
+// green cells ended at ~24s with an unexplained GAME OVER.
+const FUEL_DRAIN = 2        // per second
 const FUEL_REFILL = 25
 const FUEL_SCORE = 50
 const SHIELD_DURATION = 3   // seconds
-const SHIP_SPEED = 220      // pixels per second
+const SHIP_SPEED = 240      // keyboard speed, pixels per second
+// Touch: the ship eases toward its target this fast (1/s) up to a top speed,
+// so a tap anywhere gets it there in a fraction of a second.
+const TOUCH_EASE = 12
+const TOUCH_MAX_SPEED = 900
+// A touch this close to the ship grabs it and drags it relative to the
+// finger, so the finger never hides the ship.
+const GRAB_RADIUS = 90
+// Hit radius is 25% smaller than the drawn sprite, so near misses count.
+const HIT_SCALE = 0.75
+const PICKUP_RADIUS = 28
+// First fuel cell arrives early so the player learns green = fuel.
+const FIRST_PICKUP_AT = 1.5
+const EASY_START = 10       // seconds before difficulty starts ramping
 const LS_KEY = 'asteroid-dodger-hs'
 
 // Asteroid size tiers
@@ -27,6 +42,14 @@ export default function App() {
   const [phase, setPhase] = useState('idle')
   const [score, setScore] = useState(0)
   const [fuel, setFuel] = useState(FUEL_MAX)
+  const [deathReason, setDeathReason] = useState(null) // 'crash' | 'fuel'
+  const [retryReady, setRetryReady] = useState(true)
+  const phaseRef = useRef('idle')
+  phaseRef.current = phase
+  const isTouch = useRef(
+    typeof window !== 'undefined' &&
+    (('ontouchstart' in window) || window.matchMedia?.('(pointer: coarse)').matches)
+  ).current
   const [highScore, setHighScore] = useState(() => {
     const s = localStorage.getItem(LS_KEY)
     return s ? parseInt(s, 10) : 0
@@ -36,6 +59,7 @@ export default function App() {
     ship: { x: 60, y: H / 2 },
     asteroids: [],
     collectibles: [],
+    pops: [],
     stars: [],
     fuel: FUEL_MAX,
     shield: 0,
@@ -43,7 +67,9 @@ export default function App() {
     elapsed: 0,
     spawnTimer: 0,
     collectibleTimer: 0,
+    pickupsSpawned: 0,
     keys: {},
+    reason: null,
     touch: null,
     animId: null,
     lastTime: 0,
@@ -66,13 +92,13 @@ export default function App() {
 
   const spawnAsteroid = useCallback(() => {
     const g = game.current
-    const difficulty = Math.min(g.elapsed / 60, 1) // ramps over 60s
+    const difficulty = difficultyAt(g.elapsed)
     // Bias toward larger asteroids at higher difficulty
     const sizeIdx = Math.random() < 0.3 + difficulty * 0.2
       ? randInt(1, 2)
       : 0
     const tier = SIZES[sizeIdx]
-    const speedMult = 1 + difficulty * 0.8
+    const speedMult = 0.8 + difficulty * 1.0
     g.asteroids.push({
       x: W + tier.r,
       y: rand(tier.r, H - tier.r),
@@ -87,10 +113,15 @@ export default function App() {
 
   const spawnCollectible = useCallback(() => {
     const g = game.current
-    const type = Math.random() < 0.7 ? 'fuel' : 'shield'
+    // The first pickup is always fuel, flying straight at the ship; after that
+    // fuel gets likelier the emptier the tank is.
+    const first = g.pickupsSpawned === 0
+    const fuelChance = g.fuel < FUEL_MAX * 0.5 ? 0.85 : 0.7
+    const type = first || Math.random() < fuelChance ? 'fuel' : 'shield'
+    g.pickupsSpawned++
     g.collectibles.push({
-      x: W + 10,
-      y: rand(20, H - 20),
+      x: W + 16,
+      y: first ? g.ship.y : rand(30, H - 30),
       type,
       speed: rand(60, 100),
       pulse: 0,
@@ -104,24 +135,34 @@ export default function App() {
     g.ship = { x: 60, y: H / 2 }
     g.asteroids = []
     g.collectibles = []
+    g.pops = []
     g.fuel = FUEL_MAX
     g.shield = 0
     g.score = 0
     g.elapsed = 0
     g.spawnTimer = 0
     g.collectibleTimer = 0
+    g.pickupsSpawned = 0
     g.keys = {}
     g.touch = null
+    g.reason = null
     initStars()
     setScore(0)
     setFuel(FUEL_MAX)
+    setDeathReason(null)
     setPhase('playing')
   }, [initStars])
 
-  const endGame = useCallback(() => {
+  const endGame = useCallback((reason) => {
     const g = game.current
     const finalScore = Math.floor(g.score)
+    g.reason = reason
+    g.touch = null
     setScore(finalScore)
+    setDeathReason(reason)
+    // A finger still held down from steering shouldn't restart straight away.
+    setRetryReady(false)
+    setTimeout(() => setRetryReady(true), 700)
     setPhase('gameover')
     setHighScore(prev => {
       const best = Math.max(prev, finalScore)
@@ -129,6 +170,24 @@ export default function App() {
       return best
     })
     window.Arcade?.submit({ game: 'asteroid-dodger', value: finalScore })
+  }, [])
+
+  // Read-only state for play-testing tools.
+  useEffect(() => {
+    const g = game.current
+    window.__game = Object.freeze({
+      get phase() { return phaseRef.current },
+      get alive() { return phaseRef.current === 'playing' },
+      get score() { return Math.floor(g.score) },
+      get fuel() { return Math.round(g.fuel) },
+      get shield() { return Math.max(0, g.shield) },
+      get elapsed() { return g.elapsed },
+      get reason() { return g.reason },
+      get ship() { return { x: g.ship.x, y: g.ship.y } },
+      get asteroids() { return g.asteroids.map(a => ({ x: a.x, y: a.y, r: a.r })) },
+      get pickups() { return g.collectibles.map(c => ({ x: c.x, y: c.y, type: c.type })) },
+    })
+    return () => { delete window.__game }
   }, [])
 
   // Keyboard input
@@ -165,13 +224,28 @@ export default function App() {
         y: (t.clientY - rect.top) * (H / rect.height),
       }
     }
+    // Touch near the ship grabs it: the ship follows the finger's movement,
+    // keeping its offset, so the finger never covers it. Touch anywhere else
+    // and the ship flies there; dragging from there steers it the same way.
     const onStart = (e) => {
       e.preventDefault()
-      g.touch = getPos(e)
+      const p = getPos(e)
+      const near = Math.hypot(p.x - g.ship.x, p.y - g.ship.y) < GRAB_RADIUS
+      g.touch = {
+        finger: p,
+        start: p,
+        anchor: near ? { x: g.ship.x, y: g.ship.y } : { x: p.x, y: p.y },
+        target: near ? { x: g.ship.x, y: g.ship.y } : { x: p.x, y: p.y },
+        age: 0,
+      }
     }
     const onMove = (e) => {
       e.preventDefault()
-      if (g.touch) g.touch = getPos(e)
+      const t = g.touch
+      if (!t) return
+      const p = getPos(e)
+      t.finger = p
+      t.target = { x: t.anchor.x + (p.x - t.start.x), y: t.anchor.y + (p.y - t.start.y) }
     }
     const onEnd = (e) => {
       e.preventDefault()
@@ -210,17 +284,6 @@ export default function App() {
       if (g.keys['arrowup'] || g.keys['w']) dy -= 1
       if (g.keys['arrowdown'] || g.keys['s']) dy += 1
 
-      // Touch: move ship toward touch position
-      if (g.touch) {
-        const tdx = g.touch.x - g.ship.x
-        const tdy = g.touch.y - g.ship.y
-        const dist = Math.sqrt(tdx * tdx + tdy * tdy)
-        if (dist > 5) {
-          dx = tdx / dist
-          dy = tdy / dist
-        }
-      }
-
       // Normalize diagonal
       const len = Math.sqrt(dx * dx + dy * dy)
       if (len > 0) {
@@ -228,8 +291,22 @@ export default function App() {
         dy /= len
       }
 
-      g.ship.x += dx * SHIP_SPEED * dt
-      g.ship.y += dy * SHIP_SPEED * dt
+      if (g.touch) {
+        // Touch: ease toward the target, fast when far, gentle when close.
+        const t = g.touch
+        t.age += dt
+        const tx = Math.max(SHIP_W / 2, Math.min(W - SHIP_W / 2, t.target.x))
+        const ty = Math.max(SHIP_H / 2, Math.min(H - SHIP_H / 2, t.target.y))
+        let vx = (tx - g.ship.x) * TOUCH_EASE
+        let vy = (ty - g.ship.y) * TOUCH_EASE
+        const v = Math.hypot(vx, vy)
+        if (v > TOUCH_MAX_SPEED) { vx *= TOUCH_MAX_SPEED / v; vy *= TOUCH_MAX_SPEED / v }
+        g.ship.x += vx * dt
+        g.ship.y += vy * dt
+      } else {
+        g.ship.x += dx * SHIP_SPEED * dt
+        g.ship.y += dy * SHIP_SPEED * dt
+      }
       // Clamp to bounds
       g.ship.x = Math.max(SHIP_W / 2, Math.min(W - SHIP_W / 2, g.ship.x))
       g.ship.y = Math.max(SHIP_H / 2, Math.min(H - SHIP_H / 2, g.ship.y))
@@ -239,7 +316,7 @@ export default function App() {
       if (g.fuel <= 0) {
         g.fuel = 0
         setFuel(0)
-        endGame()
+        endGame('fuel')
         return
       }
 
@@ -247,8 +324,8 @@ export default function App() {
       if (g.shield > 0) g.shield -= dt
 
       // Spawn asteroids
-      const difficulty = Math.min(g.elapsed / 60, 1)
-      const spawnInterval = Math.max(0.3, 1.2 - difficulty * 0.7)
+      const difficulty = difficultyAt(g.elapsed)
+      const spawnInterval = Math.max(0.3, 1.5 - difficulty * 1.0)
       g.spawnTimer += dt
       if (g.spawnTimer >= spawnInterval) {
         g.spawnTimer -= spawnInterval
@@ -258,7 +335,9 @@ export default function App() {
       // Spawn collectibles
       g.collectibleTimer += dt
       const collectibleInterval = Math.max(2, 4 - difficulty * 1.5)
-      if (g.collectibleTimer >= collectibleInterval) {
+      if (g.pickupsSpawned === 0) {
+        if (g.elapsed >= FIRST_PICKUP_AT) { g.collectibleTimer = 0; spawnCollectible() }
+      } else if (g.collectibleTimer >= collectibleInterval) {
         g.collectibleTimer -= collectibleInterval
         spawnCollectible()
       }
@@ -276,12 +355,12 @@ export default function App() {
         const cdx = a.x - g.ship.x
         const cdy = a.y - g.ship.y
         const dist = Math.sqrt(cdx * cdx + cdy * cdy)
-        if (dist < a.r + SHIP_H / 2 - 2) {
+        if (dist < (a.r + SHIP_H / 2 - 2) * HIT_SCALE) {
           if (g.shield > 0) {
             // Destroy asteroid on shield hit
             g.asteroids.splice(i, 1)
           } else {
-            endGame()
+            endGame('crash')
             return
           }
         }
@@ -292,7 +371,7 @@ export default function App() {
         const c = g.collectibles[i]
         c.x -= c.speed * dt
         c.pulse += dt * 4
-        if (c.x < -20) {
+        if (c.x < -30) {
           g.collectibles.splice(i, 1)
           continue
         }
@@ -300,15 +379,22 @@ export default function App() {
         const cdx = c.x - g.ship.x
         const cdy = c.y - g.ship.y
         const dist = Math.sqrt(cdx * cdx + cdy * cdy)
-        if (dist < 18) {
+        if (dist < PICKUP_RADIUS) {
           if (c.type === 'fuel') {
             g.fuel = Math.min(FUEL_MAX, g.fuel + FUEL_REFILL)
             g.score += FUEL_SCORE
           } else {
             g.shield = SHIELD_DURATION
           }
+          g.pops.push({ x: c.x, y: c.y, type: c.type, t: 0 })
           g.collectibles.splice(i, 1)
         }
+      }
+
+      // Pickup pop effects
+      for (let i = g.pops.length - 1; i >= 0; i--) {
+        g.pops[i].t += dt
+        if (g.pops[i].t > 0.6) g.pops.splice(i, 1)
       }
 
       // Update stars
@@ -365,24 +451,56 @@ export default function App() {
         }
       }
 
+      // Pickup pops: an expanding ring and "+" so every catch is visible
+      for (const p of g.pops) {
+        const k = p.t / 0.6
+        const col = p.type === 'fuel' ? '0,255,120' : '68,204,255'
+        ctx.strokeStyle = `rgba(${col},${1 - k})`
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, 10 + k * 30, 0, Math.PI * 2)
+        ctx.stroke()
+        if (p.type === 'fuel') {
+          ctx.fillStyle = `rgba(170,255,170,${1 - k})`
+          ctx.font = 'bold 20px monospace'
+          ctx.textAlign = 'center'
+          ctx.fillText(`+${FUEL_SCORE}`, p.x, p.y - 18 - k * 24)
+        }
+      }
+
+      // Low fuel: a green arrow by the ship points at the nearest fuel cell
+      const low = g.fuel < FUEL_MAX * 0.3
+      if (low) {
+        let best = null, bd = Infinity
+        for (const c of g.collectibles) {
+          if (c.type !== 'fuel' || c.x < g.ship.x - 20) continue
+          const d = Math.hypot(c.x - g.ship.x, c.y - g.ship.y)
+          if (d < bd) { bd = d; best = c }
+        }
+        if (best) drawPointer(ctx, g.ship.x, g.ship.y, best.x, best.y, g.elapsed)
+      }
+
+      // Touch feedback: a soft ring where the finger is
+      if (g.touch) {
+        const f = g.touch.finger
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(f.x, f.y, 22, 0, Math.PI * 2)
+        ctx.stroke()
+      }
+
       // Ship
-      drawShip(ctx, g.ship.x, g.ship.y, g.shield > 0, g.elapsed)
+      drawShip(ctx, g.ship.x, g.ship.y, g.shield > 0, g.elapsed, g.shield)
 
       // Fuel bar (on canvas)
-      drawFuelBar(ctx, g.fuel)
+      drawFuelBar(ctx, g.fuel, g.elapsed)
 
       // Score on canvas
       ctx.fillStyle = '#aaffaa'
-      ctx.font = '14px monospace'
+      ctx.font = 'bold 22px monospace'
       ctx.textAlign = 'right'
-      ctx.fillText(`SCORE: ${Math.floor(g.score)}`, W - 10, 22)
-
-      // Shield indicator
-      if (g.shield > 0) {
-        ctx.fillStyle = '#44ccff'
-        ctx.textAlign = 'left'
-        ctx.fillText(`SHIELD: ${g.shield.toFixed(1)}s`, 10, 42)
-      }
+      ctx.fillText(`${Math.floor(g.score)}`, W - 12, 34)
 
       g.animId = requestAnimationFrame(loop)
     }
@@ -403,40 +521,143 @@ export default function App() {
       {phase === 'idle' && (
         <div className="overlay">
           <div className="title">ASTEROID DODGER</div>
-          <div className="subtitle">Survive the asteroid field</div>
           <div className="legend">
-            <div className="legend-row">
-              <span className="legend-icon ship-icon">&#9654;</span>
-              <span>Arrow keys / WASD to move</span>
+            <div className="legend-card">
+              <ShipIcon />
+              <span className="legend-word">{isTouch ? 'DRAG' : 'ARROWS'}</span>
             </div>
-            <div className="legend-row">
-              <span className="legend-icon fuel-icon">&#9632;</span>
-              <span>Collect fuel cells to survive</span>
+            <div className="legend-card good">
+              <FuelIcon />
+              <span className="legend-word">FUEL</span>
             </div>
-            <div className="legend-row">
-              <span className="legend-icon shield-icon">&#9670;</span>
-              <span>Shields grant invincibility</span>
+            <div className="legend-card good">
+              <ShieldIcon />
+              <span className="legend-word">SHIELD</span>
+            </div>
+            <div className="legend-card bad">
+              <RockIcon />
+              <span className="legend-word">DODGE</span>
             </div>
           </div>
           {highScore > 0 && <div className="high-score">BEST: {highScore}</div>}
-          <button className="start-btn" onClick={startGame}>START</button>
-          <div className="touch-hint">Touch &amp; drag on mobile</div>
+          <button className="start-btn" onClick={startGame}>
+            <PlayIcon /> START
+          </button>
         </div>
       )}
 
       {phase === 'gameover' && (
         <div className="overlay">
           <div className="title gameover-title">GAME OVER</div>
+          <div className={`reason ${deathReason === 'fuel' ? 'reason-fuel' : 'reason-crash'}`}>
+            {deathReason === 'fuel' ? <EmptyFuelIcon /> : <RockIcon big />}
+            <span>{deathReason === 'fuel' ? 'OUT OF FUEL' : 'CRASH!'}</span>
+          </div>
+          {deathReason === 'fuel' && (
+            <div className="reason-tip"><FuelIcon small /> = more fuel</div>
+          )}
           <div className="final-score">SCORE: {score}</div>
           {score >= highScore && score > 0 && (
             <div className="new-best">NEW BEST!</div>
           )}
           <div className="high-score">BEST: {highScore}</div>
-          <button className="start-btn" onClick={startGame}>RETRY</button>
+          <button
+            className="start-btn"
+            onClick={startGame}
+            disabled={!retryReady}
+          >
+            <RetryIcon /> RETRY
+          </button>
         </div>
       )}
     </div>
   )
+}
+
+// --- Overlay icons (pixel style, matching the canvas sprites) ---
+
+function ShipIcon() {
+  return (
+    <svg className="icon" viewBox="-16 -10 32 20" shapeRendering="crispEdges" aria-hidden="true">
+      <rect x="-14" y="-2" width="5" height="4" fill="#ff6622" />
+      <rect x="-12" y="-1" width="3" height="2" fill="#ffcc00" />
+      <rect x="-8" y="-6" width="16" height="12" fill="#ccccdd" />
+      <rect x="8" y="-3" width="4" height="6" fill="#eeeeff" />
+      <rect x="12" y="-1" width="2" height="2" fill="#eeeeff" />
+      <rect x="4" y="-2" width="4" height="4" fill="#44ccff" />
+      <rect x="-4" y="-9" width="10" height="3" fill="#8888aa" />
+      <rect x="-4" y="6" width="10" height="3" fill="#8888aa" />
+      <rect x="-4" y="-9" width="2" height="2" fill="#ff4444" />
+      <rect x="-4" y="7" width="2" height="2" fill="#ff4444" />
+    </svg>
+  )
+}
+
+function FuelIcon({ small }) {
+  return (
+    <svg className={small ? 'icon icon-small' : 'icon'} viewBox="-12 -12 24 24" shapeRendering="crispEdges" aria-hidden="true">
+      <circle r="12" fill="rgba(0,255,100,0.18)" />
+      <rect x="-8" y="-8" width="16" height="16" fill="#00e050" />
+      <rect x="-2" y="-6" width="4" height="12" fill="#aaffaa" />
+      <rect x="-6" y="-2" width="12" height="4" fill="#aaffaa" />
+    </svg>
+  )
+}
+
+function EmptyFuelIcon() {
+  return (
+    <svg className="icon icon-big" viewBox="-14 -14 28 28" shapeRendering="crispEdges" aria-hidden="true">
+      <rect x="-10" y="-10" width="20" height="20" fill="#1a1a2a" stroke="#ff4433" strokeWidth="2" />
+      <rect x="-7" y="5" width="3" height="3" fill="#ff4433" />
+      <line x1="-12" y1="12" x2="12" y2="-12" stroke="#ff4433" strokeWidth="3" />
+    </svg>
+  )
+}
+
+function ShieldIcon() {
+  return (
+    <svg className="icon" viewBox="-12 -12 24 24" shapeRendering="crispEdges" aria-hidden="true">
+      <circle r="12" fill="rgba(68,204,255,0.18)" />
+      <rect x="-2" y="-10" width="4" height="4" fill="#44ddff" />
+      <rect x="-5" y="-7" width="10" height="4" fill="#44ddff" />
+      <rect x="-9" y="-3" width="18" height="6" fill="#44ddff" />
+      <rect x="-5" y="3" width="10" height="4" fill="#44ddff" />
+      <rect x="-2" y="6" width="4" height="4" fill="#44ddff" />
+      <rect x="-2" y="-3" width="4" height="4" fill="#aaeeff" />
+    </svg>
+  )
+}
+
+function RockIcon({ big }) {
+  return (
+    <svg className={big ? 'icon icon-big' : 'icon'} viewBox="-13 -13 26 26" aria-hidden="true">
+      <polygon points="-10,-4 -4,-11 6,-9 11,-1 8,9 -2,11 -10,6" fill="#6e6358" stroke="#9e9585" strokeWidth="1.2" />
+      <rect x="-3" y="-2" width="4" height="3" fill="rgba(0,0,0,0.3)" />
+      <rect x="4" y="3" width="3" height="3" fill="rgba(0,0,0,0.3)" />
+    </svg>
+  )
+}
+
+function PlayIcon() {
+  return (
+    <svg className="btn-icon" viewBox="0 0 10 10" aria-hidden="true">
+      <polygon points="1,0 10,5 1,10" fill="currentColor" />
+    </svg>
+  )
+}
+
+function RetryIcon() {
+  return (
+    <svg className="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 4a8 8 0 1 0 8 8" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+      <polygon points="12,0 18,4 12,8" fill="currentColor" />
+    </svg>
+  )
+}
+
+// 0 for the first EASY_START seconds, then ramps to 1 over the next 60s.
+function difficultyAt(elapsed) {
+  return Math.max(0, Math.min((elapsed - EASY_START) / 60, 1))
 }
 
 // --- Drawing helpers ---
@@ -473,7 +694,7 @@ function drawAsteroid(ctx, a) {
   ctx.fillRect(3, 2, 2, 2)
 }
 
-function drawShip(ctx, x, y, shielded, elapsed) {
+function drawShip(ctx, x, y, shielded, elapsed, shieldLeft = 0) {
   const sx = Math.floor(x)
   const sy = Math.floor(y)
 
@@ -513,62 +734,90 @@ function drawShip(ctx, x, y, shielded, elapsed) {
     ctx.stroke()
     ctx.fillStyle = `rgba(68,204,255,${pulse * 0.3})`
     ctx.fill()
+    // Time left, as a ring that shrinks: readable without numbers
+    ctx.strokeStyle = 'rgba(68,204,255,0.9)'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.arc(sx, sy, 23, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (shieldLeft / SHIELD_DURATION))
+    ctx.stroke()
   }
 }
 
+// Pickups are drawn at 2x the old pixel size so kids can spot them.
 function drawFuelCell(ctx, x, y, glow) {
   const fx = Math.floor(x)
   const fy = Math.floor(y)
   // Glow
-  ctx.fillStyle = `rgba(0,255,100,${glow * 0.15})`
-  ctx.fillRect(fx - 8, fy - 8, 16, 16)
+  ctx.fillStyle = `rgba(0,255,100,${glow * 0.18})`
+  ctx.beginPath()
+  ctx.arc(fx, fy, 20 + glow * 4, 0, Math.PI * 2)
+  ctx.fill()
   // Body
   ctx.fillStyle = `rgb(0,${Math.floor(180 + 75 * glow)},60)`
-  ctx.fillRect(fx - 5, fy - 5, 10, 10)
+  ctx.fillRect(fx - 10, fy - 10, 20, 20)
   // Inner
   ctx.fillStyle = '#aaffaa'
-  ctx.fillRect(fx - 2, fy - 4, 4, 8)
-  ctx.fillRect(fx - 4, fy - 2, 8, 4)
+  ctx.fillRect(fx - 3, fy - 8, 6, 16)
+  ctx.fillRect(fx - 8, fy - 3, 16, 6)
 }
 
 function drawShieldPickup(ctx, x, y, glow) {
   const fx = Math.floor(x)
   const fy = Math.floor(y)
   // Glow
-  ctx.fillStyle = `rgba(68,204,255,${glow * 0.15})`
-  ctx.fillRect(fx - 8, fy - 8, 16, 16)
+  ctx.fillStyle = `rgba(68,204,255,${glow * 0.18})`
+  ctx.beginPath()
+  ctx.arc(fx, fy, 20 + glow * 4, 0, Math.PI * 2)
+  ctx.fill()
   // Diamond shape using rects (pixel style)
   const c = `rgb(${Math.floor(40 + 28 * glow)},${Math.floor(180 + 75 * glow)},255)`
   ctx.fillStyle = c
-  ctx.fillRect(fx - 1, fy - 6, 2, 2)
-  ctx.fillRect(fx - 3, fy - 4, 6, 2)
-  ctx.fillRect(fx - 5, fy - 2, 10, 4)
-  ctx.fillRect(fx - 3, fy + 2, 6, 2)
-  ctx.fillRect(fx - 1, fy + 4, 2, 2)
+  ctx.fillRect(fx - 2, fy - 12, 4, 4)
+  ctx.fillRect(fx - 6, fy - 8, 12, 4)
+  ctx.fillRect(fx - 10, fy - 4, 20, 8)
+  ctx.fillRect(fx - 6, fy + 4, 12, 4)
+  ctx.fillRect(fx - 2, fy + 8, 4, 4)
   // Highlight
   ctx.fillStyle = '#aaeeff'
-  ctx.fillRect(fx - 1, fy - 2, 2, 2)
+  ctx.fillRect(fx - 2, fy - 4, 4, 4)
 }
 
-function drawFuelBar(ctx, fuel) {
-  const barW = 120
-  const barH = 8
-  const bx = 10
-  const by = 14
-  // Label
-  ctx.fillStyle = '#88aa88'
-  ctx.font = '10px monospace'
-  ctx.textAlign = 'left'
-  ctx.fillText('FUEL', bx, by - 2)
+// Pulsing green chevron next to the ship, pointing at a fuel cell.
+function drawPointer(ctx, sx, sy, tx, ty, elapsed) {
+  const ang = Math.atan2(ty - sy, tx - sx)
+  const d = 30 + 4 * Math.sin(elapsed * 10)
+  ctx.save()
+  ctx.translate(sx + Math.cos(ang) * d, sy + Math.sin(ang) * d)
+  ctx.rotate(ang)
+  ctx.fillStyle = `rgba(80,255,140,${0.6 + 0.4 * Math.sin(elapsed * 10)})`
+  ctx.beginPath()
+  ctx.moveTo(10, 0)
+  ctx.lineTo(-6, -9)
+  ctx.lineTo(-6, 9)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+
+// Fuel gauge: a fuel-cell icon and a fat bar. Below 25% the bar and its
+// frame flash red, so running low is obvious without reading.
+function drawFuelBar(ctx, fuel, elapsed) {
+  const bx = 40
+  const by = 16
+  const barW = 170
+  const barH = 20
+  const pct = fuel / FUEL_MAX
+  const low = pct <= 0.25
+  const flashOn = low && Math.floor(elapsed * 4) % 2 === 0
+  drawFuelCell(ctx, 20, by + barH / 2, 0.6)
   // Background
-  ctx.fillStyle = '#1a1a2a'
+  ctx.fillStyle = flashOn ? '#4a0a0a' : '#1a1a2a'
   ctx.fillRect(bx, by, barW, barH)
-  ctx.strokeStyle = '#334'
-  ctx.lineWidth = 1
+  ctx.strokeStyle = low ? (flashOn ? '#ff5544' : '#882222') : '#445'
+  ctx.lineWidth = 2
   ctx.strokeRect(bx, by, barW, barH)
   // Fill
-  const pct = fuel / FUEL_MAX
-  const color = pct > 0.5 ? '#00cc44' : pct > 0.25 ? '#ccaa00' : '#ff3322'
+  const color = pct > 0.5 ? '#00cc44' : pct > 0.25 ? '#ccaa00' : (flashOn ? '#ff6644' : '#cc2211')
   ctx.fillStyle = color
-  ctx.fillRect(bx + 1, by + 1, (barW - 2) * pct, barH - 2)
+  ctx.fillRect(bx + 2, by + 2, (barW - 4) * pct, barH - 4)
 }
