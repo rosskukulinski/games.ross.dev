@@ -36,10 +36,11 @@ export class GridSelector extends Phaser.GameObjects.Container {
     // Title
     if (title) {
       const titleText = this.scene.add.text(0, startY - itemHeight / 2 - 20, title, {
-        fontSize: '14px',
+        fontSize: '18px',
         fontFamily: 'Arial, sans-serif',
-        color: '#ffffff'
-      }).setOrigin(0.5);
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5).setShadow(1, 1, '#00000055', 2);
       this.add(titleText);
     }
 
@@ -71,6 +72,10 @@ export class GridSelector extends Phaser.GameObjects.Container {
   createItem(item, x, y) {
     const { itemWidth, itemHeight, showLabels } = this.config;
     const container = this.scene.add.container(x, y);
+
+    // Invisible full-size tile: gives the container real bounds (Graphics
+    // children have none), so the whole tile is what you see and what you hit.
+    container.add(this.scene.add.rectangle(0, 0, itemWidth, itemHeight, 0xffffff, 0.001));
 
     // Background
     const bg = this.scene.add.graphics();

@@ -7,6 +7,9 @@ import Building from '../components/town/Building.js';
 import EmptyLot from '../components/town/EmptyLot.js';
 import PlayerCharacter from '../components/town/PlayerCharacter.js';
 
+const STARTER_COINS_KEY = 'hanyverse_starter_coins';
+const todayKey = () => new Date().toDateString();
+
 export default class TownScene extends Phaser.Scene {
   constructor() {
     super({ key: 'TownScene' });
@@ -39,6 +42,7 @@ export default class TownScene extends Phaser.Scene {
     this.createBuildings();
     this.createEmptyLots();
     this.createPlayer();
+    this.createStarterCoins();
     this.createUI();
 
     // Set up camera to follow player
@@ -237,6 +241,98 @@ export default class TownScene extends Phaser.Scene {
     this.player.setDepth(1000);
   }
 
+  // A few shiny coins on the roads right next to where you start, so even a
+  // 5-year-old who just taps around sees a reward within seconds.
+  createStarterCoins() {
+    const sx = this.player.x;
+    const sy = this.player.y;
+    const spots = [
+      { x: sx + 110, y: sy },
+      { x: sx - 120, y: sy },
+      { x: sx, y: sy + 110 },
+      { x: sx, y: sy - 120 },
+      { x: sx + 220, y: sy }
+    ];
+    // Each coin can be picked up once a day, so popping in and out of a
+    // building doesn't turn the street into a coin farm.
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STARTER_COINS_KEY) || 'null'); } catch (e) { saved = null; }
+    this.starterCoinsGot = saved && saved.day === todayKey() && Array.isArray(saved.got) ? saved.got : [];
+
+    this.starterCoins = spots.map(({ x, y }, i) => {
+      if (this.starterCoinsGot.includes(i)) return null;
+      const coin = this.add.image(x, y, 'coin-icon').setScale(1.6).setDepth(900);
+      this.tweens.add({
+        targets: coin,
+        y: y - 10,
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: i * 120
+      });
+      this.tweens.add({
+        targets: coin,
+        scaleX: { from: 1.6, to: 0.4 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        delay: i * 90
+      });
+      coin.coinIndex = i;
+      return coin;
+    }).filter(Boolean);
+  }
+
+  collectCoin(coin) {
+    coin.collected = true;
+    this.tweens.killTweensOf(coin);
+    const amount = 5;
+    StorageManager.addCoins(amount);
+    this.updateCoins(StorageManager.getCoins());
+    this.starterCoinsGot.push(coin.coinIndex);
+    try {
+      localStorage.setItem(STARTER_COINS_KEY, JSON.stringify({ day: todayKey(), got: this.starterCoinsGot }));
+    } catch (e) { /* storage full / private mode: coins just come back */ }
+
+    // Sparkle burst + floating "+5"
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const star = this.add.star(coin.x, coin.y, 5, 4, 9, 0xFFE066).setDepth(1500);
+      this.tweens.add({
+        targets: star,
+        x: coin.x + Math.cos(angle) * 50,
+        y: coin.y + Math.sin(angle) * 50,
+        alpha: 0,
+        angle: 180,
+        duration: 500,
+        onComplete: () => star.destroy()
+      });
+    }
+    const plus = this.add.text(coin.x, coin.y - 20, `+${amount}`, {
+      fontSize: '30px',
+      fontFamily: 'Arial, sans-serif',
+      color: '#FFD700',
+      fontStyle: 'bold',
+      stroke: '#7a4b00',
+      strokeThickness: 5
+    }).setOrigin(0.5).setDepth(1600);
+    this.tweens.add({
+      targets: plus,
+      y: coin.y - 80,
+      alpha: 0,
+      duration: 900,
+      onComplete: () => plus.destroy()
+    });
+    this.tweens.add({
+      targets: coin,
+      y: coin.y - 40,
+      scale: 0,
+      duration: 250,
+      onComplete: () => coin.destroy()
+    });
+  }
+
   createUI() {
     // UI container that stays fixed to camera
     this.uiContainer = this.add.container(0, 0);
@@ -295,13 +391,14 @@ export default class TownScene extends Phaser.Scene {
     // Mini-map background
     this.createMiniMap();
 
-    // Instructions
-    const instructions = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 25, 'Tap anywhere to walk. Tap buildings to enter.', {
-      fontSize: '13px',
+    // Instructions: big, icon-first, so a pre-reader gets it from the pictures
+    const instructions = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 26, '👆 Tap to walk    🏠 Tap a house    🪙 Grab coins!', {
+      fontSize: '20px',
       fontFamily: 'Arial, sans-serif',
       color: '#ffffff',
-      backgroundColor: '#00000077',
-      padding: { x: 10, y: 5 }
+      fontStyle: 'bold',
+      backgroundColor: '#00000088',
+      padding: { x: 14, y: 6 }
     }).setOrigin(0.5);
     this.uiContainer.add(instructions);
   }
@@ -430,6 +527,15 @@ export default class TownScene extends Phaser.Scene {
   }
 
   update() {
+    // Pick up starter coins when the player walks over them
+    if (this.player && this.starterCoins) {
+      this.starterCoins.forEach(coin => {
+        if (!coin.collected && Phaser.Math.Distance.Between(this.player.x, this.player.y, coin.x, coin.y) < 45) {
+          this.collectCoin(coin);
+        }
+      });
+    }
+
     // Update player depth based on Y position
     if (this.player) {
       this.player.setDepth(Math.floor(this.player.y) + 500);
