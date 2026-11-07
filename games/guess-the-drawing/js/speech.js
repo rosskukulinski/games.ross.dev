@@ -34,8 +34,11 @@ const Speech = {
         this.recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
 
-            if (event.error === 'not-allowed') {
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                // Stop retrying and let the player pick or type instead
+                this.isListening = false;
                 UI.showMicPermissionError();
+                Game.fallBackFromSpeech();
             } else if (event.error === 'no-speech') {
                 // Restart if no speech detected
                 if (this.isListening) {

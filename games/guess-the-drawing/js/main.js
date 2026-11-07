@@ -5,7 +5,7 @@ const INPUT_MODE_KEY = 'guess-the-drawing-input-mode';
 
 function getSelectedMode() {
     const checked = document.querySelector('input[name="input-mode"]:checked');
-    return checked ? checked.value : 'speak';
+    return checked ? checked.value : 'pick';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,7 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     Game.init();
 
     // Load saved input mode preference from localStorage
-    const savedMode = localStorage.getItem(INPUT_MODE_KEY) || 'speak';
+    // Picture picking is the default: it needs no reading, typing or mic
+    const savedMode = localStorage.getItem(INPUT_MODE_KEY) || 'pick';
     const modeInputs = document.querySelectorAll('input[name="input-mode"]');
     modeInputs.forEach(input => {
         input.checked = input.value === savedMode;

@@ -1,13 +1,18 @@
 # Guess the Drawing
 
-A browser-based game where a pencil animates drawing pictures on a canvas, and players guess what's being drawn using voice input.
+A browser-based game where a pencil animates drawing pictures on a canvas, and players guess what's being drawn by picking a picture, speaking, or typing.
 
 ## How to Play
-1. Click "Start Game"
-2. Watch the pencil draw a picture
-3. Click the microphone and say what you see
-4. Get +1 star for correct guesses, -2 stars if time runs out
-5. Complete 10 rounds and see your final score
+1. Choose how to answer: **Pick it** (default — 4 big picture buttons, no reading needed), **Say it** (voice), or **Type it**
+2. Click "Start Game" and watch the pencil draw a picture
+3. Answer: tap the matching picture, say it out loud, or type it (small typos are forgiven)
+4. Get +1 star for each correct guess. Nothing is lost on a timeout or a wrong pick
+5. Stuck? With 15s left a hint appears (pick: a wrong picture greys out; say/type: first letter + blanks); pick mode greys out another at 8s
+6. Complete 10 rounds and see your final score
+
+Wrong picks/typed guesses wobble with a "Try again!" cue. Both feedback screens show the answer as an emoji picture.
+If the mic is unsupported or refused, the round falls back to picture buttons + the typing box.
+`window.__game` is a read-only state view for play-test harnesses (state, mode, round, stars, answer, choices, hintShown, timeLeft).
 
 ## Tech Stack
 - Pure HTML/CSS/JavaScript (no frameworks)
@@ -25,6 +30,7 @@ guess-the-drawing/
     ├── game.js             # Game state & flow management
     ├── drawing.js          # Canvas animation engine
     ├── paths.js            # Drawing path definitions
+    ├── pictures.js         # Emoji for every drawing (pick buttons + feedback)
     ├── speech.js           # Voice recognition (Web Speech API)
     ├── timer.js            # 30-second countdown timer
     ├── audio.js            # Sound effects (Web Audio API)
@@ -45,7 +51,8 @@ guess-the-drawing/
 
 - **game.js** - Controls game flow:
   - Round progression (10 rounds)
-  - Scoring (+1 correct, -2 timeout, min 0)
+  - Scoring (+1 correct, no penalty)
+  - Pick-mode choices, hints, fuzzy matching for typed guesses
   - Random drawing selection without repeats
 
 ## Live Site

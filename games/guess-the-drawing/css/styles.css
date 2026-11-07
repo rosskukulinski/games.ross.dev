@@ -464,9 +464,13 @@ body {
 
 .mode-option {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
+    justify-content: center;
+    gap: 2px;
+    min-width: 112px;
+    min-height: 88px;
+    padding: 8px 14px;
     border: 3px solid var(--sketch-line);
     border-radius: 12px;
     background: white;
@@ -491,6 +495,230 @@ body {
 
 .mode-option input[type="radio"] {
     display: none;
+}
+
+@media (max-width: 400px) {
+    .mode-option { min-width: 0; flex: 1; padding: 8px 6px; }
+}
+
+.mode-emoji {
+    font-size: 2rem;
+    line-height: 1.1;
+}
+
+/* Hidden helpers */
+.mic-area.hidden,
+.choices.hidden,
+.hint.hidden,
+.guess-display.hidden {
+    display: none;
+}
+
+/* Mic area: button + sound wave + "Say it!" bubble */
+.mic-area {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-height: 80px;
+}
+
+.mic-button {
+    width: 80px;
+    height: 80px;
+}
+
+.sound-wave {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 48px;
+    opacity: 0.25;
+    transition: opacity 0.3s;
+}
+
+.sound-wave span {
+    display: block;
+    width: 7px;
+    height: 12px;
+    border-radius: 4px;
+    background: var(--mic-active);
+}
+
+.mic-area:has(.mic-button.active) .sound-wave {
+    opacity: 1;
+}
+
+.mic-area:has(.mic-button.active) .sound-wave span {
+    animation: wave 1s ease-in-out infinite;
+}
+
+.sound-wave span:nth-child(2) { animation-delay: 0.15s !important; }
+.sound-wave span:nth-child(3) { animation-delay: 0.3s !important; }
+.sound-wave span:nth-child(4) { animation-delay: 0.45s !important; }
+.sound-wave span:nth-child(5) { animation-delay: 0.6s !important; }
+
+@keyframes wave {
+    0%, 100% { height: 10px; }
+    50% { height: 44px; }
+}
+
+.say-bubble {
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%) scale(0);
+    background: white;
+    border: 3px solid var(--sketch-line);
+    border-radius: 16px;
+    padding: 4px 16px;
+    font-size: 1.6rem;
+    white-space: nowrap;
+    box-shadow: 3px 3px 0 var(--sketch-line);
+    pointer-events: none;
+    z-index: 20;
+    opacity: 0;
+}
+
+.say-bubble.show {
+    animation: say-pop 1.6s ease-out;
+}
+
+@keyframes say-pop {
+    0% { opacity: 0; transform: translateY(-50%) scale(0.3); }
+    15% { opacity: 1; transform: translateY(-50%) scale(1.1); }
+    25% { transform: translateY(-50%) scale(1); }
+    80% { opacity: 1; transform: translateY(-50%) scale(1); }
+    100% { opacity: 0; transform: translateY(-50%) scale(1); }
+}
+
+/* Picture choices (pick mode) */
+.choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+}
+
+.choice {
+    font-family: 'Patrick Hand', cursive;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 88px;
+    padding: 8px;
+    font-size: 1.3rem;
+    border: 3px solid var(--sketch-line);
+    border-radius: 14px;
+    background: white;
+    color: var(--sketch-line);
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--sketch-line);
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.3s, background 0.2s;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.choice:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+}
+
+.choice-picture {
+    font-size: 3rem;
+    line-height: 1;
+}
+
+.choice-name {
+    font-size: 1.3rem;
+}
+
+.choice.right {
+    background: #d5f5e3;
+    border-color: var(--success-green);
+    box-shadow: 4px 4px 0 var(--success-green);
+    animation: bounce 0.5s ease-out;
+}
+
+.choice.wrong,
+.choice.gone {
+    background: #eee;
+    opacity: 0.35;
+    box-shadow: none;
+    transform: translate(4px, 4px);
+    cursor: default;
+}
+
+.choice.wrong {
+    animation: shake 0.4s ease-in-out;
+}
+
+@keyframes bounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    0%, 100% { translate: 0; }
+    20% { translate: -8px 0; }
+    40% { translate: 8px 0; }
+    60% { translate: -6px 0; }
+    80% { translate: 6px 0; }
+}
+
+/* Hint */
+.hint {
+    font-size: 1.8rem;
+    letter-spacing: 0.08em;
+    color: var(--sketch-line);
+    background: #fff7d1;
+    border: 3px solid var(--star-gold);
+    border-radius: 12px;
+    padding: 4px 18px;
+}
+
+.hint.pop {
+    animation: bounce 0.5s ease-out;
+}
+
+/* Wrong typed guess */
+.guess-display.try-again {
+    color: var(--error-red);
+    border-color: var(--error-red);
+    animation: shake 0.4s ease-in-out;
+}
+
+.text-fallback.shake {
+    animation: shake 0.4s ease-in-out;
+}
+
+/* Feedback picture */
+.feedback-picture {
+    font-size: 6rem;
+    line-height: 1.1;
+    margin-bottom: 8px;
+}
+
+.feedback-picture:empty {
+    display: none;
+}
+
+.feedback-overlay.is-correct .feedback-picture {
+    animation: bounce 0.6s ease-out;
+}
+
+.feedback-icon {
+    font-size: 3.5rem;
+    margin-bottom: 0;
+}
+
+.feedback-text .answer.gain {
+    color: var(--sketch-line);
 }
 
 /* Animations for screen transitions */
