@@ -76,20 +76,20 @@ export const dessertOptions = [
   { value: 'chocolate', label: '🍫 Chocolate' }
 ]
 
-// Month options for the form
+// Month options for the form (emoji match the month's middle name)
 export const monthOptions = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' }
+  { value: 1, label: 'January', short: 'Jan', emoji: '⛄' },
+  { value: 2, label: 'February', short: 'Feb', emoji: '💘' },
+  { value: 3, label: 'March', short: 'Mar', emoji: '☘️' },
+  { value: 4, label: 'April', short: 'Apr', emoji: '🌧️' },
+  { value: 5, label: 'May', short: 'May', emoji: '🌸' },
+  { value: 6, label: 'June', short: 'Jun', emoji: '☀️' },
+  { value: 7, label: 'July', short: 'Jul', emoji: '🎆' },
+  { value: 8, label: 'August', short: 'Aug', emoji: '🏖️' },
+  { value: 9, label: 'September', short: 'Sep', emoji: '🍂' },
+  { value: 10, label: 'October', short: 'Oct', emoji: '🎃' },
+  { value: 11, label: 'November', short: 'Nov', emoji: '🦃' },
+  { value: 12, label: 'December', short: 'Dec', emoji: '🎄' }
 ]
 
 // Generate the full nickname
