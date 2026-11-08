@@ -4,6 +4,9 @@ import { InputState } from '../../core/InputManager'
 import { createHorseInstance, createHorn, createWing, HorseInstance } from './HorseModel'
 import { getSparkTexture } from '../../fx/textures'
 
+/** Auto-cruise speed as a fraction of max speed (no throttle needed). */
+const CRUISE_FRACTION = 0.36
+
 /**
  * Flying unicorn: the real animated Horse.glb (tinted per variant) with a
  * glowing spiral horn, glowing mane blobs, feathered wings and sparkles.
@@ -207,9 +210,13 @@ export class Unicorn extends Mount {
     const forward = new THREE.Vector3(0, 0, 1)
     forward.applyQuaternion(this.quaternion)
 
-    // Thrust
+    // Thrust. Auto-cruise keeps the unicorn gliding forward at a gentle
+    // pace with no input at all, so a touch player only has to steer;
+    // accelerate boosts to full speed and brake still slows to a hover.
     if (input.accelerate) {
-      this.velocity.add(forward.multiplyScalar(this.config.acceleration * delta))
+      this.velocity.add(forward.clone().multiplyScalar(this.config.acceleration * delta))
+    } else if (!input.brake && this.velocity.dot(forward) < this.config.maxSpeed * CRUISE_FRACTION) {
+      this.velocity.add(forward.clone().multiplyScalar(this.config.acceleration * delta))
     }
     if (input.brake) {
       this.velocity.multiplyScalar(0.95)

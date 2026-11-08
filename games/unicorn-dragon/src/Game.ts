@@ -59,6 +59,14 @@ export class Game {
   private dragonsDefeated = 0
   private ribbonTimer = 0
   private tmpVec = new THREE.Vector3()
+  /** Bumped on every restart so stale respawn timers from the last run do nothing. */
+  private runId = 0
+  private nearestDragonDist: number | null = null
+  /** performance.now() when the game-over card appeared (guards accidental taps). */
+  private gameOverAt = 0
+  /** On-screen marker that points at the nearest dragon. */
+  private dragonPointer: HTMLElement
+  private pointerVec = new THREE.Vector3()
 
   constructor() {
     this.clock = new THREE.Clock()
@@ -74,6 +82,7 @@ export class Game {
     this.muteButton = document.getElementById('mute-btn')!
     this.gameOverPanel = document.getElementById('game-over')!
     this.loadingPanel = document.getElementById('loading')
+    this.dragonPointer = document.getElementById('dragon-pointer')!
   }
 
   async init() {
@@ -128,9 +137,18 @@ export class Game {
       this.muteButton.classList.toggle('muted', this.audio.muted)
     })
 
-    document.getElementById('restart-btn')!.addEventListener('click', e => {
+    const restartBtn = document.getElementById('restart-btn')!
+    restartBtn.addEventListener('click', e => {
       e.stopPropagation()
-      window.location.reload()
+      this.restart()
+    })
+    // Enter / Space restarts from the game-over card too.
+    window.addEventListener('keydown', e => {
+      if (this.isRunning || !this.ready) return
+      if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault()
+        this.restart()
+      }
     })
   }
 
@@ -184,7 +202,10 @@ export class Game {
           0.6
         )
         // Respawn after delay (the dead dragon keeps tumbling meanwhile).
-        setTimeout(() => this.spawnSingleDragon(), 3000)
+        const run = this.runId
+        setTimeout(() => {
+          if (run === this.runId) this.spawnSingleDragon()
+        }, 3000)
       }
     }
 
@@ -212,11 +233,12 @@ export class Game {
   }
 
   private spawnDragons() {
-    // Spawn 3 dragons at various positions
+    // Spawn 3 dragons. The first patrols just ahead of the start, near
+    // flight height, so there is something to shoot within seconds.
     const positions = [
-      new THREE.Vector3(50, 40, 100),
-      new THREE.Vector3(-60, 50, 120),
-      new THREE.Vector3(80, 35, 60)
+      new THREE.Vector3(-6, 36, 100),
+      new THREE.Vector3(-60, 45, 130),
+      new THREE.Vector3(70, 38, 110)
     ]
 
     const types = Object.keys(DRAGON_TYPES)
@@ -236,21 +258,104 @@ export class Game {
     const typeKey = types[Math.floor(Math.random() * types.length)]
     const dragon = new Dragon(DRAGON_TYPES[typeKey])
 
-    // Random position around player
-    const mount = this.getCurrentMount()
-    const angle = Math.random() * Math.PI * 2
-    const distance = 80 + Math.random() * 40
-    dragon.setAnchor(
-      new THREE.Vector3(
-        mount.position.x + Math.cos(angle) * distance,
-        30 + Math.random() * 40,
-        mount.position.z + Math.sin(angle) * distance
-      )
-    )
+    dragon.setAnchor(this.pointAheadOfPlayer())
 
     this.dragons.push(dragon)
     this.sceneManager.scene.add(dragon)
     this.audio.roar()
+  }
+
+  /**
+   * A spot ahead of the player (within ~50° of their heading) at a
+   * comfortable distance, so new dragons appear where they will be seen.
+   */
+  private pointAheadOfPlayer(): THREE.Vector3 {
+    const mount = this.getCurrentMount()
+    const angle = mount.rotation.y + (Math.random() - 0.5) * 1.7
+    const distance = 60 + Math.random() * 30
+    return new THREE.Vector3(
+      mount.position.x + Math.sin(angle) * distance,
+      THREE.MathUtils.clamp(mount.position.y + (Math.random() - 0.4) * 16, 18, 60),
+      mount.position.z + Math.cos(angle) * distance
+    )
+  }
+
+  /** Start a fresh run in place (no page reload). */
+  restart() {
+    if (this.isRunning) return
+    // Ignore taps in the first moment so a kid mashing FIRE can't skip the card.
+    if (performance.now() - this.gameOverAt < 700) return
+    this.runId++
+
+    this.health = 100
+    this.score = 0
+    this.combo = 1
+    this.comboTimer = 0
+    this.tricksLanded = 0
+    this.dragonsDefeated = 0
+    this.ribbonTimer = 0
+
+    this.combatSystem.clearAllProjectiles()
+    this.dragons.forEach(d => this.sceneManager.scene.remove(d))
+    this.dragons = []
+
+    for (const mount of this.mounts) {
+      mount.position.set(0, 30, 0)
+      mount.rotation.set(0, 0, 0)
+      mount.velocity.set(0, 0, 0)
+      mount.isPerformingTrick = false
+      mount.lastCompletedTrick = null
+    }
+    const mount = this.getCurrentMount()
+    mount.updateMatrixWorld()
+    this.cameraController.snap()
+
+    this.spawnDragons()
+    this.gameOverPanel.classList.add('hidden')
+    this.updateHUD()
+
+    this.isRunning = true
+    this.clock.getDelta() // drop the time spent on the game-over card
+    this.gameLoop()
+  }
+
+  /**
+   * Point at the nearest living dragon: a ring around it when it's on
+   * screen, an edge arrow (with a dragon icon) when it's off screen.
+   */
+  private updateDragonPointer(nearest: Dragon | null) {
+    const el = this.dragonPointer
+    if (!nearest) {
+      el.className = 'hidden'
+      return
+    }
+    const camera = this.sceneManager.camera
+    const p = this.pointerVec.copy(nearest.position).project(camera)
+    const behind = p.z > 1
+    let x = p.x
+    let y = p.y
+    if (behind) {
+      x = -x
+      y = -y
+    }
+    const w = window.innerWidth
+    const h = window.innerHeight
+    const onScreen = !behind && Math.abs(x) < 0.9 && Math.abs(y) < 0.85
+    if (onScreen) {
+      el.className = 'ring'
+      el.style.transform = `translate(${((x + 1) / 2) * w}px, ${((1 - y) / 2) * h}px)`
+      return
+    }
+    // Push the direction out to an ellipse inside the screen edges.
+    let ang = Math.atan2(y * h, x * w)
+    if (behind && Math.abs(x) < 0.01 && Math.abs(y) < 0.01) ang = -Math.PI / 2
+    const rx = w / 2 - 70
+    const ry = h / 2 - 90
+    const px = w / 2 + Math.cos(ang) * rx
+    const py = h / 2 - Math.sin(ang) * ry
+    el.className = 'arrow'
+    el.style.transform = `translate(${px}px, ${py}px)`
+    el.style.setProperty('--rot', `${-ang}rad`)
   }
 
   private showNotification(name: string, score: string) {
@@ -273,6 +378,8 @@ export class Game {
     document.getElementById('final-score')!.textContent = this.score.toLocaleString()
     document.getElementById('final-stats')!.textContent =
       `${this.tricksLanded} tricks landed · ${this.dragonsDefeated} dragons defeated`
+    this.gameOverAt = performance.now()
+    this.dragonPointer.className = 'hidden'
     this.gameOverPanel.classList.remove('hidden')
     if (document.pointerLockElement) document.exitPointerLock()
   }
@@ -395,6 +502,9 @@ export class Game {
       dragons: this.dragons.length,
       mountIndex: this.currentMountIndex,
       mountName: mount.config.name,
+      kills: this.dragonsDefeated,
+      state: !this.ready ? 'loading' : this.isRunning ? 'playing' : 'gameover',
+      nearestDragonDist: this.nearestDragonDist,
       speed: mount.velocity.length(),
       position: mount.position.toArray(),
       projectiles: this.combatSystem.getProjectileCount(),
@@ -462,8 +572,8 @@ export class Game {
       this.triggerTrick('somersault')
     }
 
-    // Handle firing
-    if (this.combatSystem.playerFire(mount, input.fire)) {
+    // Handle firing (auto-aims at a dragon roughly ahead)
+    if (this.combatSystem.playerFire(mount, input.fire, this.dragons)) {
       this.audio.shoot()
     }
 
@@ -471,6 +581,9 @@ export class Game {
     this.combatSystem.update(delta, this.dragons, mount)
 
     // Update dragons; retire the ones that have finished falling.
+    let nearest: Dragon | null = null
+    let nearestDist = Infinity
+    const heading = this.tmpVec.set(Math.sin(mount.rotation.y), 0, Math.cos(mount.rotation.y))
     this.dragons = this.dragons.filter(dragon => {
       dragon.update(delta)
       if (dragon.isDead) {
@@ -480,6 +593,21 @@ export class Game {
         }
         return true
       }
+      // A dragon left behind (out of sight, behind the camera) is moved up
+      // ahead again, so a kid who just flies straight on keeps meeting them.
+      const dist = dragon.position.distanceTo(mount.position)
+      if (dist > 90) {
+        const toDragonX = dragon.position.x - mount.position.x
+        const toDragonZ = dragon.position.z - mount.position.z
+        if (toDragonX * heading.x + toDragonZ * heading.z < 0) {
+          dragon.setAnchor(this.pointAheadOfPlayer())
+        }
+      }
+      if (dist < nearestDist) {
+        nearestDist = dist
+        nearest = dragon
+      }
+
       // Living dragons patrol slowly and track the player with the head.
       dragon.updateFlight(delta, mount.position)
 
@@ -493,6 +621,8 @@ export class Game {
       }
       return true
     })
+
+    this.nearestDragonDist = nearest ? Math.round(nearestDist) : null
 
     // Ribbon trail from the tail while tricking / just after.
     const speedRatio = mount.getSpeedRatio()
@@ -512,6 +642,8 @@ export class Game {
     this.world.update(delta)
     this.sceneManager.update(delta)
     this.effects.update(delta)
+
+    this.updateDragonPointer(nearest)
 
     // Speed lines + wind audio scale with velocity.
     const rush = Math.max(0, (speedRatio - 0.55) / 0.45)

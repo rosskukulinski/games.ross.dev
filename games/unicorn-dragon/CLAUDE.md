@@ -16,12 +16,13 @@ v1 mechanics are unchanged, but every visual is rebuilt.
 ## Controls
 | Action | Input |
 |--------|-------|
-| Move/Accelerate | W/S or Up/Down (or virtual joystick) |
+| Cruise | Automatic — flying mounts glide forward on their own |
+| Boost / Slow | W/S or Up/Down (or joystick up/down) |
 | Turn | A/D or Left/Right (or joystick) |
 | Climb/Dive | Space / Ctrl (or ▲ / ▼ buttons) |
 | Look | Mouse (click canvas to lock) |
-| Shoot | Left Click (or FIRE button) |
-| Somersault | Q (or TRICK button) |
+| Shoot | Left Click (or ✨ button) — auto-aims at a dragon ahead |
+| Somersault | Q (or 🔄 button) |
 | Switch Mount | 1, 2, 3, 4 (or tap the mount slots) |
 | Mute | 🔊 button (top right) |
 
@@ -140,8 +141,10 @@ card with final score and stats. All v1 HUD data is preserved.
 ## Debug hook
 `window.__game` exposes `getState()` plus `debugSwitchMount(n)`, `debugTrick()`,
 `debugPlace(x, y, z, yaw)` and `debugCameraOffset(x, y, z)` for smoke tests and
-screenshots. `getState()` reports ready/running/modelLoaded, health, score,
-combo, tricks, kills, dragon count, mount, speed, position and live projectiles.
+screenshots. `getState()` reports ready/running/modelLoaded, `state`
+(`loading`/`playing`/`gameover`), health, score, combo, tricks,
+`dragonsDefeated`/`kills`, dragon count, `nearestDragonDist`, mount, speed,
+position and live projectiles. `restart()` starts a new run in place.
 
 ## Conventions
 - `vite.config.ts` keeps `base: './'`; the model loads from `./Horse.glb` so the
@@ -169,6 +172,30 @@ Tuned to stay fair for young players — do not "balance" these away casually:
   `getBreathConfig()`.
 - **Killing a dragon heals +20** (capped at 100) — the only recovery in the
   game, and what keeps a long run from becoming an unwinnable slide.
+
+## Kid-friendly pass (v2.2)
+Tuned so a 5-year-old on an iPad can play without reading:
+- **Auto-cruise**: `Unicorn` thrusts up to `CRUISE_FRACTION` (0.36) of max
+  speed with no input; accelerate boosts to full, brake still hovers. The pony
+  drifts the way it faces. Touch players only have to steer.
+- **Auto-aim**: `CombatSystem.findAutoAimTarget` aims each bolt at the
+  closest living dragon within ±0.9 rad of the mount's heading (height
+  ignored, range 170). Collision is a swept segment test so fast bolts don't
+  tunnel on slow frames.
+- **Dragons stay findable**: the first dragon patrols just past the bridge;
+  respawns land ahead of the player (`pointAheadOfPlayer`), and a living
+  dragon more than 90 away *behind* the player is re-anchored ahead.
+  `#dragon-pointer` rings the nearest dragon on screen or shows a 🐉 edge
+  arrow when it's off screen.
+- **Touch UI**: `body.touch` hides the keyboard hint, enlarges mount slots to
+  56px and lifts the joystick clear of the mount panel; FIRE/TRICK are ✨/🔄
+  icons; a wiggling 👆 on the stick and a glowing FIRE button act as a
+  wordless tutorial until each is used once. Mute is 56px everywhere.
+- **Restart in place**: `Game.restart()` resets state, dragons, projectiles
+  and mounts without reloading (respawn timers are tagged with `runId`).
+  The button ignores taps for 700ms after game over; Enter/Space also restart.
+- **Camera** sits closer and looks further ahead so the unicorn is bigger and
+  below the crosshair; its follow lerp is frame-rate independent.
 
 ## Possible next steps
 - Per-mount special abilities (E key)
