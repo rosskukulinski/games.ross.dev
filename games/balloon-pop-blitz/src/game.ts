@@ -110,6 +110,8 @@ export class Game {
   private startBtn!: Container;
   private againBtn!: Container;
   private btnScale = 1;
+  private menuCard!: Graphics;
+  private overCard!: Graphics;
   private overAt = 0;
   private muteIcon = new Graphics();
   private puBar = new Graphics();
@@ -398,11 +400,32 @@ export class Game {
 
   private panelCard(w: number, h: number): Graphics {
     const g = new Graphics();
-    g.roundRect(-w / 2 + 4, -h / 2 + 8, w, h, 28).fill({ color: 0x53442e, alpha: 0.16 });
-    g.roundRect(-w / 2, -h / 2, w, h, 28)
+    this.drawCard(g, w, -h / 2, h / 2);
+    return g;
+  }
+
+  private drawCard(g: Graphics, w: number, top: number, bottom: number): void {
+    const h = bottom - top;
+    g.clear();
+    g.roundRect(-w / 2 + 4, top + 8, w, h, 28).fill({ color: 0x53442e, alpha: 0.16 });
+    g.roundRect(-w / 2, top, w, h, 28)
       .fill({ color: 0xfffdf6, alpha: 0.985 })
       .stroke({ width: 4, color: 0xffffff });
-    return g;
+  }
+
+  /**
+   * Place a screen's main button below `clearY` (bottom of the content above
+   * it) and grow the card to fit. On small screens the button is scaled up to
+   * stay >= MIN_BTN_PX, so it must move down rather than grow over the content.
+   */
+  private fitButton(btn: Container, card: Graphics, w: number, top: number, bottom: number, baseY: number, clearY: number): number {
+    const half = (BTN_H / 2) * this.btnScale;
+    btn.y = Math.max(baseY, clearY + 14 + half);
+    const newBottom = Math.max(bottom, btn.y + half + 36);
+    // and widen the card if the scaled-up button would poke out of its sides
+    const cardW = Math.max(w, btn.getLocalBounds().width * this.btnScale + 48);
+    this.drawCard(card, cardW, top, newBottom);
+    return newBottom - bottom;
   }
 
   private buildMenu(): void {
@@ -410,6 +433,7 @@ export class Game {
     // Pictures, not paragraphs: title, a row of balloons, a crossed-out bomb,
     // and one big Start. The whole card is tappable.
     const card = this.panelCard(600, 500);
+    this.menuCard = card;
     card.eventMode = 'static';
     card.cursor = 'pointer';
     card.on('pointerdown', (e) => {
@@ -483,6 +507,7 @@ export class Game {
   private buildGameOver(): void {
     const ui = this.overUI;
     const card = this.panelCard(520, 420);
+    this.overCard = card;
     ui.addChild(card);
 
     this.overMsgText = new Text({ text: ENCOURAGE[0], style: chunkyStyle(38, 0xff5470) });
@@ -520,6 +545,12 @@ export class Game {
     this.btnScale = Math.max(1, MIN_BTN_PX / (BTN_H * s));
     this.startBtn.scale.set(this.btnScale);
     this.againBtn.scale.set(this.btnScale);
+    // menu: hearts row ends ~y=84; game over: "Best" line ends ~y=62
+    const gm = this.fitButton(this.startBtn, this.menuCard, 600, -250, 250, 150, 84);
+    const go = this.fitButton(this.againBtn, this.overCard, 520, -210, 210, 128, 62);
+    // keep the (possibly taller) cards centred
+    this.menuUI.y = this.h / 2 - (gm / 2) * s;
+    this.overUI.y = this.h / 2 - (go / 2) * s;
   }
 
   private showMenu(): void {

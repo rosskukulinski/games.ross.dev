@@ -51,7 +51,7 @@ pop pitch rises with the combo.
   next to a bomb never punishes.
 - Taps on empty sky draw a soft white ring, so every tap answers back.
 - Menu is pictures only: title, a row of balloons, a crossed-out bomb, five hearts, and Start. The whole menu
-  card is tappable. Start / Play Again are scaled to at least 88 CSS px tall.
+  card is tappable. Start / Play Again are scaled to at least 88 CSS px tall; when that scaling kicks in (phones) the button moves down and the card grows (`fitButton`) instead of covering the hearts or score.
 - Play Again ignores taps for 1s (wall clock) after game over so a child still popping doesn't restart by accident.
 
 ## Visual notes
