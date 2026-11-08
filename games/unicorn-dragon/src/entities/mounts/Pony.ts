@@ -160,6 +160,11 @@ export class Pony extends Mount {
     moveDirection.x -= mouseDelta.x * 0.01
     moveDirection.z -= mouseDelta.y * 0.01
 
+    // Auto-cruise: with no input the pony keeps drifting the way it faces.
+    if (moveDirection.lengthSq() === 0 && !input.brake) {
+      moveDirection.set(Math.sin(this.rotation.y), 0, Math.cos(this.rotation.y))
+    }
+
     if (moveDirection.length() > 0) {
       moveDirection.normalize()
 

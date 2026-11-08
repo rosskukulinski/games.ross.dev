@@ -141,12 +141,12 @@
     .icon-btn {
       pointer-events: auto;
       cursor: pointer;
-      width: 42px;
-      height: 42px;
+      width: 56px;
+      height: 56px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 24px;
       border-radius: 14px;
       transition: transform 0.15s ease, background 0.15s ease;
     }
@@ -287,9 +287,11 @@
     .btn {
       pointer-events: auto;
       cursor: pointer;
-      margin-top: 18px;
-      padding: 12px 30px;
-      font-size: 16px;
+      margin-top: 22px;
+      min-height: 72px;
+      min-width: 220px;
+      padding: 16px 40px;
+      font-size: 24px;
       font-weight: 800;
       color: #3a1147;
       background: linear-gradient(160deg, #ffd8ef, #ffd76a);
@@ -359,6 +361,99 @@
     #btn-trick { right: 118px; bottom: 168px; width: 64px; height: 64px; }
     #btn-up { right: 124px; bottom: 86px; width: 58px; height: 58px; }
     #btn-down { right: 22px; bottom: 34px; width: 58px; height: 58px; }
+
+    /* Nearest-dragon marker: ring when on screen, edge arrow when not. */
+    #dragon-pointer {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 4;
+      pointer-events: none;
+      width: 0;
+      height: 0;
+    }
+    #dragon-pointer.hidden { display: none; }
+    #dragon-pointer .dp-ring,
+    #dragon-pointer .dp-arrow { position: absolute; display: none; }
+    #dragon-pointer.ring .dp-ring {
+      display: block;
+      left: -34px;
+      top: -34px;
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 215, 106, 0.9);
+      box-shadow: 0 0 16px rgba(255, 200, 90, 0.8), inset 0 0 10px rgba(255, 200, 90, 0.5);
+      animation: dp-pulse 1s ease-in-out infinite;
+    }
+    @keyframes dp-pulse {
+      0%, 100% { transform: scale(0.85); opacity: 0.75; }
+      50% { transform: scale(1.1); opacity: 1; }
+    }
+    #dragon-pointer.arrow .dp-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      left: -32px;
+      top: -32px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(60, 20, 80, 0.45);
+      border: 2px solid rgba(255, 215, 106, 0.85);
+      box-shadow: 0 0 18px rgba(255, 200, 90, 0.6);
+      font-size: 30px;
+      animation: dp-bob 0.9s ease-in-out infinite;
+    }
+    #dragon-pointer .dp-tip {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      transform: rotate(var(--rot, 0rad)) translate(40px, -14px);
+      transform-origin: 0 0;
+      border-top: 14px solid transparent;
+      border-bottom: 14px solid transparent;
+      border-left: 22px solid #ffd76a;
+      filter: drop-shadow(0 0 6px rgba(255, 200, 90, 0.9));
+    }
+    @keyframes dp-bob {
+      0%, 100% { scale: 1; }
+      50% { scale: 1.12; }
+    }
+
+    /* ---- Touch devices: bigger targets, icon-only hints ---- */
+    body.touch .controls-hint { display: none; }
+    body.touch .mount-slot { width: 56px; height: 56px; font-size: 20px; border-radius: 14px; }
+    body.touch #joystick-zone { bottom: 150px; }
+    .touch-btn .ico { font-size: 34px; line-height: 1; text-shadow: none; }
+    #btn-trick .ico { font-size: 28px; }
+    /* First-play hint: a hand wiggles on the stick and FIRE glows. */
+    .hint-hand {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      font-size: 46px;
+      pointer-events: none;
+      transform: translate(-50%, -20%);
+      animation: hint-steer 1.6s ease-in-out infinite;
+      filter: drop-shadow(0 3px 6px rgba(40,10,60,0.6));
+    }
+    @keyframes hint-steer {
+      0%, 100% { transform: translate(-50%, -20%); }
+      25% { transform: translate(-110%, -20%); }
+      75% { transform: translate(10%, -20%); }
+    }
+    .hinted .hint-hand { display: block; }
+    .hint-hand { display: none; }
+    #btn-fire.hinted {
+      animation: fire-glow 1s ease-in-out infinite;
+    }
+    @keyframes fire-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 106, 0.0); }
+      50% { box-shadow: 0 0 0 12px rgba(255, 215, 106, 0.45); }
+    }
   </style>
 </head>
 <body>
@@ -404,16 +499,21 @@
     </div>
 
     <div class="controls-hint panel">
-      <b>WASD</b> fly · <b>Space/Ctrl</b> climb/dive · <b>Mouse</b> aim<br>
-      <b>Click</b> magic bolt · <b>Q</b> somersault · <b>1-4</b> swap mount<br>
-      Fly under the bridge for a free flip!
+      <b>A/D</b> or <b>←→</b> steer · <b>W</b> faster · <b>S</b> slow · <b>Space/Ctrl</b> up/down<br>
+      <b>Click</b> magic bolt (aims itself) · <b>Q</b> somersault · <b>1-4</b> swap mount<br>
+      Follow the 🐉 arrow to the dragons. Fly under the bridge for a free flip!
     </div>
   </div>
 
+  <div id="dragon-pointer" class="hidden" aria-hidden="true">
+    <div class="dp-ring"></div>
+    <div class="dp-arrow">🐉<div class="dp-tip"></div></div>
+  </div>
+
   <div id="touch-controls">
-    <div id="joystick-zone"><div id="joystick-knob"></div></div>
-    <div class="touch-btn" id="btn-fire">FIRE</div>
-    <div class="touch-btn" id="btn-trick">TRICK</div>
+    <div id="joystick-zone"><div id="joystick-knob"></div><div class="hint-hand">👆</div></div>
+    <div class="touch-btn" id="btn-fire" aria-label="Fire"><span class="ico">✨</span></div>
+    <div class="touch-btn" id="btn-trick" aria-label="Trick"><span class="ico">🔄</span></div>
     <div class="touch-btn" id="btn-up">▲</div>
     <div class="touch-btn" id="btn-down">▼</div>
   </div>
@@ -432,7 +532,7 @@
       <div class="overlay-sub">Final score</div>
       <div class="overlay-score" id="final-score">0</div>
       <div class="overlay-sub" id="final-stats"></div>
-      <button class="btn" id="restart-btn">Fly Again</button>
+      <button class="btn" id="restart-btn">🦄 Fly Again</button>
     </div>
   </div>
 

@@ -7,9 +7,11 @@ import * as THREE from 'three'
 export class CameraController {
   camera: THREE.PerspectiveCamera
   target: THREE.Object3D | null = null
-  offset = new THREE.Vector3(0, 5, -15)
+  offset = new THREE.Vector3(0, 4.2, -11)
   smoothness = 0.08
-  lookAheadDistance = 5
+  // Looking well ahead puts the mount in the lower half of the screen,
+  // bigger and clear of the crosshair.
+  lookAheadDistance = 14
   /** Set each frame by Game: 0..1 flight speed fraction. */
   speedRatio = 0
 
@@ -63,8 +65,10 @@ export class CameraController {
     const offsetRotated = offset.applyQuaternion(yawQuat)
     const desiredPosition = targetPosition.clone().add(offsetRotated)
 
-    // Smooth interpolation
-    this.camera.position.lerp(desiredPosition, this.smoothness)
+    // Smooth interpolation, scaled by frame time so the camera keeps up on
+    // slow devices (a fixed per-frame lerp trails far behind at low fps).
+    const alpha = 1 - Math.pow(1 - this.smoothness, delta * 60)
+    this.camera.position.lerp(desiredPosition, alpha)
 
     // Look at a point slightly ahead of the target
     const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.target.quaternion)

@@ -17,10 +17,16 @@ export class TouchControls {
       return
     }
     root.style.display = 'block'
+    document.body.classList.add('touch')
 
     // --- Joystick -----------------------------------------------------
     const zone = document.getElementById('joystick-zone')!
     const knob = document.getElementById('joystick-knob')!
+    const fireBtn = document.getElementById('btn-fire')!
+    // Wordless first-play hint: a hand wiggles on the stick and FIRE glows
+    // until each has been used once.
+    zone.classList.add('hinted')
+    fireBtn.classList.add('hinted')
     let joyId: number | null = null
     let cx = 0
     let cy = 0
@@ -53,6 +59,7 @@ export class TouchControls {
       e.preventDefault()
       const t = e.changedTouches[0]
       joyId = t.identifier
+      zone.classList.remove('hinted')
       const rect = zone.getBoundingClientRect()
       cx = rect.left + rect.width / 2
       cy = rect.top + rect.height / 2
@@ -89,7 +96,10 @@ export class TouchControls {
       el.addEventListener('touchcancel', release)
     }
 
-    bind('btn-fire', () => { input.touch.fire = true }, () => { input.touch.fire = false })
+    bind('btn-fire', () => {
+      input.touch.fire = true
+      fireBtn.classList.remove('hinted')
+    }, () => { input.touch.fire = false })
     bind('btn-trick', () => { input.touch.trick = true }, () => { input.touch.trick = false })
     bind('btn-up', () => { input.touch.pitchUp = true }, () => { input.touch.pitchUp = false })
     bind('btn-down', () => { input.touch.pitchDown = true }, () => { input.touch.pitchDown = false })
