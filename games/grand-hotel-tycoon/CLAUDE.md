@@ -3,6 +3,7 @@
 A sunny 3D island-resort management game built with **Babylon.js 8 + TypeScript + Vite**.
 You are the hotel manager: check guests in, keep everyone smiling, and grow one
 room into a full resort.
+(A new hotel actually opens with Room 2 already built — see *First minute* below.)
 
 ## Tech Stack
 
@@ -51,6 +52,30 @@ Two consequences of that last rule are load-bearing in `updateJob` / `pickJob`:
   longer reach so you can stand behind the counter, and letting that inflated
   distance carry into the comparisons below it changes the bar for every other
   job.
+
+## First minute (tuned from a kid play-test)
+
+A pre-reader couldn't use the English hint bar, the first guest took 10-25 s
+to walk up an empty road, and with one room the line hit 4-7 and walkouts
+began before anyone understood cleaning. So:
+
+- **A new hotel opens with two rooms.** `room2` is added to `built` on a fresh
+  start, so it saves like a purchase; Room 3 / the Ice Cream Cart are the
+  first things to buy.
+- **The first guest spawns a few metres from the counter** (`spawnGuest(true)`
+  in `start()`), with extra patience, so the first check-in lands in seconds.
+- **Learning pace:** until 5 guests are served, arrivals are 1.5x slower and
+  the line is capped at `rooms + 1`.
+- **Picture guidance:** `#beacon` is a big bouncing emoji (🛎️ / 🧹 / 💰 / pad
+  emoji) projected over `guideTarget()`, with a ring pulsing on the ground
+  under it. Hidden once you're within 2.6 m or a job is running.
+- **Ghost finger / arrow keys** (`#move-hint`) until the first move.
+- **Tap to walk:** a short tap (<450 ms, <16 px travel) walks the manager to
+  that ground point (`screenToGround` unprojects onto y=0). Dragging still
+  steers and cancels it. Every tap draws a ring, so misses get feedback too.
+- **Title card** is four picture tiles; tapping anywhere on the backdrop opens
+  the hotel. **Reset** is a 56 px "New hotel" button below a divider that only
+  arms a confirm row (Keep it / Start over) — two taps, never one.
 
 ## The loop
 
@@ -207,6 +232,9 @@ centreline — spaced ≥4.6 apart. Pairs that can never be visible together (on
 transitively `requires` the other) are allowed to share space.
 
 ## Debug hook
+
+`state()` also reports `guide` (what the beacon points at: `{x, z, icon}`)
+and `walkTarget` (pending tap-to-walk spot).
 
 `window.__game` exposes `state()`, `start()`, `pause(p)`, `goto(x, z)`,
 `give(n)`, `buy(id)` and **`sim(seconds)`**. Headless WebGL runs at a fraction

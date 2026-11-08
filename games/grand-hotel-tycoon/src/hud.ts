@@ -88,6 +88,70 @@ export class Hud {
     el.addEventListener("pointerdown", (e) => e.stopPropagation());
   }
 
+  /**
+   * A destructive button that only arms a confirm row. The row holds two big
+   * buttons — "keep" (which just closes it) and "yes" (which runs `fn`).
+   */
+  onConfirm(btnId: string, rowId: string, fn: () => void): void {
+    const btn = document.getElementById(btnId);
+    const row = document.getElementById(rowId);
+    if (!btn || !row) return;
+    const set = (open: boolean) => {
+      row.classList.toggle("open", open);
+      btn.classList.toggle("armed", open);
+    };
+    this.onButton(btnId, () => set(!row.classList.contains("open")));
+    const no = row.querySelector<HTMLElement>("[data-no]");
+    const yes = row.querySelector<HTMLElement>("[data-yes]");
+    no?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      set(false);
+    });
+    yes?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fn();
+    });
+    for (const el of [no, yes]) el?.addEventListener("pointerdown", (e) => e.stopPropagation());
+  }
+
+  /** Tapping the dimmed backdrop (anything but a button) runs `fn`. */
+  onBackdropTap(screenId: string, fn: () => void): void {
+    const el = document.getElementById(screenId);
+    el?.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest("button, .confirm-row")) return;
+      fn();
+    });
+  }
+
+  /* ---------------------------------------------------- picture guidance */
+
+  private beaconEl = document.getElementById("beacon")!;
+  private beaconIcon = document.getElementById("beacon-icon")!;
+  private lastBeaconIcon = "";
+  private moveHintEl = document.getElementById("move-hint")!;
+
+  /** Big bouncing picture over the next thing to do; null hides it. */
+  setBeacon(b: { x: number; y: number; icon: string } | null): void {
+    if (!b) {
+      this.beaconEl.classList.remove("on");
+      return;
+    }
+    const m = 46;
+    const x = Math.min(window.innerWidth - m, Math.max(m, b.x));
+    const y = Math.min(window.innerHeight - m - 70, Math.max(m + 90, b.y));
+    this.beaconEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    if (b.icon !== this.lastBeaconIcon) {
+      this.lastBeaconIcon = b.icon;
+      this.beaconIcon.textContent = b.icon;
+    }
+    this.beaconEl.classList.add("on");
+  }
+
+  /** The ghost finger (or arrow keys) that shows how to move. */
+  showMoveHint(on: boolean): void {
+    this.moveHintEl.classList.toggle("on", on);
+  }
+
   drawMuteIcon(muted: boolean): void {
     this.muteBtn.innerHTML = muted
       ? `<svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>`
@@ -113,6 +177,8 @@ export class Hud {
     const stats = document.getElementById("resume-stats")!;
     const resetBtn = document.getElementById("reset-btn")!;
     const startBtn = document.getElementById("start-btn")!;
+    document.getElementById("reset-confirm")?.classList.remove("open");
+    resetBtn.classList.remove("armed");
     if (resume) {
       stats.classList.remove("hidden");
       resetBtn.classList.remove("hidden");
@@ -128,6 +194,9 @@ export class Hud {
   }
 
   showPause(): void {
+    document.getElementById("quit-confirm")?.classList.remove("open");
+    document.getElementById("quit-btn")?.classList.remove("armed");
+    this.beaconEl.classList.remove("on");
     this.pauseScreen.classList.remove("hidden");
   }
 
