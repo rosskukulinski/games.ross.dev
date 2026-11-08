@@ -59,6 +59,8 @@ export interface DebugState {
   ballPos: [number, number, number];
   /** Board-space landing spot of the last shot (null before the first roll). */
   lastHit: { u: number; v: number } | null;
+  /** Whether the "pull down" finger + hint is showing. */
+  hint: boolean;
 }
 
 const EXIT_SLOPE = rampSlope(RAMP_END_Z);
@@ -99,6 +101,10 @@ export class Game {
   private shake = 0;
   private clock = 0;
   private lastHit: { u: number; v: number } | null = null;
+  /** Seconds spent aiming this turn without touching anything (re-shows the hint). */
+  private idleAim = 0;
+  private hintOn = false;
+  private turnStartClock = 0;
 
   constructor(engine: Engine) {
     this.scene = new Scene(engine);
@@ -159,6 +165,7 @@ export class Game {
       onAim: (p, a) => this.onAim(p, a),
       onRelease: (p, a) => this.roll(p, a),
       onCancel: () => this.cancelAim(),
+      onTap: () => this.tapRoll(),
     });
 
     this.resetBall();
@@ -185,7 +192,6 @@ export class Game {
     this.hud.setScore(0, true);
     this.hud.setBallsUsed(0);
     this.hud.setStreak(0);
-    this.hud.setHint("Drag back and release to roll");
     this.beginTurn();
   }
 
@@ -195,6 +201,16 @@ export class Game {
     this.input.enabled = true;
     this.lastAimPower = 0;
     this.updateAimIndicator(0, 0, false);
+    this.idleAim = 0;
+    this.turnStartClock = this.clock;
+    // the first three balls always show how to roll
+    this.showHint(this.ballsUsed < 3);
+  }
+
+  private showHint(on: boolean): void {
+    this.hintOn = on;
+    this.hud.setHint(on ? "Pull down & let go!" : "");
+    this.hud.setGhost(on);
   }
 
   private resetBall(): void {
@@ -212,6 +228,11 @@ export class Game {
 
   private onAim(power: number, aim: number): void {
     if (this.phase !== "aiming") return;
+    this.idleAim = 0;
+    if (this.hintOn) {
+      // get the finger out of the way while they're actually dragging
+      this.hud.setGhost(false);
+    }
     const prev = this.lastAimPower;
     this.lastAimPower = power;
     this.hud.setPower(power);
@@ -223,6 +244,24 @@ export class Game {
     if (this.phase !== "aiming") return;
     this.hud.setPower(null);
     this.updateAimIndicator(0, 0, false);
+    // they tried and it didn't roll: show them again
+    this.idleAim = 0;
+    this.showHint(true);
+  }
+
+  /**
+   * A plain tap on the lane: roll a gentle, nearly straight shot that lands
+   * in the 20-40 rings, so a little kid who taps instead of
+   * dragging still gets a roll and a score. Dragging is still how you aim for
+   * the 100 pockets.
+   */
+  private tapRoll(force = false): void {
+    if (this.phase !== "aiming") return;
+    // the second half of an accidental double-tap on PLAY shouldn't roll
+    if (!force && this.ballsUsed === 0 && this.clock - this.turnStartClock < 0.4) return;
+    const power = 0.18 + Math.random() * 0.14;
+    const aim = (Math.random() - 0.5) * 0.3;
+    this.roll(power, aim);
   }
 
   /** Launch the ball. power 0..1, aim -1..1. */
@@ -231,7 +270,7 @@ export class Game {
     this.input.enabled = false;
     this.hud.setPower(null);
     this.updateAimIndicator(0, 0, false);
-    this.hud.setHint("");
+    this.showHint(false);
 
     const speed = powerToSpeed(power);
     const angle = aim * MAX_AIM;
@@ -248,6 +287,10 @@ export class Game {
     const dt = Math.min(dtRaw, 0.05);
     this.clock += dt;
     this.input.update(dt);
+    if (this.phase === "aiming" && !this.hintOn) {
+      this.idleAim += dt;
+      if (this.idleAim > 6) this.showHint(true);
+    }
     this.hud.tick(dt);
     this.popups.update(dt);
     this.animateDecor(dt);
@@ -523,7 +566,7 @@ export class Game {
     // Global from /arcade/arcade.js — absent when this game runs standalone.
     (window as any).Arcade?.submit({ game: "skee-ball", value: this.score });
     this.audio.gameOver(newBest);
-    this.hud.setHint("");
+    this.showHint(false);
     this.hud.showGameOver(this.score, this.best, newBest, this.shots);
   }
 
@@ -629,6 +672,7 @@ export class Game {
       best: this.best,
       ballPos: [this.world.ball.position.x, this.world.ball.position.y, this.world.ball.position.z],
       lastHit: this.lastHit ? { ...this.lastHit } : null,
+      hint: this.hintOn,
     };
   }
 
@@ -642,5 +686,10 @@ export class Game {
   debugRoll(power: number, aim = 0): void {
     if (this.phase !== "aiming") return;
     this.roll(power, aim);
+  }
+
+  /** Same as a plain tap on the lane (tests). */
+  debugTap(): void {
+    this.tapRoll(true);
   }
 }

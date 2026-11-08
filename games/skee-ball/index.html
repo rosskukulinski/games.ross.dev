@@ -87,8 +87,8 @@
     #mute {
       position: absolute; bottom: 16px; right: 16px;
       pointer-events: auto; cursor: pointer;
-      width: 46px; height: 46px; border-radius: 50%;
-      display: grid; place-items: center; font-size: 20px;
+      width: 60px; height: 60px; border-radius: 50%;
+      display: grid; place-items: center; font-size: 26px;
       border: 1px solid var(--panel-border); background: var(--panel);
       color: #e8e0ff; backdrop-filter: blur(10px);
     }
@@ -109,9 +109,104 @@
     }
     #hint {
       position: absolute; bottom: 76px; left: 50%; transform: translateX(-50%);
-      font-size: 14px; font-weight: 700; color: rgba(240, 232, 255, 0.72);
+      font-size: 18px; font-weight: 800; color: rgba(240, 232, 255, 0.85);
       text-shadow: 0 2px 12px #000; white-space: nowrap;
       transition: opacity 0.3s ease;
+    }
+
+
+    /* ---------- "pull down" ghost finger over the lane ---------- */
+    #ghost {
+      position: absolute; left: 50%; top: 56%; width: 120px; height: 190px;
+      transform: translate(-50%, -30%); pointer-events: none;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    #ghost.on { opacity: 1; }
+    #ghost .g-chev {
+      position: absolute; left: 50%; top: 40px; width: 34px; margin-left: -17px;
+      display: grid; gap: 2px; animation: chev 1.9s ease-in-out infinite;
+    }
+    #ghost .g-chev svg { width: 34px; height: 20px; display: block; }
+    #ghost .g-chev svg:nth-child(2) { opacity: 0.7; }
+    #ghost .g-chev svg:nth-child(3) { opacity: 0.4; }
+    #ghost .g-up {
+      position: absolute; left: 50%; top: -70px; width: 8px; height: 110px; margin-left: -4px;
+      border-radius: 8px; opacity: 0;
+      background: linear-gradient(0deg, rgba(255, 213, 74, 0), var(--gold));
+      box-shadow: 0 0 18px rgba(255, 213, 74, 0.9);
+      animation: upstreak 1.9s ease-out infinite;
+    }
+    .finger {
+      position: absolute; left: 50%; top: 0; width: 58px; height: 58px; margin-left: -29px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.95), rgba(255, 240, 200, 0.75) 45%, rgba(255, 213, 74, 0.25) 70%, transparent 72%);
+      box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55), 0 0 26px rgba(255, 213, 74, 0.8);
+      animation: pull 1.9s ease-in-out infinite;
+    }
+    @keyframes pull {
+      0% { transform: translateY(0) scale(1.35); opacity: 0; }
+      12% { transform: translateY(0) scale(1); opacity: 1; }
+      55% { transform: translateY(118px) scale(1); opacity: 1; }
+      64% { transform: translateY(118px) scale(1.4); opacity: 0; }
+      100% { transform: translateY(118px) scale(1.4); opacity: 0; }
+    }
+    @keyframes chev {
+      0%, 12% { opacity: 0; transform: translateY(-6px); }
+      30%, 55% { opacity: 1; transform: translateY(8px); }
+      65%, 100% { opacity: 0; transform: translateY(8px); }
+    }
+    @keyframes upstreak {
+      0%, 56% { opacity: 0; transform: translateY(60px) scaleY(0.3); }
+      66% { opacity: 1; transform: translateY(0) scaleY(1); }
+      85%, 100% { opacity: 0; transform: translateY(-60px) scaleY(0.6); }
+    }
+
+    /* ---------- start-card demo: pull the ball down, it rolls up ---------- */
+    .demo {
+      position: relative; width: 200px; height: 170px; margin: 6px auto 14px;
+    }
+    .demo .lane {
+      position: absolute; left: 50%; bottom: 0; width: 120px; height: 170px; margin-left: -60px;
+      clip-path: polygon(28% 0, 72% 0, 100% 100%, 0 100%);
+      background: linear-gradient(180deg, #7c5320, #d9a45c 70%, #b57f38);
+    }
+    .demo .rings {
+      position: absolute; left: 50%; top: 4px; width: 46px; height: 46px; margin-left: -23px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #FFD700 0 16%, #FF9900 17% 34%, #CC33FF 35% 52%, #3399FF 53% 72%, #33CC66 73% 100%);
+      box-shadow: 0 0 14px rgba(255, 213, 74, 0.5);
+      animation: ringflash 2.6s ease-in-out infinite;
+    }
+    .demo .ball {
+      position: absolute; left: 50%; top: 100px; width: 26px; height: 26px; margin-left: -13px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fff, #e8dcc0 50%, #8f7f60);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+      animation: demoball 2.6s ease-in-out infinite;
+    }
+    .demo .finger { top: 92px; width: 44px; height: 44px; margin-left: -22px; animation: demofinger 2.6s ease-in-out infinite; }
+    @keyframes demoball {
+      0%, 14% { transform: translateY(0) scale(1); opacity: 1; }
+      48% { transform: translateY(46px) scale(1.05); opacity: 1; }
+      56% { transform: translateY(46px) scale(1.05); }
+      72% { transform: translateY(-86px) scale(0.6); opacity: 1; }
+      78%, 92% { transform: translateY(-86px) scale(0.5); opacity: 0; }
+      100% { transform: translateY(0) scale(1); opacity: 0; }
+    }
+    @keyframes demofinger {
+      0% { transform: translateY(0) scale(1.4); opacity: 0; }
+      14% { transform: translateY(0) scale(1); opacity: 1; }
+      48% { transform: translateY(46px) scale(1); opacity: 1; }
+      58%, 100% { transform: translateY(46px) scale(1.4); opacity: 0; }
+    }
+    @keyframes ringflash {
+      0%, 70% { filter: brightness(1); transform: scale(1); }
+      76% { filter: brightness(1.8); transform: scale(1.18); }
+      90%, 100% { filter: brightness(1); transform: scale(1); }
+    }
+    #start { cursor: pointer; }
+    @media (prefers-reduced-motion: reduce) {
+      .finger, .demo .ball, .demo .rings, #ghost .g-chev, #ghost .g-up { animation-duration: 4s; }
     }
 
     /* ---------------- overlays ---------------- */
@@ -150,8 +245,10 @@
     .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
     .btn {
       pointer-events: auto; cursor: pointer;
-      font-family: var(--font); font-size: 17px; font-weight: 900; letter-spacing: 1.2px;
-      padding: 13px 34px; border-radius: 99px; border: none; color: #24160a;
+      font-family: var(--font); font-size: 24px; font-weight: 900; letter-spacing: 1.6px;
+      min-height: 68px; min-width: 200px;
+      padding: 16px 44px; border-radius: 99px; border: none; color: #24160a;
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
       background: linear-gradient(180deg, #ffe9a4, var(--gold) 55%, #ff9d3c);
       box-shadow: 0 8px 28px rgba(255, 170, 60, 0.4), inset 0 -3px 0 rgba(150, 80, 0, 0.35);
       transition: transform 0.12s ease, filter 0.12s ease;
@@ -189,7 +286,12 @@
       <div id="pips"></div>
       <div id="streak"></div>
     </div>
-    <div id="hint">Drag back and release to roll</div>
+    <div id="ghost" aria-hidden="true">
+      <div class="g-up"></div>
+      <div class="g-chev"><svg viewBox="0 0 34 20"><path d="M4 4 L17 16 L30 4" fill="none" stroke="#ffd54a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><svg viewBox="0 0 34 20"><path d="M4 4 L17 16 L30 4" fill="none" stroke="#ffd54a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><svg viewBox="0 0 34 20"><path d="M4 4 L17 16 L30 4" fill="none" stroke="#ffd54a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="finger"></div>
+    </div>
+    <div id="hint">Pull down &amp; let go!</div>
     <div id="power-wrap"><div id="power-fill"></div></div>
     <button id="mute" aria-label="Toggle sound">&#128266;</button>
   </div>
@@ -197,7 +299,14 @@
   <div id="start" class="overlay">
     <div class="card">
       <h1>SKEE-BALL</h1>
-      <p class="sub">Drag <b>back</b> on the lane and release to roll.<br />Longer drag = more power. Aim left or right to find the corner pockets.</p>
+      <div class="demo" aria-hidden="true">
+        <div class="lane"></div>
+        <div class="rings"></div>
+        <div class="ball"></div>
+        <div class="finger"></div>
+      </div>
+      <button id="play-btn" class="btn" aria-label="Play">&#9654; PLAY</button>
+      <p class="sub" style="margin-top:16px">Drag <b>back</b> on the lane and release to roll.<br />Longer drag = more power. Aim left or right to find the corner pockets.</p>
       <div class="legend">
         <div class="lrow"><span class="dot" style="background:#FF3366;color:#FF3366"></span>100 — corner pockets</div>
         <div class="lrow"><span class="dot" style="background:#FFD700;color:#FFD700"></span>50 — bullseye</div>
@@ -206,8 +315,7 @@
         <div class="lrow"><span class="dot" style="background:#3399FF;color:#3399FF"></span>20 — outer ring</div>
         <div class="lrow"><span class="dot" style="background:#33CC66;color:#33CC66"></span>10 — outermost ring</div>
       </div>
-      <p class="sub">9 balls per game. Chain scores for streak bonuses!</p>
-      <button id="play-btn" class="btn">PLAY</button>
+      <p class="sub">9 balls per game. Chain scores for streak bonuses! Just tap for an easy roll.</p>
       <p class="kbd">Keyboard: &larr; &rarr; to aim, hold <b>Space</b> for power, release to roll.</p>
     </div>
   </div>
@@ -220,7 +328,7 @@
       <div class="newbest" id="newbest" style="display:none">NEW HIGH SCORE!</div>
       <div class="sub" id="over-best">Best 0</div>
       <div class="shots" id="shots"></div>
-      <button id="again-btn" class="btn">PLAY AGAIN</button>
+      <button id="again-btn" class="btn" aria-label="Play again">&#8635; PLAY AGAIN</button>
     </div>
   </div>
 
