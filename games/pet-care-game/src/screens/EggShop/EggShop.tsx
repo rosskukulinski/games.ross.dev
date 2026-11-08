@@ -35,7 +35,7 @@ export function EggShop() {
               <h3 className={styles.eggName} style={{ color: palette.primary }}>{egg.name}</h3>
               <p className={styles.eggDesc}>{egg.description}</p>
               <span className={styles.price}>
-                {canBuy ? `🪙 ${egg.cost}` : `Need ${egg.cost - currency} more`}
+                {canBuy ? `🪙 ${egg.cost}` : `🔒 🪙 ${egg.cost}`}
               </span>
             </button>
           );
@@ -44,7 +44,7 @@ export function EggShop() {
 
       {dragon && (
         <button className={styles.backBtn} onClick={() => navigate('main-care')}>
-          Back
+          ⬅ Back
         </button>
       )}
     </div>

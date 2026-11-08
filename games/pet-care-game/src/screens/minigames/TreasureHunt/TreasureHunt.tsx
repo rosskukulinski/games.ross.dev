@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useGameStore } from '../../../store/useGameStore';
 import { useCountdown } from '../../../hooks/useCountdown';
+import { useOnFinish } from '../../../hooks/useOnFinish';
 import { generateCards, calculateReward, GAME_TIME, TOTAL_PAIRS } from './treasureHuntLogic';
 import type { Card } from './treasureHuntLogic';
 import styles from './TreasureHunt.module.css';
@@ -71,11 +72,11 @@ export function TreasureHunt() {
 
   const allFound = pairsFound >= TOTAL_PAIRS;
 
-  if ((isFinished || allFound) && gameStarted && reward === 0) {
+  useOnFinish((isFinished || allFound) && gameStarted, () => {
     const r = calculateReward(pairsFound, moves);
     setReward(r);
     addCurrency(r);
-  }
+  });
 
   if (!gameStarted) {
     return (
@@ -85,7 +86,7 @@ export function TreasureHunt() {
           <p>Match pairs of treasure cards!</p>
           <p className={styles.tip}>Find all {TOTAL_PAIRS} pairs before time runs out.</p>
           <button className={styles.startBtn} onClick={startGame}>Hunt!</button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back</button>
         </div>
       </div>
     );
@@ -103,7 +104,7 @@ export function TreasureHunt() {
           <button className={styles.startBtn} onClick={() => { setReward(0); setGameStarted(false); }}>
             Play Again
           </button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back to Hub</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back to Hub</button>
         </div>
       </div>
     );

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useGameStore } from '../../../store/useGameStore';
 import { useCountdown } from '../../../hooks/useCountdown';
+import { useOnFinish } from '../../../hooks/useOnFinish';
 import { generateOrder, checkDelivery, calculateReward, ITEM_ICONS } from './helpingJobsLogic';
 import type { JobOrder, ItemType } from './helpingJobsLogic';
 import styles from './HelpingJobs.module.css';
@@ -60,11 +61,11 @@ export function HelpingJobs() {
     setTimeout(() => setFeedback(null), 1000);
   }, [order, box, isRunning, orderNum]);
 
-  if (isFinished && gameStarted && reward === 0) {
+  useOnFinish(isFinished && gameStarted, () => {
     const r = calculateReward(score);
     setReward(r);
     addCurrency(r);
-  }
+  });
 
   if (!gameStarted) {
     return (
@@ -74,7 +75,7 @@ export function HelpingJobs() {
           <p>Fill orders by selecting the right items!</p>
           <p className={styles.tip}>Tap items to add to box. Tap to remove. Hit Deliver when ready.</p>
           <button className={styles.startBtn} onClick={startGame}>Start!</button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back</button>
         </div>
       </div>
     );
@@ -90,7 +91,7 @@ export function HelpingJobs() {
           <button className={styles.startBtn} onClick={() => { setReward(0); setGameStarted(false); }}>
             Play Again
           </button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back to Hub</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back to Hub</button>
         </div>
       </div>
     );

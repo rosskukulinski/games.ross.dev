@@ -101,7 +101,7 @@ export function WildDragons() {
       )}
 
       <button className={styles.backBtn} onClick={() => navigate(dragon ? 'main-care' : 'egg-shop')}>
-        Back
+        ⬅ Back
       </button>
     </div>
   );

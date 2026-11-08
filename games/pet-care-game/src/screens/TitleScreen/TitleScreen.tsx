@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useGameStore } from '../../store/useGameStore';
+import { ConfirmDialog } from '../../components/ConfirmDialog/ConfirmDialog';
 import styles from './TitleScreen.module.css';
 
 export function TitleScreen() {
   const navigate = useGameStore(s => s.navigate);
   const dragon = useGameStore(s => s.dragon);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   return (
     <div className={styles.screen}>
@@ -28,26 +31,39 @@ export function TitleScreen() {
         <div className={styles.buttons}>
           {dragon && (
             <button className={styles.continueBtn} onClick={() => navigate('main-care')}>
-              Continue
+              ▶ Continue
             </button>
           )}
           <button
             className={dragon ? styles.newGameBtn : styles.continueBtn}
             onClick={() => {
               if (dragon) {
-                if (confirm('Start a new game? This will reset all progress.')) {
-                  useGameStore.getState().resetGame();
-                  navigate('egg-shop');
-                }
+                setConfirmReset(true);
               } else {
                 navigate('egg-shop');
               }
             }}
           >
-            New Game
+            {dragon ? 'New Game' : '🥚 New Game'}
           </button>
         </div>
       </div>
+
+      {confirmReset && dragon && (
+        <ConfirmDialog
+          icon="🥚"
+          title="Start over?"
+          message={`${dragon.name} and all your coins will be gone.`}
+          yesLabel="Start over"
+          noLabel="Keep"
+          onNo={() => setConfirmReset(false)}
+          onYes={() => {
+            setConfirmReset(false);
+            useGameStore.getState().resetGame();
+            navigate('egg-shop');
+          }}
+        />
+      )}
     </div>
   );
 }

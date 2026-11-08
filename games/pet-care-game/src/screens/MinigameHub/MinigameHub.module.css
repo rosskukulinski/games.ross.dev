@@ -24,21 +24,25 @@
 }
 
 .list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
 .card {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 16px;
+  gap: 6px;
+  min-height: 150px;
+  padding: 16px 10px 14px;
+  touch-action: manipulation;
   background: white;
   border: 2px solid #ddd;
   border-radius: 16px;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
   transition: all 0.2s;
 }
 
@@ -47,8 +51,13 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
 }
 
+.card:active {
+  transform: scale(0.96);
+}
+
 .gameIcon {
-  font-size: 2.2rem;
+  font-size: 3.4rem;
+  line-height: 1.1;
   flex-shrink: 0;
 }
 
@@ -57,37 +66,44 @@
 }
 
 .gameName {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   margin: 0 0 4px;
 }
 
 .gameDesc {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: #666;
   margin: 0 0 4px;
 }
 
 .reward {
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   color: #92700c;
   font-weight: 600;
 }
 
 .playArrow {
-  font-size: 1.2rem;
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 1rem;
   color: #ccc;
-  flex-shrink: 0;
 }
 
 .backBtn {
   display: block;
   margin: 24px auto 0;
-  padding: 10px 32px;
+  min-height: 60px;
+  min-width: 220px;
+  padding: 14px 36px;
+  font-size: 1.15rem;
+  touch-action: manipulation;
   background: none;
   border: 2px solid #aaa;
-  border-radius: 20px;
-  color: #666;
+  border-radius: 30px;
+  color: #555;
+  background: rgba(255, 255, 255, 0.7);
   font-weight: 600;
   cursor: pointer;
 }

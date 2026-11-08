@@ -1,17 +1,22 @@
 .button {
   position: relative;
   display: flex;
+  flex: 1 0 84px;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
-  padding: 8px 6px;
-  min-width: 64px;
+  padding: 10px 6px;
+  min-width: 84px;
+  min-height: 96px;
   border: 2px solid #ddd;
-  border-radius: 12px;
+  border-radius: 16px;
   background: white;
   cursor: pointer;
-  transition: all 0.15s ease;
-  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  overflow: visible;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .button:hover:not(.disabled) {
@@ -21,26 +26,43 @@
 }
 
 .button:active:not(.disabled) {
-  transform: translateY(0);
+  transform: scale(0.94);
+  border-color: #8b5cf6;
 }
 
 .disabled {
-  opacity: 0.5;
+  border-color: #e4e0ee;
+  background: #f6f4fa;
   cursor: not-allowed;
 }
 
+.disabled .label,
+.disabled .cost {
+  opacity: 0.6;
+}
+
 .icon {
-  font-size: 1.4rem;
+  display: block;
+  font-size: 2.2rem;
+  line-height: 1.1;
+}
+
+.pop {
+  animation: pop 0.4s ease-out;
+}
+
+.shake {
+  animation: shake 0.4s ease-in-out;
 }
 
 .label {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #555;
 }
 
 .cost {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: #888;
 }
 
@@ -48,11 +70,40 @@
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  font-weight: 700;
-  font-size: 0.9rem;
-  border-radius: 10px;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 4px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.cooldownIcon {
+  font-size: 1rem;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.blockedBubble {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  font-size: 1.6rem;
+  pointer-events: none;
+  animation: bubbleUp 0.9s ease-out forwards;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px) rotate(-6deg); }
+  75% { transform: translateX(5px) rotate(6deg); }
+}
+
+@keyframes bubbleUp {
+  from { opacity: 1; transform: translate(-50%, 0); }
+  to { opacity: 0; transform: translate(-50%, -26px); }
 }
