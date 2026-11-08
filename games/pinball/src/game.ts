@@ -86,6 +86,15 @@ const BALLS_PER_GAME = 3;
 const SAVER_TIME = 12;
 const KICKBACKS_PER_BALL = 2;
 const EXTRA_BALL_AT = 250000;
+/** A quick tap still fires a proper plunge — kids rarely hold the plunger. */
+const MIN_PULL = 0.35;
+/** Taps this soon after game over are flipper-mashing, not "play again". */
+const RESTART_GUARD_MS = 900;
+/** Mute button: centre, drawn radius, and a fatter hit radius (≥56 css px on iPad). */
+const MUTE_X = 74;
+const MUTE_Y_FROM_BOTTOM = 74;
+const MUTE_R = 36;
+const MUTE_HIT_R = 62;
 
 const FONT = 'Arial Black, Arial Rounded MT Bold, Segoe UI, Helvetica, sans-serif';
 
@@ -221,6 +230,9 @@ export class Game {
   private bankResetR = 0;
   private plungerPull = 0;
   private plungerHeld = false;
+  /** Set when a press begins while a ball waits, so the tap that starts a game doesn't also fire it. */
+  private plungerArmed = false;
+  private gameOverAt = 0;
   private launchWait = 0;
   private multiball = false;
   private rolloverSets = 0;
@@ -853,20 +865,16 @@ export class Game {
 
     // mute button, bottom-left of the cabinet
     this.muteBtn = new Container();
-    this.muteBtn.position.set(52, H - 46);
+    this.muteBtn.position.set(MUTE_X, H - MUTE_Y_FROM_BOTTOM);
     const bg = new Graphics();
-    bg.circle(0, 0, 26).fill({ color: 0x0d0930, alpha: 0.9 });
-    bg.circle(0, 0, 26).stroke({ width: 2.5, color: C.violet, alpha: 0.8 });
+    bg.circle(0, 0, MUTE_R).fill({ color: 0x0d0930, alpha: 0.9 });
+    bg.circle(0, 0, MUTE_R).stroke({ width: 3, color: C.violet, alpha: 0.85 });
     this.muteIcon = new Graphics();
+    this.muteIcon.scale.set(1.35);
     this.muteBtn.addChild(bg, this.muteIcon);
-    this.muteBtn.eventMode = 'static';
-    this.muteBtn.cursor = 'pointer';
-    this.muteBtn.on('pointertap', (e) => {
-      e.stopPropagation();
-      audio.unlock();
-      audio.toggleMuted();
-      this.drawMuteIcon();
-    });
+    // Input is routed from main.ts (window-level pointer handling), which
+    // asks hitsMute() first so a tap here never also flips or launches.
+    this.muteBtn.eventMode = 'none';
     this.hud.addChild(this.muteBtn);
     this.drawMuteIcon();
 
@@ -882,6 +890,19 @@ export class Game {
     this.saverText.rotation = 0.04;
     this.saverText.alpha = 0;
     this.hud.addChild(this.saverText);
+  }
+
+  /** True if a point in table coordinates lands on the mute button. */
+  hitsMute(x: number, y: number): boolean {
+    return Math.hypot(x - MUTE_X, y - (H - MUTE_Y_FROM_BOTTOM)) <= MUTE_HIT_R;
+  }
+
+  toggleMute(): void {
+    audio.unlock();
+    audio.toggleMuted();
+    this.drawMuteIcon();
+    this.muteBtn.scale.set(0.85);
+    tween(0.25, (p) => this.muteBtn.scale.set(0.85 + 0.15 * p), { ease: Ease.outBack });
   }
 
   private drawMuteIcon(): void {
@@ -950,35 +971,34 @@ export class Game {
       ball.rotation = t * 3;
     }, { ease: Ease.linear });
 
-    const rows: [string, string][] = [
-      ['FLIP', '← →  or tap left / right side'],
-      ['LAUNCH', 'hold SPACE, let go to fire'],
-      ['GOAL', 'bumpers, targets & the Star Gate'],
-    ];
-    rows.forEach(([k, v], i) => {
-      const y = 800 + i * 62;
-      const a = new Text({ text: k, style: style(24, C.magenta, 4, { letterSpacing: 2 }) });
-      a.anchor.set(1, 0.5);
-      a.position.set(PF_CX - 20, y);
-      const b = new Text({ text: v, style: style(22, 0xd7dcff, 4) });
-      b.anchor.set(0, 0.5);
-      b.position.set(PF_CX + 20, y);
-      this.overlay.addChild(a, b);
-      a.alpha = 0;
-      b.alpha = 0;
-      tween(0.4, (t) => { a.alpha = t; b.alpha = t; }, { delay: 0.25 + i * 0.12 });
-    });
+    // Pictures, not words: a pre-reader learns "tap this side, that bat
+    // flips" and "press and let go to shoot" from the loops alone.
+    this.overlay.addChild(this.flipHowTo(-1, PF_CX - 190, 0));
+    this.overlay.addChild(this.flipHowTo(1, PF_CX + 190, 0.65));
+    const divider = new Graphics();
+    for (let y = 724; y < 944; y += 22) divider.moveTo(PF_CX, y).lineTo(PF_CX, y + 11);
+    divider.stroke({ width: 3, color: 0x8f9bd8, alpha: 0.45, cap: 'round' });
+    this.overlay.addChild(divider);
+    this.overlay.addChild(this.plungeHowTo(PF_CX, 1068));
 
-    const hint = new Text({ text: 'TAP  or  PRESS SPACE  TO PLAY', style: style(30, C.lime, 6, { letterSpacing: 2 }) });
-    hint.anchor.set(0.5);
-    hint.position.set(PF_CX, 1060);
-    this.overlay.addChild(hint);
-    this.blink(hint);
+    const play = this.playButton('play', PF_CX, 1232);
+    this.overlay.addChild(play);
+
+    // Keyboard players still get their keys; touch screens don't need them.
+    if (window.matchMedia?.('(any-pointer: fine)').matches) {
+      const keys = new Text({
+        text: '← →  flip      hold SPACE  launch',
+        style: style(20, 0x8f9bd8, 4, { letterSpacing: 1 }),
+      });
+      keys.anchor.set(0.5);
+      keys.position.set(PF_CX, 1322);
+      this.overlay.addChild(keys);
+    }
 
     if (this.best > 0) {
       const b = new Text({ text: `BEST  ${fmt(this.best)}`, style: style(26, C.gold, 5) });
       b.anchor.set(0.5);
-      b.position.set(PF_CX, 1150);
+      b.position.set(PF_CX, 1366);
       this.overlay.addChild(b);
     }
 
@@ -987,6 +1007,171 @@ export class Game {
       t.scale.set(0.6);
       tween(0.55, (p) => t.scale.set(0.6 + 0.4 * p), { ease: Ease.outBack });
     }
+  }
+
+  /** A simple pointing hand, fingertip at the origin. */
+  private makeHand(): Graphics {
+    const g = new Graphics();
+    const skin = 0xffd2a8;
+    const edge = 0x1a1240;
+    const parts = (inset: number) => {
+      g.roundRect(-10 + inset, 0 + inset, 20 - inset * 2, 58, 10 - inset);   // index finger
+      g.roundRect(-14 + inset, 36 + inset, 52 - inset * 2, 50 - inset * 2, 16 - inset); // palm + curled fingers
+      g.roundRect(-30 + inset, 50 + inset, 24 - inset * 2, 16 - inset * 2, 8 - inset); // thumb
+    };
+    parts(-3);
+    g.fill({ color: edge });
+    parts(0);
+    g.fill({ color: skin });
+    // knuckle creases of the curled fingers
+    g.moveTo(12, 44).lineTo(12, 58).moveTo(25, 44).lineTo(25, 58)
+      .stroke({ width: 2.5, color: 0xc48f63, cap: 'round' });
+    g.roundRect(-5, 5, 10, 10, 4).fill({ color: 0xffe6ef, alpha: 0.9 }); // fingernail
+    return g;
+  }
+
+  /** Looping "tap this half → this flipper kicks" picture. */
+  private flipHowTo(side: -1 | 1, cx: number, phase: number): Container {
+    const c = new Container();
+    const color = side < 0 ? C.cyan : C.magenta;
+
+    const pad = new Graphics();
+    pad.roundRect(-125, -80, 250, 232, 30).fill({ color: 0x120c3a, alpha: 0.8 });
+    pad.roundRect(-125, -80, 250, 232, 30).stroke({ width: 3, color, alpha: 0.6 });
+    c.addChild(pad);
+
+    const ring = new Graphics().circle(0, 0, 34).stroke({ width: 5, color });
+    ring.position.set(0, -44);
+    c.addChild(ring);
+
+    // left hand on the left, right hand on the right
+    const hand = this.makeHand();
+    hand.scale.set(-side * 1.15, 1.15);
+    hand.position.set(0, -44);
+    c.addChild(hand);
+
+    const bat = this.makeFlipperGraphic(C.gold);
+    bat.scale.set(0.7);
+    const pivotX = side * 0.4 * FLIP_LEN;
+    bat.position.set(pivotX, 100);
+    const rest = side < 0 ? FLIP_REST : Math.PI - FLIP_REST;
+    const up = side < 0 ? FLIP_UP : Math.PI - FLIP_UP;
+    bat.rotation = rest;
+    c.addChild(bat);
+
+    c.position.set(cx, 800);
+    const period = 1.3;
+    let first = true;
+    const loop = () => {
+      tween(period, (t) => {
+        // 0-.2 finger presses in, .2-.45 bat kicks up, then everything relaxes
+        const press = t < 0.2 ? t / 0.2 : t < 0.5 ? 1 : Math.max(0, 1 - (t - 0.5) / 0.2);
+        hand.y = -44 + press * 12;
+        const kick = t < 0.2 ? 0 : t < 0.3 ? (t - 0.2) / 0.1 : t < 0.5 ? 1 : Math.max(0, 1 - (t - 0.5) / 0.25);
+        bat.rotation = rest + (up - rest) * kick;
+        const r = t < 0.2 ? 0 : (t - 0.2) / 0.8;
+        ring.scale.set(0.5 + r * 1.3);
+        ring.alpha = t < 0.2 ? 0 : 1 - r;
+      }, { ease: Ease.linear, delay: first ? phase : 0, onComplete: loop });
+      first = false;
+    };
+    ring.alpha = 0;
+    loop();
+    return c;
+  }
+
+  /** Looping "press… let go → ball flies" picture for the plunger. */
+  private plungeHowTo(cx: number, cy: number): Container {
+    const c = new Container();
+    c.position.set(cx, cy);
+
+    const pad = new Graphics();
+    pad.roundRect(-210, -66, 420, 150, 30).fill({ color: 0x120c3a, alpha: 0.75 });
+    pad.roundRect(-210, -66, 420, 150, 30).stroke({ width: 3, color: C.lime, alpha: 0.55 });
+    c.addChild(pad);
+
+    const hand = this.makeHand();
+    hand.scale.set(1.1);
+    hand.position.set(-110, -52);
+    c.addChild(hand);
+
+    const meterBg = new Graphics();
+    meterBg.roundRect(-18, -50, 36, 120, 14).fill({ color: 0x07051c }).stroke({ width: 3, color: 0x8f9bd8, alpha: 0.7 });
+    c.addChild(meterBg);
+    const meter = new Graphics();
+    c.addChild(meter);
+
+    const arrow = new Graphics();
+    arrow.poly([0, -34, 22, -6, 8, -6, 8, 30, -8, 30, -8, -6, -22, -6]).fill({ color: C.gold });
+    arrow.position.set(110, 22);
+    c.addChild(arrow);
+
+    const ball = new Sprite(this.tex.ball);
+    ball.anchor.set(0.5);
+    ball.scale.set(0.42);
+    ball.position.set(110, 40);
+    c.addChild(ball);
+
+    const loop = () => {
+      tween(2.2, (t) => {
+        // 0-.1 press, .1-.6 hold and charge, .6 let go → ball flies
+        const held = t < 0.6;
+        const press = t < 0.1 ? t / 0.1 : held ? 1 : Math.max(0, 1 - (t - 0.6) / 0.1);
+        hand.y = -52 + press * 12;
+        const fill = t < 0.1 ? 0 : held ? (t - 0.1) / 0.5 : Math.max(0, 1 - (t - 0.6) / 0.06);
+        meter.clear();
+        if (fill > 0) {
+          const h = 108 * fill;
+          const col = fill > 0.85 ? C.magenta : fill > 0.5 ? C.gold : C.lime;
+          meter.roundRect(-12, 64 - h, 24, h, 10).fill({ color: col });
+        }
+        const fly = t < 0.6 ? 0 : Math.min(1, (t - 0.6) / 0.22);
+        // the ball sinks a touch as the spring loads, then shoots up
+        ball.y = 40 + (held ? fill * 8 : 0) - fly * 120;
+        ball.alpha = fly < 1 ? 1 : 0;
+        arrow.alpha = t < 0.6 ? 0.25 : 1;
+        arrow.y = 22 - fly * 30;
+      }, { ease: Ease.linear, onComplete: loop });
+    };
+    loop();
+    return c;
+  }
+
+  /** Big pulsing pill button with a ▶ (play) or ↻ (again) icon. */
+  private playButton(kind: 'play' | 'again', x: number, y: number): Container {
+    const c = new Container();
+    c.position.set(x, y);
+    const color = kind === 'play' ? C.lime : C.cyan;
+    const glow = new Sprite(this.tex.flare);
+    glow.anchor.set(0.5);
+    glow.scale.set(3.2, 1.4);
+    glow.tint = color;
+    glow.alpha = 0.35;
+    glow.blendMode = 'add';
+    const g = new Graphics();
+    g.roundRect(-170, -56, 340, 112, 56).fill({ color: 0x07051c }).stroke({ width: 6, color });
+    g.roundRect(-160, -46, 320, 92, 46).fill({ color, alpha: 0.18 });
+    const icon = new Graphics();
+    if (kind === 'play') {
+      icon.poly([-18, -26, 26, 0, -18, 26]).fill({ color });
+    } else {
+      icon.arc(0, 0, 22, -Math.PI * 0.35, Math.PI * 1.35).stroke({ width: 8, color, cap: 'round' });
+      icon.poly([10, -36, 30, -18, 4, -10]).fill({ color });
+    }
+    icon.position.set(kind === 'play' ? -92 : -104, 0);
+    const label = new Text({ text: kind === 'play' ? 'PLAY' : 'AGAIN', style: style(46, 0xffffff, 6, { letterSpacing: 3 }) });
+    label.anchor.set(0.5);
+    label.position.set(kind === 'play' ? 28 : 36, 2);
+    c.addChild(glow, g, icon, label);
+    const loop = () => {
+      tween(1.1, (p) => {
+        const s = 1 + Math.sin(p * Math.PI * 2) * 0.06;
+        c.scale.set(s);
+        glow.alpha = 0.25 + 0.2 * (0.5 + 0.5 * Math.sin(p * Math.PI * 2));
+      }, { ease: Ease.linear, onComplete: loop });
+    };
+    loop();
+    return c;
   }
 
   private titlePulse(...texts: Text[]): void {
@@ -1042,11 +1227,17 @@ export class Game {
       this.overlay.addChild(b);
     }
 
-    const again = new Text({ text: 'TAP  or  SPACE  TO PLAY AGAIN', style: style(30, C.cyan, 6, { letterSpacing: 2 }) });
-    again.anchor.set(0.5);
-    again.position.set(PF_CX, 920);
+    // Shown after the restart guard, so it never invites a tap that is ignored.
+    const again = this.playButton('again', PF_CX, 930);
+    again.visible = false;
     this.overlay.addChild(again);
-    this.blink(again);
+    tween(RESTART_GUARD_MS / 1000, () => {}, {
+      onComplete: () => {
+        again.visible = true;
+        again.alpha = 0;
+        tween(0.3, (p) => { again.alpha = p; });
+      },
+    });
   }
 
   private showPause(): void {
@@ -1108,8 +1299,17 @@ export class Game {
   }
 
   onPlunger(down: boolean): void {
-    this.plungerHeld = down;
-    if (!down && this.state === 'launch' && this.plungerPull > 0.02) this.launchBall();
+    if (down && this.state === 'launch') this.plungerArmed = true;
+    this.plungerHeld = down && this.plungerArmed;
+    if (!down) {
+      if (this.state === 'launch' && this.plungerArmed) {
+        // However brief the tap, the ball goes — a 5-year-old's quick tap
+        // used to do nothing at all when it ended before the pull built up.
+        this.plungerPull = Math.max(this.plungerPull, MIN_PULL);
+        this.launchBall();
+      }
+      this.plungerArmed = false;
+    }
   }
 
   /** Space / tap: advances menus, otherwise acts as the plunger. */
@@ -1120,7 +1320,7 @@ export class Game {
       return;
     }
     if (this.state === 'gameover') {
-      if (down) this.startGame();
+      if (down && performance.now() - this.gameOverAt > RESTART_GUARD_MS) this.startGame();
       return;
     }
     if (this.state === 'paused') {
@@ -1159,6 +1359,7 @@ export class Game {
     (window as any).Arcade?.dismiss?.();
     killAllTweens();
     this.clearOverlay();
+    this.muteBtn.scale.set(1);
     this.flipL.pressed = false;
     this.flipR.pressed = false;
     this.score = 0;
@@ -1218,6 +1419,8 @@ export class Game {
     this.kickCharges = KICKBACKS_PER_BALL;
     this.stats.serves++;
     this.plungerPull = 0;
+    this.plungerArmed = false;
+    this.plungerHeld = false;
     this.launchWait = 0;
     this.ballText.text = `BALL ${this.ballNum}`;
     this.bumperChain = 0;
@@ -1240,6 +1443,8 @@ export class Game {
       this.saverPending = false;
     }
     this.plungerPull = 0;
+    this.plungerArmed = false;
+    this.plungerHeld = false;
     this.drawPlunger();
     for (let i = 0; i < 18; i++) {
       this.fxOver.spawn(this.tex.spark, PLUNGER_X, PLUNGER_REST_Y + 30, {
@@ -1491,6 +1696,8 @@ export class Game {
         b.vy = 0;
         this.state = 'launch';
         this.plungerPull = 0;
+        this.plungerArmed = false;
+        this.plungerHeld = false;
         this.launchWait = 0;
         this.drawPlunger();
       }
@@ -1881,6 +2088,7 @@ export class Game {
   private afterBallEnd(): void {
     if (this.ballsLeft <= 0) {
       this.state = 'gameover';
+      this.gameOverAt = performance.now();
       this.flipL.pressed = false;
       this.flipR.pressed = false;
       audio.playing = false;

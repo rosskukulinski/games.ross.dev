@@ -129,8 +129,20 @@ These were all real bugs; the numbers matter.
 ## Controls
 
 Left/right arrows, A/D, Z//, or either Shift for the flippers; tap the left or
-right half of the screen on touch. Hold Space (or touch anywhere while a ball
-waits) to charge the plunger, release to fire. P/Esc pauses, M mutes.
+right half of the **viewport** on touch — pointer input is on `window`, not the
+canvas, so the letterbox bands beside the table on a landscape iPad flip too.
+Hold Space (or touch anywhere while a ball waits) to charge the plunger, release
+to fire; any release fires at least `MIN_PULL`, so a quick tap always launches.
+P/Esc pauses, M or the bottom-left button mutes (the button's hit radius is
+`MUTE_HIT_R`, checked in `main.ts` before flipper routing).
+
+The start screen teaches controls with looping pictures (hand → flipper, hand →
+plunger meter → ball) instead of text; key hints show only on `pointer: fine`.
+Taps within `RESTART_GUARD_MS` of game over are ignored so flipper-mashing
+doesn't skip the score. At game over a window **capture-phase** Space listener
+restarts even while the shared arcade card has its name box focused (the card
+stops key propagation in its shadow root); it only takes a Space that would be a
+leading space in the name, so names with spaces still type normally.
 
 ## Verifying changes
 
