@@ -17,9 +17,9 @@ import { CubicEase, EasingFunction } from "@babylonjs/core/Animations/easing";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 
 import {
-  LANE_X, SHIP_BASE_Y, SPEED_START, SPEED_MAX, SPEED_RAMP,
+  LANE_X, SHIP_BASE_Y, SPEED_START, SPEED_KNEE, SPEED_MAX, SPEED_RAMP, SPEED_RAMP_LATE,
   JUMP_VELOCITY, GRAVITY, SPAWN_Z, KILL_Z, SEGMENT_COUNT, SEGMENT_LENGTH,
-  PICKUP_SCORE, PALETTE, hex,
+  PICKUP_SCORE, MULT_MAX, PALETTE, hex,
 } from "./config";
 import { buildWorld, type World } from "./world";
 import { buildShip, type Ship } from "./ship";
@@ -41,6 +41,7 @@ interface Obstacle {
 interface Pickup {
   mesh: Mesh;
   active: boolean;
+  line: number; // which star line this belongs to (see lineLeft)
   baseY: number;
   phase: number;
 }
@@ -76,7 +77,11 @@ export class Game {
   private distance = 0;
   private score = 0;
   private best: number;
-  private combo = 0;
+  private mult = 1;
+  // stars still uncollected per live line; a line leaves the map once it is
+  // completed or once a star of it passes the ship
+  private lineLeft = new Map<number, { left: number; taken: number }>();
+  private nextLine = 0;
   private untilNextPattern = 30;
   private untilNextRing = 90;
   private shakeTime = 0;
@@ -236,11 +241,12 @@ export class Game {
     }
 
     // star pickups
-    for (let i = 0; i < 30; i++) {
+    // enough for every line in flight at top speed, so none spawn short
+    for (let i = 0; i < 48; i++) {
       const star = CreatePolyhedron(`star${i}`, { type: 1, size: 0.4 }, scene);
       star.material = starMat;
       star.setEnabled(false);
-      this.pickups.push({ mesh: star, active: false, baseY: 1.2, phase: Math.random() * Math.PI * 2 });
+      this.pickups.push({ mesh: star, active: false, line: -1, baseY: 1.2, phase: Math.random() * Math.PI * 2 });
     }
 
     // giant decorative ring gates around the whole track
@@ -352,7 +358,8 @@ export class Game {
     this.speed = SPEED_START;
     this.distance = 0;
     this.score = 0;
-    this.combo = 0;
+    this.setMult(1);
+    this.lineLeft.clear();
     this.untilNextPattern = 30;
     this.untilNextRing = 60;
     this.deadTimer = 0;
@@ -375,7 +382,6 @@ export class Game {
     this.state = "dead";
     this.deadTimer = 0;
     this.shakeTime = 0.75;
-    this.combo = 0;
 
     const pos = this.ship.root.position.clone();
     pos.y = Math.max(pos.y, 1.2);
@@ -438,16 +444,27 @@ export class Game {
 
   private spawnPickupLine(lane: number, z: number, arc = false): void {
     const count = 4;
+    const line = this.nextLine++;
+    let spawned = 0;
     for (let i = 0; i < count; i++) {
       const p = this.pickups.find((x) => !x.active);
-      if (!p) return;
+      if (!p) break;
       p.active = true;
+      p.line = line;
+      spawned++;
       const t = i / (count - 1);
       p.baseY = arc ? 1.2 + Math.sin(t * Math.PI) * 1.9 : 1.2;
       p.phase = Math.random() * Math.PI * 2;
       p.mesh.position.set(LANE_X[lane], p.baseY, z + i * 4.4);
       p.mesh.setEnabled(true);
     }
+    if (spawned > 0) this.lineLeft.set(line, { left: spawned, taken: 0 });
+  }
+
+  private setMult(m: number): void {
+    const up = m > this.mult;
+    this.mult = m;
+    this.hud.setMult(m, up);
   }
 
   private spawnRing(z: number): void {
@@ -505,9 +522,19 @@ export class Game {
   // ------------------------------------------------------------- per-frame update
 
   private update(): void {
-    const rawDt = this.engine.getDeltaTime() / 1000;
-    const dt = Math.min(rawDt, 0.05);
     if (this.paused) return;
+    // On a slow device (an iPhone rendering at 15-20 fps) a single clamped
+    // step would run the game in slow motion — slower world, slower speed
+    // ramp, easier score. Sub-step instead so game time keeps pace with the
+    // wall clock, while each step stays short enough that collisions can't
+    // tunnel: at SPEED_MAX a 1/60 s step moves ~2.2 units, inside the
+    // 3.6-unit collision window. The outer clamp only absorbs real hitches.
+    const frameDt = Math.min(this.engine.getDeltaTime() / 1000, 0.25);
+    const steps = Math.max(1, Math.ceil(frameDt / (1 / 60) - 0.01));
+    for (let i = 0; i < steps; i++) this.step(frameDt / steps);
+  }
+
+  private step(dt: number): void {
     this.elapsed += dt;
 
     // idle scene drift on the start screen
@@ -518,7 +545,8 @@ export class Game {
       this.deadTimer += dt;
       this.speed = Math.max(0, this.speed - dt * 60); // world screeches to a halt
     } else if (!idle) {
-      this.speed = Math.min(SPEED_MAX, this.speed + SPEED_RAMP * dt);
+      const ramp = this.speed < SPEED_KNEE ? SPEED_RAMP : SPEED_RAMP_LATE;
+      this.speed = Math.min(SPEED_MAX, this.speed + ramp * dt);
     } else {
       this.speed = 14; // gentle cruise behind the start screen
     }
@@ -592,11 +620,32 @@ export class Game {
         if (dx < 1.5 && dy < 1.35) {
           p.active = false;
           p.mesh.setEnabled(false);
-          this.combo++;
-          this.score += PICKUP_SCORE;
+          this.score += PICKUP_SCORE * this.mult;
+          const ln = this.lineLeft.get(p.line);
+          let taken = 1;
+          if (ln) {
+            ln.left--;
+            taken = ++ln.taken;
+            if (ln.left === 0) {
+              this.lineLeft.delete(p.line);
+              if (this.mult < MULT_MAX) this.setMult(this.mult + 1);
+            }
+          }
           (this.pickupBurst.emitter as Vector3).copyFrom(p.mesh.position);
           this.pickupBurst.manualEmitCount = 40;
-          this.audio.pickup(this.combo);
+          // chime climbs through the line, and higher still at a big multiplier
+          this.audio.pickup((this.mult - 1) * 2 + taken);
+        }
+      } else if (this.state === "playing" && z <= -1.6) {
+        // this star got past the ship: its line can no longer be completed,
+        // and if none of it was taken the multiplier is lost
+        const ln = this.lineLeft.get(p.line);
+        if (ln) {
+          this.lineLeft.delete(p.line);
+          if (ln.taken === 0 && this.mult > 1) {
+            this.setMult(1);
+            this.audio.multLost();
+          }
         }
       }
     }
@@ -678,9 +727,9 @@ export class Game {
 
     // --- score + HUD ---
     if (this.state === "playing") {
-      this.score += move * 0.6;
+      this.score += move * 0.6 * this.mult;
       this.hud.setScore(this.score);
-      this.hud.setSpeed(this.speed / SPEED_START, Scalar.Clamp(speedFrac, 0, 1));
+      this.hud.setSpeed(Scalar.Clamp(speedFrac, 0, 1));
       if (this.score > this.best) this.hud.setBest(this.score);
     }
   }

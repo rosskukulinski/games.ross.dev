@@ -6,9 +6,13 @@ export const LANE_X = [-3, 0, 3];
 export const SHIP_BASE_Y = 0.95; // hover height of the ship
 export const SHIP_Z = 0; // ship stays fixed in z; the world scrolls past
 
-export const SPEED_START = 19;
-export const SPEED_MAX = 58;
-export const SPEED_RAMP = 0.55; // units/sec gained per second
+// Speed climbs hard to SPEED_KNEE (~30 s), then keeps climbing more gently
+// to SPEED_MAX (~2 min in) so a long run never settles into a flat plateau.
+export const SPEED_START = 24;
+export const SPEED_KNEE = 75;
+export const SPEED_MAX = 130;
+export const SPEED_RAMP = 1.7; // units/sec gained per second, up to the knee
+export const SPEED_RAMP_LATE = 0.6; // units/sec gained per second, past the knee
 
 export const JUMP_VELOCITY = 13.5;
 export const GRAVITY = -34;
@@ -23,6 +27,9 @@ export const SEGMENT_COUNT = 9;
 export const TRACK_WIDTH = 11;
 
 export const PICKUP_SCORE = 50;
+// Collect every star in a line to raise the score multiplier by one; let a
+// whole line slip past untouched and it drops back to x1.
+export const MULT_MAX = 8;
 
 export const PALETTE = {
   bgClear: "#050110",

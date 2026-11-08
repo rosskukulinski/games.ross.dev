@@ -86,12 +86,12 @@ export class GameAudio {
     o.stop(t + 0.24);
   }
 
-  /** Sparkly ascending chime; pitch rises with pickup combo. */
-  pickup(combo: number): void {
+  /** Sparkly ascending chime; pitch rises a semitone per step. */
+  pickup(step: number): void {
     const ctx = this.ctx;
     if (!ctx || !this.master) return;
     const t = ctx.currentTime;
-    const base = 660 * Math.pow(1.0595, Math.min(combo, 12)); // up a semitone per combo
+    const base = 660 * Math.pow(1.0595, Math.min(step, 18));
     const notes = [base, base * 1.25, base * 1.5];
     notes.forEach((f, i) => {
       const o = ctx.createOscillator();
@@ -105,6 +105,26 @@ export class GameAudio {
       o.connect(g).connect(this.master!);
       o.start(t0);
       o.stop(t0 + 0.3);
+    });
+  }
+
+  /** Short falling two-note blip: the score multiplier was lost. */
+  multLost(): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.master) return;
+    const t = ctx.currentTime;
+    [523, 349].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      const t0 = t + i * 0.09;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.14, t0 + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.16);
+      o.connect(g).connect(this.master!);
+      o.start(t0);
+      o.stop(t0 + 0.18);
     });
   }
 

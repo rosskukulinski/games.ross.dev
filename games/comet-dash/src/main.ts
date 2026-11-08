@@ -11,6 +11,9 @@ const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 
 const engine = new Engine(canvas, true, {
   adaptToDeviceRatio: true,
+  // iPhones report a 3x pixel ratio; rendering the glow + post pipeline at
+  // that resolution is what drags them down to a crawl. 2x looks the same.
+  limitDeviceRatio: 2,
   antialias: true,
   powerPreference: "high-performance",
 });
