@@ -48,7 +48,12 @@ export function generateBeatmap(song, difficulty = 'medium') {
 
   // Difficulty filtering thresholds
   let drumThreshold, melodyThreshold, maxNotesPerSec;
-  if (difficulty === 'easy') {
+  if (difficulty === 'kid') {
+    // Starter mode for little kids: only the strongest beats, about one a second
+    drumThreshold = percentile(drumStrengths, 60);
+    melodyThreshold = Infinity;
+    maxNotesPerSec = 0.9;
+  } else if (difficulty === 'easy') {
     drumThreshold = percentile(drumStrengths, 70);
     melodyThreshold = Infinity; // no melody notes on easy
     maxNotesPerSec = 2;
@@ -128,6 +133,9 @@ export function generateBeatmap(song, difficulty = 'medium') {
     if (lane === lastLane) sameLaneCount++;
     else sameLaneCount = 1;
     lastLane = lane;
+
+    // Starter mode only has two (wide) lanes
+    if (difficulty === 'kid') lane %= 2;
 
     return { time: ev.t, lane, hit: false, judged: false };
   });

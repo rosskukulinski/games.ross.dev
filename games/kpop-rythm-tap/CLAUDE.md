@@ -4,19 +4,30 @@ A rhythm/music tapping game featuring 10 original K-pop tracks from the KPOP Dem
 
 ## Game Mechanics
 
-- Notes (diamonds) scroll down 4 colored lanes toward a hit zone
-- Players tap in time with the beat using arrow keys or touch
-- Scoring based on timing accuracy: Perfect (50ms), Great (100ms), Good (150ms), Miss
+- Notes (diamonds) scroll down colored lanes toward a hit zone
+- Players tap in time with the beat using arrow keys, touch or mouse click
+- Difficulties live in `MODES` in `App.jsx`. **Starter** (`kid`) is the default,
+  built for a 5-year-old: 2 wide lanes, ~1 note/sec, slower scroll, windows
+  Perfect 120 / Great 200 / Good 300ms, edge-of-lane tap tolerance, and a
+  60-second cut of the song that fades out. Easy / Medium / Hard use 4 lanes
+  and Perfect (50ms), Great (100ms), Good (150ms), Miss (200ms)
+- Every song gets a 3.5s 3-2-1-GO lead-in before its first note: long intros
+  are skipped, and songs that start on a note get a silent pre-roll (negative
+  song time in `audio.js`)
+- Every tap gives feedback (ripple on empty taps, rings/particles on hits, red
+  flash + shake on misses); combo cheers at 5/10/20/30/50
 - Combo system with multiplier (+1x every 10 hits, max 5x)
-- No lives — songs always play to completion
-- Letter grades: S (95%+), A (90%+), B (80%+), C (70%+), D (<70%)
+- No lives — songs always play to the end (Starter: its 60-second cut)
+- Results show 1-3 stars (3 at 80%+, 2 at 50%+) plus a letter grade —
+  S (95%+), A (90%+), B (80%+), C (70%+), D (<70%) — hidden in Starter
 - High scores per song saved to localStorage
 
 ## Controls
 
 - **Desktop**: Arrow keys (←↓↑→) or D F J K
-- **Mobile**: Tap the 4 lane zones at bottom of canvas
-- **Pause**: Escape key or pause button
+- **Touch / mouse**: Tap or click anywhere in a lane (pointer events)
+- **Starter (2 lanes)**: ← ↓ D F hit the left lane, ↑ → J K the right
+- **Pause**: Escape key or pause button; also auto-pauses when the tab/app is hidden
 
 ## Lanes
 
@@ -26,6 +37,13 @@ A rhythm/music tapping game featuring 10 original K-pop tracks from the KPOP Dem
 | Down | ↓ / F | Cyan (#00D4FF) |
 | Up | ↑ / J | Green (#39FF14) |
 | Right | → / K | Purple (#BF40FF) |
+
+## Debug hook
+
+`window.__game` is a read-only getter object for automated play-tests: `phase`,
+`mode`, `lanes`, `score`, `combo`, `maxCombo`, `hits`, `misses`, `emptyTaps`,
+`judgments`, `totalNotes`, `songTime`, `firstNoteTime`, `startAt`, `paused`, `endTime`, `notes`
+(`{time, lane}`), `windows`.
 
 ## Architecture
 
