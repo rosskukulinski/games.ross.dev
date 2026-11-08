@@ -510,9 +510,10 @@ export class Game {
     // step would run the game in slow motion — slower world, slower speed
     // ramp, easier score. Sub-step instead so game time keeps pace with the
     // wall clock, while each step stays short enough that collisions can't
-    // tunnel. The outer clamp only absorbs real hitches (tab switches etc).
+    // tunnel: at SPEED_MAX a 1/60 s step moves ~2.2 units, inside the
+    // 3.6-unit collision window. The outer clamp only absorbs real hitches.
     const frameDt = Math.min(this.engine.getDeltaTime() / 1000, 0.25);
-    const steps = Math.max(1, Math.ceil(frameDt / 0.034));
+    const steps = Math.max(1, Math.ceil(frameDt / (1 / 60) - 0.01));
     for (let i = 0; i < steps; i++) this.step(frameDt / steps);
   }
 

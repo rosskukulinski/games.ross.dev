@@ -6,13 +6,13 @@ export const LANE_X = [-3, 0, 3];
 export const SHIP_BASE_Y = 0.95; // hover height of the ship
 export const SHIP_Z = 0; // ship stays fixed in z; the world scrolls past
 
-// Speed climbs quickly to SPEED_KNEE (~45 s), then keeps creeping up to
-// SPEED_MAX (~2.5 min in) so a long run never settles into a flat plateau.
-export const SPEED_START = 19;
-export const SPEED_KNEE = 58;
-export const SPEED_MAX = 92;
-export const SPEED_RAMP = 0.85; // units/sec gained per second, up to the knee
-export const SPEED_RAMP_LATE = 0.3; // units/sec gained per second, past the knee
+// Speed climbs hard to SPEED_KNEE (~30 s), then keeps climbing more gently
+// to SPEED_MAX (~2 min in) so a long run never settles into a flat plateau.
+export const SPEED_START = 24;
+export const SPEED_KNEE = 75;
+export const SPEED_MAX = 130;
+export const SPEED_RAMP = 1.7; // units/sec gained per second, up to the knee
+export const SPEED_RAMP_LATE = 0.6; // units/sec gained per second, past the knee
 
 export const JUMP_VELOCITY = 13.5;
 export const GRAVITY = -34;
