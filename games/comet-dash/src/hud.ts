@@ -3,7 +3,7 @@ export class Hud {
   private scoreEl = document.getElementById("score")!;
   private bestEl = document.getElementById("best")!;
   private speedBar = document.getElementById("speed-bar")!;
-  private speedLabel = document.getElementById("speed-label")!;
+  private multEl = document.getElementById("mult")!;
   private hudEl = document.getElementById("hud")!;
   private startEl = document.getElementById("start-screen")!;
   private overEl = document.getElementById("gameover-screen")!;
@@ -37,9 +37,20 @@ export class Hud {
     this.bestEl.textContent = `BEST ${Math.floor(best)}`;
   }
 
-  setSpeed(mult: number, frac: number): void {
+  setSpeed(frac: number): void {
     this.speedBar.style.width = `${Math.round(8 + frac * 92)}%`;
-    this.speedLabel.innerHTML = `&times;${mult.toFixed(1)}`;
+  }
+
+  /** Score multiplier badge; pops when it rises, flashes when it's lost. */
+  setMult(mult: number, up: boolean): void {
+    this.multEl.innerHTML = `&times;${mult}`;
+    this.multEl.classList.toggle("active", mult > 1);
+    const cls = up ? "pop" : mult === 1 ? "lost" : "";
+    this.multEl.classList.remove("pop", "lost");
+    if (cls) {
+      void this.multEl.offsetWidth; // restart the CSS animation
+      this.multEl.classList.add(cls);
+    }
   }
 
   setMuted(muted: boolean): void {

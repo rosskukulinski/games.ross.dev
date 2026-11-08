@@ -27,6 +27,9 @@ export const SEGMENT_COUNT = 9;
 export const TRACK_WIDTH = 11;
 
 export const PICKUP_SCORE = 50;
+// Collect every star in a line to raise the score multiplier by one; let a
+// whole line slip past untouched and it drops back to x1.
+export const MULT_MAX = 8;
 
 export const PALETTE = {
   bgClear: "#050110",
