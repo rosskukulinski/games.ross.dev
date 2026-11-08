@@ -1,9 +1,16 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import SetupScreen from './components/SetupScreen';
 import GameBoard from './components/GameBoard';
 import { createDeck, shuffleDeck, dealCards, drawFromDeck } from './game/deck';
 import { findPhaseCards, PHASES, canHitOnGroup, getGroupType } from './game/phases';
 import { decideDraw, decideDiscard, decideLayDown, findHits } from './game/botAI';
+import { describeMissing, sortHand } from './game/helper';
+
+// Bot turns are quick so a kid is not left waiting; 3 bots ≈ 2s.
+const BOT_DELAY_MS = 650;
+// A second tap on the same card this soon after the first is an accidental
+// double-tap, not a deliberate "put it back".
+const DOUBLE_TAP_MS = 350;
 
 const BOT_NAMES = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve'];
 
@@ -11,8 +18,14 @@ function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameState, setGameState] = useState(null);
   const [selectedCards, setSelectedCards] = useState([]);
+  const [nudge, setNudge] = useState(0);
+  const lastToggle = useRef({ id: null, t: 0 });
+  const settings = useRef({ numBots: 2, easy: true });
+  const stateRef = useRef(null);
+  stateRef.current = { gameState, selectedCards };
 
-  const initializeGame = useCallback((numBots) => {
+  const initializeGame = useCallback((numBots, easy = true) => {
+    settings.current = { numBots, easy };
     const deck = shuffleDeck(createDeck());
     const numPlayers = numBots + 1;
     const { hands, remainingDeck } = dealCards(deck, numPlayers);
@@ -40,6 +53,7 @@ function App() {
       turnPhase: 'draw', // 'draw' or 'play'
       message: null,
       roundNumber: 1,
+      easy,
       gameOver: false,
       winner: null,
     });
@@ -48,6 +62,9 @@ function App() {
   }, []);
 
   const handleCardSelect = useCallback((card) => {
+    const now = performance.now();
+    if (lastToggle.current.id === card.id && now - lastToggle.current.t < DOUBLE_TAP_MS) return;
+    lastToggle.current = { id: card.id, t: now };
     setSelectedCards((prev) => {
       const isSelected = prev.some(c => c.id === card.id);
       if (isSelected) {
@@ -98,17 +115,21 @@ function App() {
     });
   }, []);
 
-  const handleLayDown = useCallback(() => {
+  const handleLayDown = useCallback((groups) => {
     setGameState((prev) => {
       if (prev.turnPhase !== 'play' || prev.currentPlayer !== 0) return prev;
 
       const player = prev.players[0];
       if (player.hasLaidPhase) return prev;
 
-      // Try to validate the selected cards as the current phase
-      const phaseCards = findPhaseCards(selectedCards, player.currentPhase);
+      // Explicit groups (from Help me), else the selected cards; in Easy mode
+      // fall back to any phase the hand can make, so the button never fails.
+      let phaseCards = Array.isArray(groups)
+        ? groups
+        : findPhaseCards(selectedCards, player.currentPhase);
+      if (!phaseCards && prev.easy) phaseCards = findPhaseCards(player.hand, player.currentPhase);
       if (!phaseCards) {
-        return { ...prev, message: 'Selected cards do not complete your phase!' };
+        return { ...prev, message: describeMissing(selectedCards, player.currentPhase) };
       }
 
       // Remove the phase cards from hand
@@ -128,17 +149,19 @@ function App() {
       return {
         ...prev,
         players: newPlayers,
-        message: `Phase ${player.currentPhase} completed!`,
+        message: `Phase ${player.currentPhase} done! Now throw away cards.`,
+        celebrate: { text: `Phase ${player.currentPhase} done!`, id: Date.now() },
       };
     });
   }, [selectedCards]);
 
-  const handleDiscard = useCallback(() => {
+  const handleDiscard = useCallback((cardArg) => {
     setGameState((prev) => {
       if (prev.turnPhase !== 'play' || prev.currentPlayer !== 0) return prev;
-      if (selectedCards.length !== 1) return prev;
+      const explicit = cardArg && cardArg.id !== undefined && cardArg.type ? cardArg : null;
+      if (!explicit && selectedCards.length !== 1) return prev;
 
-      const discardCard = selectedCards[0];
+      const discardCard = explicit || selectedCards[0];
       const player = prev.players[0];
       const newHand = player.hand.filter(c => c.id !== discardCard.id);
 
@@ -152,8 +175,9 @@ function App() {
         return endRound(prev, newPlayers, 0);
       }
 
-      // Next player's turn
-      const nextPlayer = (prev.currentPlayer + 1) % prev.players.length;
+      // Next player's turn (a Skip jumps over the next player)
+      let nextPlayer = (prev.currentPlayer + 1) % prev.players.length;
+      if (discardCard.type === 'skip') nextPlayer = (nextPlayer + 1) % prev.players.length;
 
       return {
         ...prev,
@@ -208,7 +232,7 @@ function App() {
       return {
         ...prev,
         players: newPlayers,
-        message: `Hit on ${targetPlayer.name}'s phase!`,
+        message: targetPlayerIndex === 0 ? 'Added to your phase!' : `Added to ${targetPlayer.name}'s phase!`,
       };
     });
   }, []);
@@ -268,6 +292,7 @@ function App() {
       turnPhase: 'draw',
       roundNumber: state.roundNumber + 1,
       message: `Round ${state.roundNumber + 1} - ${players[winnerIndex].name} went out!`,
+      celebrate: winnerIndex === 0 ? { text: 'You went out!', id: Date.now() } : state.celebrate,
     };
   };
 
@@ -378,10 +403,66 @@ function App() {
           message: newBot.hasLaidPhase && newBot.laidPhase ? `${newBot.name} laid down Phase ${newBot.currentPhase}!` : null,
         };
       });
-    }, 1000); // 1 second delay for bot turns
+    }, BOT_DELAY_MS);
 
     return () => clearTimeout(timeout);
   }, [gameState?.currentPlayer, gameState?.gameOver]);
+
+  // Tapping hand cards before drawing: pulse the piles and say why.
+  const handleEarlyCardTap = useCallback(() => {
+    setNudge(Date.now());
+    setGameState((prev) => ({ ...prev, message: 'Take a card first! Tap the deck.' }));
+  }, []);
+
+  // "Help me": do the next sensible step of the turn for the player.
+  const handleHelp = useCallback(() => {
+    const { gameState: gs } = stateRef.current;
+    if (!gs || gs.currentPlayer !== 0 || gs.gameOver) return;
+    const me = gs.players[0];
+    setSelectedCards([]);
+    if (gs.turnPhase === 'draw') {
+      const top = gs.discardPile[gs.discardPile.length - 1];
+      if (decideDraw(me.hand, top, me.currentPhase) === 'discard' && top && top.type !== 'skip') handleDrawDiscard();
+      else handleDrawDeck();
+      return;
+    }
+    if (!me.hasLaidPhase) {
+      const groups = findPhaseCards(me.hand, me.currentPhase);
+      if (groups) { handleLayDown(groups); return; }
+    } else {
+      const hit = findHits(me.hand, gs.players)[0];
+      if (hit) { handleHit(hit.card, hit.targetPlayerIndex, hit.groupIndex); return; }
+    }
+    handleDiscard(decideDiscard(me.hand, me.currentPhase, me.hasLaidPhase));
+  }, [handleDrawDeck, handleDrawDiscard, handleLayDown, handleHit, handleDiscard]);
+
+  // Read-only state for play-test validators.
+  useEffect(() => {
+    Object.defineProperty(window, '__game', {
+      configurable: true,
+      get() {
+        const { gameState: gs, selectedCards: sel } = stateRef.current;
+        if (!gs) return { screen: 'setup' };
+        const me = gs.players[0];
+        const myTurn = gs.currentPlayer === 0;
+        return {
+          screen: gs.gameOver ? 'gameover' : 'game',
+          mode: gs.easy ? 'easy' : 'classic',
+          phase: me.currentPhase,
+          round: gs.roundNumber,
+          turnStage: gs.gameOver ? 'over' : myTurn ? gs.turnPhase : 'bot',
+          currentPlayer: gs.currentPlayer,
+          hand: sortHand(me.hand).map(({ id, type, value, color }) => ({ id, type, value, color })),
+          selected: sel.map((c) => c.id),
+          laid: me.hasLaidPhase,
+          canLayDown: myTurn && gs.turnPhase === 'play' && !me.hasLaidPhase && !!findPhaseCards(me.hand, me.currentPhase),
+          message: gs.message,
+          scores: gs.players.map((p) => ({ name: p.name, phase: p.currentPhase, score: p.score, cards: p.hand.length, laid: p.hasLaidPhase })),
+          winner: gs.winner,
+        };
+      },
+    });
+  }, []);
 
   // Reshuffle discard pile if deck runs out
   useEffect(() => {
@@ -403,7 +484,7 @@ function App() {
   }, [gameState?.deck.length]);
 
   if (!gameStarted) {
-    return <SetupScreen onStartGame={initializeGame} />;
+    return <SetupScreen onStartGame={initializeGame} initial={settings.current} />;
   }
 
   if (gameState.gameOver) {
@@ -413,7 +494,7 @@ function App() {
         <h2>{gameState.winner} wins!</h2>
         <div className="final-scores">
           <h3>Final Scores</h3>
-          {gameState.players
+          {[...gameState.players]
             .sort((a, b) => a.score - b.score)
             .map((player, i) => (
               <div key={i} className="score-row">
@@ -423,7 +504,15 @@ function App() {
               </div>
             ))}
         </div>
-        <button onClick={() => setGameStarted(false)}>Play Again</button>
+        <div className="game-over-buttons">
+          <button
+            className="play-again"
+            onClick={() => initializeGame(settings.current.numBots, settings.current.easy)}
+          >
+            ▶ Play Again
+          </button>
+          <button className="menu-btn" onClick={() => setGameStarted(false)}>Menu</button>
+        </div>
       </div>
     );
   }
@@ -438,6 +527,10 @@ function App() {
       onLayDown={handleLayDown}
       onDiscard={handleDiscard}
       onHit={handleHit}
+      onHelp={handleHelp}
+      onEarlyCardTap={handleEarlyCardTap}
+      onClearSelection={() => setSelectedCards([])}
+      nudge={nudge}
     />
   );
 }
