@@ -170,6 +170,13 @@ interface Job {
   duration: number;
 }
 
+interface GuideTarget {
+  x: number;
+  z: number;
+  /** Picture shown in the bouncing beacon above it. */
+  icon: string;
+}
+
 const NO_JOB: Job = { kind: "none", index: -1, x: 0, z: 0, atX: 0, atZ: 0, duration: 1 };
 
 /* ========================================================================= */
@@ -226,6 +233,12 @@ export class Game {
   private hitstop = 0;
   private guideArrow!: Mesh;
   private guideMat!: StandardMaterial;
+  /** Where a tap asked the manager to walk to, or null. */
+  private walkTarget: { x: number; z: number } | null = null;
+  /** Timer for the ring that pulses under the current objective. */
+  private beaconPulse = 0;
+  /** True until the player has steered for the first time. */
+  private neverMoved = true;
 
   // camera basis, derived once from the locked camera angle
   private camRight = { x: 1, z: 0 };
@@ -256,6 +269,7 @@ export class Game {
     this.input = new Input(canvas, {
       onAny: () => audio.unlock(),
       onPause: () => this.togglePause(),
+      onTap: (cx, cy) => this.tapToWalk(cx, cy),
     });
 
     this.hud.onMute(() => {
@@ -266,8 +280,14 @@ export class Game {
     this.hud.onPause(() => this.togglePause());
     this.hud.onButton("start-btn", () => this.start());
     this.hud.onButton("resume-btn", () => this.setPaused(false));
-    this.hud.onButton("reset-btn", () => this.hardReset());
-    this.hud.onButton("quit-btn", () => this.hardReset());
+    // Wiping the hotel takes two deliberate taps on two different big buttons,
+    // so a stray poke next to "Open the hotel" can't throw away a save.
+    this.hud.onConfirm("reset-btn", "reset-confirm", () => this.hardReset());
+    this.hud.onConfirm("quit-btn", "quit-confirm", () => this.hardReset());
+    // On the title card, a tap anywhere that isn't a button opens the hotel.
+    this.hud.onBackdropTap("start-screen", () => {
+      if (this.phase === "title") this.start();
+    });
 
     this.loadOrStartFresh();
   }
@@ -324,6 +344,13 @@ export class Game {
       this.hud.showStart({ bank: this.money, rooms: this.rooms.length, served: this.served });
     } else {
       this.startFreshHotel();
+      // A brand-new hotel opens with two rooms. With one, the first guest
+      // fills it, the line grows to 4-7 behind them and walkouts start before
+      // a young player has worked out what cleaning is. Room 2 is recorded as
+      // built so it persists like any purchase.
+      const gift = buildById("room2");
+      this.built.add(gift.id);
+      this.applyBuild(gift, false);
       this.hud.showStart(null);
     }
     this.hud.setBank(this.money, true);
@@ -456,9 +483,16 @@ export class Game {
         this.fx.coinBurst(this.px, 2, this.pz, 24);
       }, 700);
       this.hud.toast("👋", `Welcome back — you were gone ${when}`, 4200);
-    } else if (this.rooms.length === 1 && this.served === 0) {
+    } else if (this.served === 0) {
       this.hud.toast("🛎️", "Walk to the desk to check your first guest in!", 5000);
     }
+    // The first guest is already strolling up to the counter, so the first
+    // reward lands within seconds instead of after a 10-25 s empty road.
+    if (this.served === 0 && this.guests.length === 0) {
+      this.spawnGuest(true);
+      this.spawnTimer = Math.max(this.spawnTimer, 7);
+    }
+    this.hud.showMoveHint(this.neverMoved);
   }
 
   togglePause(): void {
@@ -647,6 +681,49 @@ export class Game {
     }
   }
 
+  /* --------------------------------------------------------- tap to walk */
+
+  /** Turn a screen tap into a walk order to that spot on the ground. */
+  private tapToWalk(clientX: number, clientY: number): void {
+    if (this.phase !== "playing") return;
+    const p = this.screenToGround(clientX, clientY);
+    if (!p) return;
+    const east = PLOT_TIERS[this.tier];
+    const x = clamp(p.x, -34, east + 5);
+    const z = clamp(p.z, -PLOT_Z_HALF, PLOT_Z_HALF);
+    this.walkTarget = { x, z };
+    this.noteMoved();
+    // every tap answers, even one on empty grass
+    this.fx.shockwave(x, 0.12, z, P.padGlow, 1.8, 0.5);
+    audio.blip();
+  }
+
+  private noteMoved(): void {
+    if (!this.neverMoved) return;
+    this.neverMoved = false;
+    this.hud.showMoveHint(false);
+  }
+
+  /** Intersect the camera ray through a CSS-pixel point with the ground plane. */
+  private screenToGround(clientX: number, clientY: number): { x: number; z: number } | null {
+    const canvas = this.engine.getRenderingCanvas();
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const rw = this.engine.getRenderWidth();
+    const rh = this.engine.getRenderHeight();
+    const sx = ((clientX - rect.left) / rect.width) * rw;
+    const sy = ((clientY - rect.top) / rect.height) * rh;
+    const view = this.scene.getViewMatrix();
+    const proj = this.scene.getProjectionMatrix();
+    const near = Vector3.Unproject(new Vector3(sx, sy, 0), rw, rh, Matrix.Identity(), view, proj);
+    const far = Vector3.Unproject(new Vector3(sx, sy, 1), rw, rh, Matrix.Identity(), view, proj);
+    const dy = far.y - near.y;
+    if (Math.abs(dy) < 1e-6) return null;
+    const t = -near.y / dy;
+    if (t < 0) return null;
+    return { x: near.x + (far.x - near.x) * t, z: near.z + (far.z - near.z) * t };
+  }
+
   /* -------------------------------------------------------------- camera */
 
   private cameraTarget(): Vector3 {
@@ -678,8 +755,25 @@ export class Game {
     // screen-space stick rotated into world space through the camera basis
     const sx = this.input.x;
     const sy = this.input.y;
-    const wantX = this.camRight.x * sx + this.camFwd.x * sy;
-    const wantZ = this.camRight.z * sx + this.camFwd.z * sy;
+    let wantX = this.camRight.x * sx + this.camFwd.x * sy;
+    let wantZ = this.camRight.z * sx + this.camFwd.z * sy;
+    if (sx !== 0 || sy !== 0) {
+      // steering always wins over a pending tap
+      this.walkTarget = null;
+      this.noteMoved();
+    } else if (this.walkTarget) {
+      const dx = this.walkTarget.x - this.px;
+      const dz = this.walkTarget.z - this.pz;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.35) {
+        this.walkTarget = null;
+      } else {
+        // ease in over the last metre so he stops on the spot, not past it
+        const m = Math.min(1, d / 1.2) / d;
+        wantX = dx * m;
+        wantZ = dz * m;
+      }
+    }
     const mag = Math.min(1, Math.hypot(wantX, wantZ));
     const speed = this.playerSpeed;
 
@@ -750,26 +844,30 @@ export class Game {
     this.spawnTimer -= dt;
     if (this.spawnTimer > 0) return;
 
-    const interval = clamp(ARRIVE_BASE / (1 + this.draw * 0.13), ARRIVE_MIN, 9);
+    // The first few guests come slower and the line stays short while the
+    // player is still learning the loop.
+    const learning = this.served < 5;
+    const interval = clamp(ARRIVE_BASE / (1 + this.draw * 0.13), ARRIVE_MIN, 9) * (learning ? 1.5 : 1);
     this.spawnTimer = interval * (0.75 + Math.random() * 0.5);
 
     // a tiny hotel never gets swamped; the line grows as the resort does
-    if (this.queue.length >= queueCap(this.rooms.length)) return;
+    const cap = learning ? Math.min(queueCap(this.rooms.length), this.rooms.length + 1) : queueCap(this.rooms.length);
+    if (this.queue.length >= cap) return;
     if (this.guests.length > 34) return;
 
     this.spawnGuest();
   }
 
-  private spawnGuest(): void {
+  private spawnGuest(nearDesk = false): void {
     const id = this.nextId++;
     const variant = Math.floor(Math.random() * 8);
     const inst = this.chars.newGuest(variant);
-    const patience = PATIENCE_BASE * (0.85 + Math.random() * 0.3);
+    const patience = PATIENCE_BASE * (nearDesk ? 1.5 : 0.85 + Math.random() * 0.3);
     const g: Guest = {
       id,
       inst,
-      x: SPAWN.x - Math.random() * 6,
-      z: SPAWN.z + (Math.random() - 0.5) * 3,
+      x: nearDesk ? QUEUE_HEAD.x - 4.5 : SPAWN.x - Math.random() * 6,
+      z: nearDesk ? QUEUE_HEAD.z : SPAWN.z + (Math.random() - 0.5) * 3,
       heading: Math.PI / 2,
       pushX: 0,
       pushZ: 0,
@@ -1588,6 +1686,7 @@ export class Game {
   /** Ground arrow that points at whatever most needs doing. */
   private updateGuide(dt: number): void {
     const target = this.guideTarget();
+    this.updateBeacon(target, dt);
     if (!target) {
       this.guideMat.alpha = damp(this.guideMat.alpha, 0, 6, dt);
       this.guideArrow.setEnabled(this.guideMat.alpha > 0.03);
@@ -1605,22 +1704,43 @@ export class Game {
     this.guideMat.emissiveColor = hex(P.coin).scale(0.4 + Math.sin(this.time * 5) * 0.18);
   }
 
-  private guideTarget(): { x: number; z: number } | null {
+  private guideTarget(): GuideTarget | null {
     if (this.queue.length > 0 && this.rooms.some((r) => r.state === "free") && !this.hasStaff("clerk")) {
-      return DESK_STATION;
+      return { x: DESK_STATION.x, z: DESK_STATION.z, icon: "🛎️" };
     }
     const dirty = this.rooms.find((r) => r.state === "dirty");
-    if (dirty && !this.hasStaff("maid")) return dirty.vis.door;
+    if (dirty && !this.hasStaff("maid")) return { x: dirty.vis.door.x, z: dirty.vis.door.z, icon: "🧹" };
     if (this.mess.length > 0) {
       const m = this.mess[0];
       if ((m.kind === "floatie" && !this.hasStaff("lifeguard")) || (m.kind === "plate" && !this.hasStaff("waiter"))) {
-        return { x: m.x, z: m.z };
+        return { x: m.x, z: m.z, icon: m.kind === "floatie" ? "🛟" : "🍽️" };
       }
     }
-    if (this.piles.length > 0) return { x: this.piles[0].x, z: this.piles[0].z };
+    if (this.piles.length > 0) return { x: this.piles[0].x, z: this.piles[0].z, icon: "💰" };
     const near = this.pads.nearest(this.px, this.pz);
-    if (near && this.money >= near.def.cost) return { x: near.x, z: near.z };
+    if (near && this.money >= near.def.cost) return { x: near.x, z: near.z, icon: near.def.emoji };
     return null;
+  }
+
+  /**
+   * The pre-reader's instruction: a big bouncing picture over the thing to do
+   * next, with a ring pulsing on the ground under it. Hidden while you're
+   * already standing there or a job is under way.
+   */
+  private updateBeacon(target: GuideTarget | null, dt: number): void {
+    const busy = this.job.kind !== "none" || this.pads.active !== null;
+    if (!target || busy || Math.hypot(target.x - this.px, target.z - this.pz) < 2.6) {
+      this.hud.setBeacon(null);
+      this.beaconPulse = 0;
+      return;
+    }
+    const s = this.projectToScreen(target.x, 3.4, target.z);
+    this.hud.setBeacon(s ? { x: s.x, y: s.y, icon: target.icon } : null);
+    this.beaconPulse -= dt;
+    if (this.beaconPulse <= 0) {
+      this.beaconPulse = 1.1;
+      this.fx.shockwave(target.x, 0.11, target.z, P.coin, 2.6, 0.9);
+    }
   }
 
   /** One short, wordless-as-possible instruction at the bottom of the screen. */
@@ -1686,8 +1806,14 @@ export class Game {
 
   /** Project a world point to CSS pixels and float a number there. */
   private popupAt(x: number, y: number, z: number, text: string, color: string): void {
+    const s = this.projectToScreen(x, y, z);
+    if (s) this.hud.popup(s.x, s.y, text, color);
+  }
+
+  /** World point to CSS pixels, or null when it's behind the camera. */
+  private projectToScreen(x: number, y: number, z: number): { x: number; y: number } | null {
     const canvas = this.engine.getRenderingCanvas();
-    if (!canvas) return;
+    if (!canvas) return null;
     const rw = this.engine.getRenderWidth();
     const rh = this.engine.getRenderHeight();
     const p = Vector3.Project(
@@ -1696,9 +1822,9 @@ export class Game {
       this.scene.getTransformMatrix(),
       this.world.camera.viewport.toGlobal(rw, rh),
     );
-    if (p.z < 0 || p.z > 1) return;
+    if (p.z < 0 || p.z > 1) return null;
     const rect = canvas.getBoundingClientRect();
-    this.hud.popup(rect.left + (p.x / rw) * rect.width, rect.top + (p.y / rh) * rect.height, text, color);
+    return { x: rect.left + (p.x / rw) * rect.width, y: rect.top + (p.y / rh) * rect.height };
   }
 
   onResize(): void {
@@ -1742,6 +1868,9 @@ export class Game {
       tier: this.tier,
       player: { x: Number(this.px.toFixed(2)), z: Number(this.pz.toFixed(2)) },
       job: this.job.kind,
+      /** What the bouncing beacon is pointing at (icon + world spot), or null. */
+      guide: this.guideTarget(),
+      walkTarget: this.walkTarget,
       drawCalls: this.scene.getActiveMeshes().length,
     };
   }

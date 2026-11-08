@@ -15,7 +15,13 @@ export interface InputHooks {
   /** Any interaction at all — used to unlock audio. */
   onAny: () => void;
   onPause: () => void;
+  /** A quick tap (not a drag) at a screen point — used for tap-to-walk. */
+  onTap?: (clientX: number, clientY: number) => void;
 }
+
+/** A press shorter and smaller than this is a tap, not a steer. */
+const TAP_MS = 320;
+const TAP_SLOP = 16;
 
 export class Input {
   /** Screen-space stick, magnitude clamped to 1. +y is up the screen. */
@@ -30,6 +36,8 @@ export class Input {
   private originY = 0;
   private touchX = 0;
   private touchY = 0;
+  private downAt = 0;
+  private maxTravel = 0;
   private disposers: (() => void)[] = [];
 
   constructor(canvas: HTMLCanvasElement, hooks: InputHooks) {
@@ -77,6 +85,8 @@ export class Input {
       this.originY = e.clientY;
       this.touchX = e.clientX;
       this.touchY = e.clientY;
+      this.downAt = performance.now();
+      this.maxTravel = 0;
       this.stickEl.style.left = `${e.clientX}px`;
       this.stickEl.style.top = `${e.clientY}px`;
       this.stickEl.classList.add("on");
@@ -87,6 +97,7 @@ export class Input {
       if (e.pointerId !== this.pointerId) return;
       this.touchX = e.clientX;
       this.touchY = e.clientY;
+      this.maxTravel = Math.max(this.maxTravel, Math.hypot(e.clientX - this.originX, e.clientY - this.originY));
     };
     const pUp = (e: PointerEvent) => {
       if (e.pointerId !== this.pointerId) return;
@@ -94,6 +105,12 @@ export class Input {
       this.stickEl.classList.remove("on");
       this.knobEl.style.transform = "translate(0px, 0px)";
       canvas.releasePointerCapture?.(e.pointerId);
+      // A quick poke is a tap: walk to where it landed. A five-year-old taps
+      // at things far more often than they drag, and that tap used to do
+      // nothing at all.
+      if (e.type === "pointerup" && performance.now() - this.downAt < TAP_MS && this.maxTravel < TAP_SLOP) {
+        hooks.onTap?.(this.originX, this.originY);
+      }
     };
 
     canvas.addEventListener("pointerdown", pDown);

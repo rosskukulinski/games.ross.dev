@@ -173,7 +173,84 @@
       display: flex; align-items: center; gap: 9px;
       transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
-    #hint .emoji { font-size: 19px; }
+    #hint .emoji { font-size: 30px; line-height: 1; }
+
+    /* ------------------------------------------------- picture guidance */
+    /* Big bouncing picture over the next thing to do — the pre-reader's
+       version of the hint bar. Positioned by translate() from game.ts. */
+    #beacon {
+      position: absolute; left: 0; top: 0;
+      pointer-events: none; z-index: 4;
+      opacity: 0; transition: opacity 0.25s ease;
+      will-change: transform;
+    }
+    #beacon.on { opacity: 1; }
+    #beacon .bubble {
+      position: absolute; left: -36px; top: -92px;
+      width: 72px; height: 72px; border-radius: 50%;
+      display: grid; place-items: center;
+      font-size: 40px; line-height: 1;
+      background: var(--panel-solid);
+      border: 4px solid var(--coin);
+      box-shadow: 0 0 0 6px rgba(255, 201, 74, 0.35), 0 8px 20px rgba(23, 56, 74, 0.3);
+      animation: beaconBob 0.9s ease-in-out infinite;
+    }
+    #beacon .bubble::after {
+      content: ""; position: absolute; left: 50%; bottom: -17px;
+      transform: translateX(-50%);
+      border: 11px solid transparent; border-top: 13px solid var(--coin);
+    }
+    @keyframes beaconBob {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-12px) scale(1.06); }
+    }
+
+    /* ghost finger: shows a pre-reader that dragging (or tapping) moves you */
+    #move-hint {
+      position: absolute; left: 50%; bottom: 120px;
+      width: 0; height: 0;
+      pointer-events: none; z-index: 4;
+      opacity: 0; transition: opacity 0.4s ease;
+    }
+    #move-hint.on { opacity: 1; }
+    #move-hint .ring {
+      position: absolute; left: -48px; top: -48px; width: 96px; height: 96px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.85);
+      background: rgba(255, 251, 243, 0.25);
+    }
+    #move-hint .finger {
+      position: absolute; left: -26px; top: -12px;
+      font-size: 52px; line-height: 1;
+      filter: drop-shadow(0 4px 6px rgba(23, 56, 74, 0.4));
+      animation: fingerDrag 2.2s ease-in-out infinite;
+    }
+    @keyframes fingerDrag {
+      0%, 15% { transform: translate(0, 0); }
+      40%, 55% { transform: translate(-46px, -30px); }
+      80%, 100% { transform: translate(46px, -30px); }
+    }
+    #move-hint .keys {
+      position: absolute; left: -84px; top: -40px;
+      display: grid; grid-template-columns: repeat(3, 52px); gap: 4px;
+    }
+    #move-hint .keys span {
+      height: 38px; display: grid; place-items: center;
+      background: var(--panel-solid); border-radius: 9px;
+      border: 1.5px solid rgba(23, 56, 74, 0.16); border-bottom-width: 4px;
+      font-size: 20px; font-weight: 900; color: var(--ink);
+      animation: keyPress 2.4s ease-in-out infinite;
+    }
+    #move-hint .keys span:nth-child(1) { grid-column: 2; grid-row: 1; }
+    #move-hint .keys span:nth-child(2) { grid-column: 1; grid-row: 2; }
+    #move-hint .keys span:nth-child(3) { grid-column: 2; grid-row: 2; }
+    #move-hint .keys span:nth-child(4) { grid-column: 3; grid-row: 2; }
+    #move-hint .keys span:nth-child(3) { animation-delay: 0.6s; }
+    #move-hint .keys span:nth-child(4) { animation-delay: 1.2s; }
+    #move-hint .keys span:nth-child(2) { animation-delay: 1.8s; }
+    @keyframes keyPress { 0%, 20%, 100% { transform: none; } 10% { transform: translateY(3px); background: #ffe7a6; } }
+    body.touch #move-hint .keys { display: none; }
+    body:not(.touch) #move-hint .finger, body:not(.touch) #move-hint .ring { display: none; }
 
     /* toasts */
     #toasts {
@@ -284,6 +361,55 @@
     }
     .link-btn:hover { opacity: 1; }
 
+    /* icon rows on the title card */
+    .how-rows {
+      margin: 18px auto 0;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      max-width: 400px;
+    }
+    .how {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 6px 9px;
+      background: #f3f8fa;
+      border: 1.5px solid rgba(23, 56, 74, 0.1);
+      border-radius: 18px;
+    }
+    .how .pics { font-size: clamp(30px, 7vw, 40px); line-height: 1; letter-spacing: 2px; }
+    .how .cap { font-size: 13px; font-weight: 800; color: var(--ink-soft); }
+
+    /* resetting lives below a divider, well away from the big button, and is
+       two taps: this arms a confirm row with two big choices */
+    .danger-zone {
+      margin-top: 26px; padding-top: 14px;
+      border-top: 2px dashed rgba(23, 56, 74, 0.12);
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .danger-zone:has(> .soft-btn.hidden):not(:has(.confirm-row.open)) { display: none; }
+    .soft-btn {
+      min-height: 56px; min-width: 150px; padding: 0 22px;
+      border-radius: 999px;
+      border: 2px solid rgba(23, 56, 74, 0.16);
+      background: #eef4f7;
+      font-family: var(--font); font-size: 17px; font-weight: 800;
+      color: var(--ink-soft); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform 0.12s ease, background 0.2s ease;
+    }
+    .soft-btn:active { transform: scale(0.95); }
+    .soft-btn.armed { display: none; }
+    .confirm-row { display: none; }
+    .confirm-row.open {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
+      animation: cardIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .confirm-row p {
+      flex-basis: 100%;
+      font-size: 15px; font-weight: 800; color: var(--ink);
+    }
+    .confirm-row .keep { background: #dff3d8; border-color: rgba(95, 174, 80, 0.5); color: #2f6b25; }
+    .confirm-row .wipe { background: #fde3d9; border-color: rgba(232, 115, 74, 0.5); color: #a43d1c; }
+
+    #resume-stats.hidden { display: none; }
     #resume-stats {
       margin-top: 16px; padding-top: 15px;
       border-top: 2px dashed rgba(23, 56, 74, 0.14);
@@ -371,6 +497,12 @@
       <canvas id="minimap" width="232" height="184"></canvas>
     </div>
 
+    <div id="beacon"><div class="bubble"><span id="beacon-icon">🛎️</span></div></div>
+    <div id="move-hint">
+      <div class="ring"></div><div class="finger">👆</div>
+      <div class="keys"><span>↑</span><span>←</span><span>↓</span><span>→</span></div>
+    </div>
+
     <div id="hint" class="panel"><span class="emoji">👋</span><span id="hint-text">Welcome!</span></div>
   </div>
 
@@ -387,21 +519,15 @@
   <div id="start-screen" class="screen">
     <div class="title-card">
       <h1>Grand Hotel Tycoon</h1>
-      <p class="sub">You're the manager! Check guests in, keep everybody smiling,<br>and build the greatest resort on the island.</p>
+      <p class="sub">You're the manager!</p>
 
-      <div class="controls-grid">
-        <span class="kbd key-only">W A S D</span>
-        <span class="key-only">Drive your manager around</span>
-        <span class="kbd key-only">Arrows</span>
-        <span class="key-only">Same thing, if you prefer</span>
-        <span class="kbd touch-only">Drag</span>
-        <span class="touch-only">Touch anywhere to steer</span>
-        <span class="kbd">Walk up</span>
-        <span>Stand next to a job and it happens by itself</span>
-        <span class="kbd">💰</span>
-        <span>Run over cash to pick it up — you keep it all</span>
-        <span class="kbd">✨</span>
-        <span>Stand on a glowing pad to build something new</span>
+      <!-- Pictures first, so a player who can't read yet still gets it.
+           Each row is "do this → get that". -->
+      <div class="how-rows">
+        <div class="how"><span class="pics"><span class="touch-only">👆</span><span class="key-only">⬆️</span>🚶</span><span class="cap touch-only">Drag or tap to walk</span><span class="cap key-only">Arrows or WASD</span></div>
+        <div class="how"><span class="pics">🛎️🧳</span><span class="cap">Check guests in</span></div>
+        <div class="how"><span class="pics">🧹🛏️</span><span class="cap">Clean the rooms</span></div>
+        <div class="how"><span class="pics">💰✨</span><span class="cap">Build more!</span></div>
       </div>
 
       <div id="resume-stats" class="hidden">
@@ -411,8 +537,15 @@
       </div>
 
       <button id="start-btn" class="big-btn">Open the hotel</button>
-      <br>
-      <button id="reset-btn" class="link-btn hidden">Start a brand new hotel</button>
+
+      <div class="danger-zone">
+        <button id="reset-btn" class="soft-btn hidden"><span aria-hidden="true">🗑️</span> New hotel</button>
+        <div id="reset-confirm" class="confirm-row">
+          <p>Throw away this hotel and start again?</p>
+          <button data-no class="soft-btn keep">↩️ Keep it</button>
+          <button data-yes class="soft-btn wipe">🗑️ Start over</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -422,8 +555,15 @@
       <h1>Paused</h1>
       <p class="sub">Your hotel is saved. Take all the time you need.</p>
       <button id="resume-btn" class="big-btn">Back to work</button>
-      <br>
-      <button id="quit-btn" class="link-btn">Start a brand new hotel</button>
+
+      <div class="danger-zone">
+        <button id="quit-btn" class="soft-btn"><span aria-hidden="true">🗑️</span> New hotel</button>
+        <div id="quit-confirm" class="confirm-row">
+          <p>Throw away this hotel and start again?</p>
+          <button data-no class="soft-btn keep">↩️ Keep it</button>
+          <button data-yes class="soft-btn wipe">🗑️ Start over</button>
+        </div>
+      </div>
     </div>
   </div>
 
