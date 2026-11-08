@@ -2,7 +2,7 @@
  * Balloon Pop Blitz v2 — game logic, HUD, screens, juice.
  *
  * Preserves v1's identity: balloons rise, tap to pop, escapes cost one of
- * 3 lives, level = score/30, cyan = slow-motion, gold = multi-pop,
+ * 5 lives (v1 had 3), level = score/30, cyan = slow-motion, gold = multi-pop,
  * best score in localStorage 'bpb-hs'. Adds combo multiplier, striped
  * speedster, rainbow combo balloon, and a bomb balloon to avoid.
  */
@@ -18,6 +18,15 @@ type Phase = 'menu' | 'playing' | 'gameover';
 
 const HS_KEY = 'bpb-hs';
 const COMBO_WINDOW = 1.6;
+/** hearts per game — 5 so a young player's first misses don't end the round */
+const MAX_LIVES = 5;
+/** rise-speed multiplier for the gentle first levels */
+const levelEase = (level: number): number => (level <= 1 ? 0.7 : level === 2 ? 0.82 : level === 3 ? 0.92 : 1);
+/** on-screen (CSS px) minimum height for Start / Play Again */
+const MIN_BTN_PX = 88;
+const BTN_H = 100;
+/** ignore Play Again for this long after game over, so a kid still tapping balloons doesn't restart by accident */
+const RESTART_GUARD_S = 1.0;
 const CONFETTI_COLORS = [0xff5c5c, 0xff9e2e, 0xffd23a, 0x3fc24e, 0x3d9bff, 0xae58ff, 0xff66ae, 0xffffff];
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -67,7 +76,7 @@ export class Game {
   phase: Phase = 'menu';
   paused = false;
   score = 0;
-  lives = 3;
+  lives = MAX_LIVES;
   level = 1;
   combo = 0;
   private comboTimer = 0;
@@ -98,6 +107,12 @@ export class Game {
   private comboText!: Text;
   private comboBar = new Graphics();
   private muteBtn = new Container();
+  private startBtn!: Container;
+  private againBtn!: Container;
+  private btnScale = 1;
+  private menuCard!: Graphics;
+  private overCard!: Graphics;
+  private overAt = 0;
   private muteIcon = new Graphics();
   private puBar = new Graphics();
   private puText!: Text;
@@ -172,7 +187,7 @@ export class Game {
     this.pauseText.anchor.set(0.5);
     this.pauseText.visible = false;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < MAX_LIVES; i++) {
       const hSp = new Sprite(this.tex.heart);
       hSp.anchor.set(0.5);
       hSp.tint = 0xff5470;
@@ -225,7 +240,8 @@ export class Game {
 
   private layoutHud(): void {
     const m = 14;
-    const u = clamp(this.unit, 0.9, 1.5);
+    // shrink the HUD on narrow phones so five hearts never run under the mute button
+    const u = Math.min(clamp(this.unit, 0.9, 1.5), (this.w - 100) / 360);
     // score panel top-left
     const pw = 168 * u;
     const ph = 74 * u;
@@ -239,14 +255,14 @@ export class Game {
     this.bestHudText.position.set(m + 16 * u, m + ph - 24 * u);
 
     // hearts panel next to it
-    const hw = 132 * u;
+    const hw = (48 + (MAX_LIVES - 1) * 36) * u;
     this.heartPanel.clear();
     this.heartPanel.roundRect(m + pw + 10, m, hw, ph, 18)
       .fill({ color: 0xffffff, alpha: 0.5 })
       .stroke({ width: 2.5, color: 0xffffff, alpha: 0.8 });
     this.heartSprites.forEach((hSp, i) => {
-      hSp.scale.set(1.05 * u);
-      hSp.position.set(m + pw + 10 + (26 + i * 40) * u, m + ph / 2);
+      hSp.scale.set(0.95 * u);
+      hSp.position.set(m + pw + 10 + (24 + i * 36) * u, m + ph / 2);
     });
 
     // level pill under score
@@ -339,27 +355,42 @@ export class Game {
   private makeButton(label: string, color: number, onTap: () => void): Container {
     const c = new Container();
     const g = new Graphics();
-    const txt = new Text({ text: label, style: chunkyStyle(30, 0xffffff, 0x000000, 0) });
-    const bw = txt.width + 76;
-    const bh = 68;
+    const txt = new Text({ text: label, style: chunkyStyle(42, 0xffffff, 0x000000, 0) });
+    const icon = 34;
+    const bw = txt.width + icon + 110;
+    const bh = BTN_H;
     g.roundRect(-bw / 2, -bh / 2 + 5, bw, bh, 24).fill({ color: 0x000000, alpha: 0.14 });
     g.roundRect(-bw / 2, -bh / 2, bw, bh, 24)
       .fill(color)
       .stroke({ width: 4, color: 0xffffff, alpha: 0.95 });
     g.roundRect(-bw / 2 + 8, -bh / 2 + 6, bw - 16, 16, 10).fill({ color: 0xffffff, alpha: 0.3 });
+    // play triangle: the button reads as "go" without reading the word
+    const tx = -bw / 2 + 44;
+    g.poly([tx, -icon / 2, tx + icon * 0.9, 0, tx, icon / 2])
+      .fill(0xffffff)
+      .stroke({ width: 6, color: 0xffffff, join: 'round' });
     txt.anchor.set(0.5);
-    txt.y = -2;
+    txt.position.set(icon / 2 + 12, -2);
     c.addChild(g, txt);
     c.eventMode = 'static';
     c.cursor = 'pointer';
     c.on('pointerdown', (e) => {
       e.stopPropagation();
-      audio.unlock();
-      audio.click();
-      this.bump(c);
-      setTimeout(onTap, 90);
+      this.pressButton(c, onTap);
     });
     return c;
+  }
+
+  /** shared press handling for buttons and the tappable menu card */
+  private pressButton(c: Container, onTap: () => void): void {
+    if (this.phase === 'playing') return;
+    if (this.phase === 'gameover' && performance.now() - this.overAt < RESTART_GUARD_S * 1000) return;
+    audio.unlock();
+    audio.click();
+    this.bump(c);
+    setTimeout(() => {
+      if (this.phase !== 'playing') onTap();
+    }, 90);
   }
 
   private bump(c: Container): void {
@@ -369,24 +400,54 @@ export class Game {
 
   private panelCard(w: number, h: number): Graphics {
     const g = new Graphics();
-    g.roundRect(-w / 2 + 4, -h / 2 + 8, w, h, 28).fill({ color: 0x53442e, alpha: 0.16 });
-    g.roundRect(-w / 2, -h / 2, w, h, 28)
+    this.drawCard(g, w, -h / 2, h / 2);
+    return g;
+  }
+
+  private drawCard(g: Graphics, w: number, top: number, bottom: number): void {
+    const h = bottom - top;
+    g.clear();
+    g.roundRect(-w / 2 + 4, top + 8, w, h, 28).fill({ color: 0x53442e, alpha: 0.16 });
+    g.roundRect(-w / 2, top, w, h, 28)
       .fill({ color: 0xfffdf6, alpha: 0.985 })
       .stroke({ width: 4, color: 0xffffff });
-    return g;
+  }
+
+  /**
+   * Place a screen's main button below `clearY` (bottom of the content above
+   * it) and grow the card to fit. On small screens the button is scaled up to
+   * stay >= MIN_BTN_PX, so it must move down rather than grow over the content.
+   */
+  private fitButton(btn: Container, card: Graphics, w: number, top: number, bottom: number, baseY: number, clearY: number): number {
+    const half = (BTN_H / 2) * this.btnScale;
+    btn.y = Math.max(baseY, clearY + 14 + half);
+    const newBottom = Math.max(bottom, btn.y + half + 36);
+    // and widen the card if the scaled-up button would poke out of its sides
+    const cardW = Math.max(w, btn.getLocalBounds().width * this.btnScale + 48);
+    this.drawCard(card, cardW, top, newBottom);
+    return newBottom - bottom;
   }
 
   private buildMenu(): void {
     const ui = this.menuUI;
-    const card = this.panelCard(600, 616);
+    // Pictures, not paragraphs: title, a row of balloons, a crossed-out bomb,
+    // and one big Start. The whole card is tappable.
+    const card = this.panelCard(600, 500);
+    this.menuCard = card;
+    card.eventMode = 'static';
+    card.cursor = 'pointer';
+    card.on('pointerdown', (e) => {
+      e.stopPropagation();
+      this.pressButton(this.startBtn, () => this.start());
+    });
     ui.addChild(card);
 
     const title1 = new Text({ text: 'Balloon Pop', style: chunkyStyle(56, 0xff5470, 0xffffff, 0) });
     const title2 = new Text({ text: 'BLITZ!', style: chunkyStyle(64, 0xffb020, 0xffffff, 0) });
     title1.anchor.set(0.5);
     title2.anchor.set(0.5);
-    title1.position.set(0, -258);
-    title2.position.set(0, -200);
+    title1.position.set(0, -184);
+    title2.position.set(0, -124);
     ui.addChild(title1, title2);
     // idle sway for the title
     tween(9999, () => {
@@ -394,39 +455,45 @@ export class Game {
       title1.rotation = Math.sin(this.t * 1.3 + 1) * 0.02;
     }, { ease: Ease.linear });
 
-    const sub = new Text({ text: 'Pop balloons before they float away!', style: chunkyStyle(22, 0x3a5a80) });
-    sub.anchor.set(0.5);
-    sub.position.set(0, -148);
-    ui.addChild(sub);
-
-    // legend: mini balloons with labels
-    const rows: [string, string][] = [
-      ['striped', 'Stripey — speedy! +6'],
-      ['cyan', 'Cyan — slow motion!'],
-      ['gold', 'Gold — multi-pop + confetti!'],
-      ['rainbow', 'Rainbow — combo boost!'],
-      ['bomb', "Bomb — don't pop this one!"],
-    ];
-    rows.forEach(([id, label], i) => {
+    // picture legend: pop these... but not the bomb (it wears a red X)
+    const row = ['red', 'blue', 'gold', 'cyan', 'rainbow'];
+    const sprites: Sprite[] = [];
+    row.forEach((id, i) => {
       const sp = new Sprite(this.balloonTex.get(id));
       sp.anchor.set(0.5, 0.43);
-      sp.scale.set(0.27);
-      sp.position.set(-208, -88 + i * 54);
-      const txt = new Text({ text: label, style: chunkyStyle(21, 0x3a5a80) });
-      txt.anchor.set(0, 0.5);
-      txt.position.set(-176, -88 + i * 54);
-      ui.addChild(sp, txt);
+      sp.scale.set(0.46);
+      sp.position.set(-230 + i * 82, -12);
+      sprites.push(sp);
+      ui.addChild(sp);
     });
+    const bomb = new Sprite(this.balloonTex.get('bomb'));
+    bomb.anchor.set(0.5, 0.43);
+    bomb.scale.set(0.46);
+    bomb.position.set(222, -12);
+    const divider = new Graphics();
+    divider.roundRect(162, -52, 6, 80, 3).fill({ color: 0xd9dfe8 });
+    ui.addChild(divider, bomb);
+    // gentle bob so the row feels alive
+    tween(9999, () => {
+      sprites.forEach((sp, i) => (sp.y = -12 + Math.sin(this.t * 2 + i * 0.9) * 5));
+      bomb.rotation = Math.sin(this.t * 7) * 0.06;
+    }, { ease: Ease.linear });
 
-    const note = new Text({ text: 'Miss a balloon = lose a heart. You have 3!', style: chunkyStyle(17, 0x6f8098) });
-    note.anchor.set(0.5);
-    note.position.set(0, 178);
-    ui.addChild(note);
+    // five hearts = five tries, no words needed
+    for (let i = 0; i < MAX_LIVES; i++) {
+      const hSp = new Sprite(this.tex.heart);
+      hSp.anchor.set(0.5);
+      hSp.tint = 0xff5470;
+      hSp.scale.set(0.85);
+      hSp.position.set((i - (MAX_LIVES - 1) / 2) * 40, 68);
+      ui.addChild(hSp);
+    }
 
     const btn = this.makeButton('Start!', 0x4ec65b, () => this.start());
-    btn.position.set(0, 240);
+    btn.position.set(0, 150);
+    this.startBtn = btn;
     // breathing start button
-    tween(9999, () => btn.scale.set(1 + Math.sin(this.t * 2.2) * 0.035), { ease: Ease.linear });
+    tween(9999, () => btn.scale.set(this.btnScale * (1 + Math.sin(this.t * 2.2) * 0.035)), { ease: Ease.linear });
     ui.addChild(btn);
 
     this.overlay.addChild(ui);
@@ -440,6 +507,7 @@ export class Game {
   private buildGameOver(): void {
     const ui = this.overUI;
     const card = this.panelCard(520, 420);
+    this.overCard = card;
     ui.addChild(card);
 
     this.overMsgText = new Text({ text: ENCOURAGE[0], style: chunkyStyle(38, 0xff5470) });
@@ -459,7 +527,8 @@ export class Game {
     this.overBestText.position.set(0, 46);
 
     const btn = this.makeButton('Play Again!', 0xff8a2e, () => this.start());
-    btn.position.set(0, 130);
+    btn.position.set(0, 128);
+    this.againBtn = btn;
     ui.addChild(this.overMsgText, this.overScoreText, this.overNewBest, this.overBestText, btn);
 
     this.overlay.addChild(ui);
@@ -472,6 +541,16 @@ export class Game {
     this.menuUI.position.set(this.w / 2, this.h / 2);
     this.overUI.scale.set(s);
     this.overUI.position.set(this.w / 2, this.h / 2);
+    // never let the main buttons drop below a comfortable little-finger size
+    this.btnScale = Math.max(1, MIN_BTN_PX / (BTN_H * s));
+    this.startBtn.scale.set(this.btnScale);
+    this.againBtn.scale.set(this.btnScale);
+    // menu: hearts row ends ~y=84; game over: "Best" line ends ~y=62
+    const gm = this.fitButton(this.startBtn, this.menuCard, 600, -250, 250, 150, 84);
+    const go = this.fitButton(this.againBtn, this.overCard, 520, -210, 210, 128, 62);
+    // keep the (possibly taller) cards centred
+    this.menuUI.y = this.h / 2 - (gm / 2) * s;
+    this.overUI.y = this.h / 2 - (go / 2) * s;
   }
 
   private showMenu(): void {
@@ -505,13 +584,12 @@ export class Game {
     this.score = 0;
     this.displayScore = 0;
     this.scoreText.text = '0';
-    this.lives = 3;
+    this.lives = MAX_LIVES;
     this.level = 1;
     this.combo = 0;
     this.comboTimer = 0;
     this.pu = null;
     this.puTime = 0;
-    this.spawnTimer = 0.5;
     this.newBest = false;
     this.levelText.text = 'Lv 1';
     this.menuUI.visible = false;
@@ -519,9 +597,16 @@ export class Game {
     for (const hSp of this.heartSprites) {
       hSp.alpha = 1;
       hSp.tint = 0xff5470;
-      hSp.scale.set(1.05 * clamp(this.unit, 0.9, 1.5));
     }
     this.layoutHud();
+    // two balloons already floating up from the bottom, so the first pop is right there
+    for (const fy of [0.82, 0.64]) {
+      this.spawnBalloon();
+      const b = this.balloons[this.balloons.length - 1];
+      b.root.y = this.h * fy;
+      b.baseX = this.w * (fy > 0.7 ? 0.35 : 0.65);
+    }
+    this.spawnTimer = 1.2;
     audio.start();
   }
 
@@ -546,6 +631,7 @@ export class Game {
       tween(0.8, (t) => this.overNewBest.scale.set(0.3 + t * 0.7), { ease: Ease.outElastic });
       this.confettiBurst(this.w / 2, this.h * 0.3, 70);
     }
+    this.overAt = performance.now();
     this.overUI.visible = true;
     this.overUI.alpha = 0;
     tween(0.5, (t) => (this.overUI.alpha = t), { ease: Ease.outCubic, delay: 0.45 });
@@ -572,7 +658,8 @@ export class Game {
     const r = kind.r * u * 1.12;
     const x = r + 8 + Math.random() * (this.w - (r + 8) * 2);
     const y = this.h + r + 30;
-    const spd400 = (0.7 + this.level * 0.08 + Math.random() * 0.3) * kind.speedMul * (decor ? 0.55 : 1);
+    const ease = decor ? 1 : levelEase(this.level);
+    const spd400 = (0.7 + this.level * 0.08 + Math.random() * 0.3) * kind.speedMul * (decor ? 0.55 : 1) * ease;
     const speed = spd400 * 60 * (this.h / 600);
     const b = new Balloon(kind, this.balloonTex.get(kind.id)!, x, y, r, speed);
     this.balloonLayer.addChild(b.root);
@@ -601,25 +688,51 @@ export class Game {
     }
     if (this.hitsHudControl(x, y)) return false;
     if (this.phase === 'gameover') return false;
-    return this.popAt(x, y);
+    const hit = this.popAt(x, y);
+    if (!hit && this.phase === 'playing') this.missPuff(x, y);
+    return hit;
+  }
+
+  /** soft ring where a tap landed on empty sky — every tap answers back */
+  private missPuff(x: number, y: number): void {
+    const ring = new Sprite(this.tex.ring);
+    ring.anchor.set(0.5);
+    ring.position.set(x, y);
+    ring.tint = 0xffffff;
+    this.fxLayer.addChild(ring);
+    tween(0.35, (t) => {
+      ring.scale.set(0.12 + t * 0.28);
+      ring.alpha = 0.75 * (1 - t);
+    }, { ease: Ease.outCubic, onComplete: () => { this.fxLayer.removeChild(ring); ring.destroy(); } });
   }
 
   /** Pop the topmost balloon at (x, y). Public — also used by the smoke test. */
   popAt(x: number, y: number): boolean {
-    for (let i = this.balloons.length - 1; i >= 0; i--) {
-      const b = this.balloons[i];
+    // Touch areas are generous and can overlap, so pick the balloon the tap
+    // is deepest inside — and if a good balloon and a bomb both qualify,
+    // always give the kid the good one.
+    let best: Balloon | null = null;
+    let bestGap = Infinity;
+    let bestBomb = true;
+    for (const b of this.balloons) {
       if (b.popped) continue;
-      if (b.hitTest(x, y)) {
-        if (this.phase === 'menu') {
-          this.explodeBalloon(b, true);
-          audio.pop(0);
-          return true;
-        }
-        this.handleHit(b);
-        return true;
+      const gap = b.hitGap(x, y);
+      if (gap > 0) continue;
+      const bomb = b.kind.special === 'bomb';
+      if ((bestBomb && !bomb) || (bomb === bestBomb && gap < bestGap)) {
+        best = b;
+        bestGap = gap;
+        bestBomb = bomb;
       }
     }
-    return false;
+    if (!best) return false;
+    if (this.phase === 'menu') {
+      this.explodeBalloon(best, true);
+      audio.pop(0);
+      return true;
+    }
+    this.handleHit(best);
+    return true;
   }
 
   private handleHit(hit: Balloon): void {
@@ -1004,7 +1117,8 @@ export class Game {
     if (this.spawnTimer <= 0) {
       this.spawnBalloon();
       if (this.level > 3 && Math.random() < 0.3) this.spawnBalloon();
-      this.spawnTimer = Math.max(0.4, 1.8 - (this.level - 1) * 0.12);
+      // first levels: a steady 1.5s trickle of (slower) balloons so there is always one to pop
+      this.spawnTimer = Math.max(0.4, Math.min(1.5, 1.8 - (this.level - 1) * 0.12));
     }
 
     // balloons
@@ -1070,6 +1184,7 @@ export class Game {
     phase: Phase;
     score: number;
     lives: number;
+    maxLives: number;
     level: number;
     combo: number;
     balloons: { x: number; y: number; kind: string }[];
@@ -1079,10 +1194,23 @@ export class Game {
       phase: this.phase,
       score: this.score,
       lives: this.lives,
+      maxLives: MAX_LIVES,
       level: this.level,
       combo: this.combo,
       balloons: this.balloons.map((b) => ({ x: b.x, y: b.y, kind: b.kind.id })),
       particles: this.particles.count,
+    };
+  }
+
+  /** Debug hook: on-screen (CSS px) bounds of the Start and Play Again buttons. */
+  debugButtons(): Record<'start' | 'again', { x: number; y: number; w: number; h: number; visible: boolean }> {
+    const box = (c: Container, visible: boolean) => {
+      const b = c.getBounds();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2, w: b.width, h: b.height, visible };
+    };
+    return {
+      start: box(this.startBtn, this.menuUI.visible),
+      again: box(this.againBtn, this.overUI.visible),
     };
   }
 

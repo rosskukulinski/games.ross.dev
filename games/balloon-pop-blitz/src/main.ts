@@ -87,6 +87,8 @@ async function boot(): Promise<void> {
     start: () => game.start(),
     popAt: (x: number, y: number) => game.popAt(x, y),
     spawn: (n = 1, spread = false) => game.debugSpawn(n, spread),
+    /** screen-space centre + size of the Start / Play Again buttons */
+    buttons: () => game.debugButtons(),
     /** pop the first balloon on screen; returns true if one was hit */
     popAny: () => {
       const s = game.debugState();
