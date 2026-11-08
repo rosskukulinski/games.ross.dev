@@ -49,6 +49,12 @@ npm run preview
 - **Drag back and release** anywhere on the canvas: drag distance = power,
   horizontal offset = aim (slingshot; pull left to send the ball right).
   A quick upward flick just before release adds a small power bonus.
+- **Plain tap** (finger barely moves) rolls a gentle straight shot (power 0.18-0.32,
+  lands in the 20-40 rings) so a little kid who taps still gets a roll. A drag that
+  went sideways/up still cancels, and re-shows the hint.
+- **Hint**: a looping "pull down" ghost finger + "Pull down & let go!" shows for the
+  first 3 balls, after a cancelled drag, and after 6 s idle while aiming. The start
+  card loops a mini pull-and-roll demo; a tap anywhere on the start screen starts.
 - **Keyboard**: `←` `→` aim, hold `Space` to charge the oscillating power meter, release to roll.
 - Mute button bottom-right; the setting persists in `localStorage` (`skeeBall.muted`).
 
@@ -87,6 +93,7 @@ registered in `World.glowExcluded` and excluded explicitly.
 
 ## Debug hook
 
-`window.__game` exposes `getState()`, `simulate(seconds)` and `debugRoll(power, aim)`.
+`window.__game` exposes `getState()` (includes `hint`), `simulate(seconds)`,
+`debugRoll(power, aim)` and `debugTap()` (same as a plain tap on the lane).
 Headless WebGL (SwiftShader) runs at ~10% speed, so automated tests should advance the
 simulation with `simulate()` instead of waiting on wall-clock frames.

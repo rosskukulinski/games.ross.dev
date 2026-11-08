@@ -8,6 +8,8 @@ export interface InputHandlers {
   /** Fired on release with the final power (0..1) and aim (-1..1). */
   onRelease: (power: number, aim: number) => void;
   onCancel: () => void;
+  /** A plain tap (no real drag) — the game rolls a gentle straight shot. */
+  onTap: () => void;
   /** Any interaction — used to unlock audio. */
   onGesture: () => void;
 }
@@ -31,6 +33,7 @@ export function setupInput(canvas: HTMLCanvasElement, h: InputHandlers): InputCo
   let lastY = 0;
   let lastT = 0;
   let flick = 0;
+  let maxMove = 0;
 
   // keyboard charge state
   let charging = false;
@@ -50,6 +53,7 @@ export function setupInput(canvas: HTMLCanvasElement, h: InputHandlers): InputCo
     startY = e.clientY;
     lastY = e.clientY;
     lastT = performance.now();
+    maxMove = 0;
     flick = 0;
     power = 0;
     aim = keyAim;
@@ -63,6 +67,7 @@ export function setupInput(canvas: HTMLCanvasElement, h: InputHandlers): InputCo
     const dt = Math.max(1, now - lastT);
     // pulling the pointer *toward* the player (down the screen) loads power
     const pull = e.clientY - startY;
+    maxMove = Math.max(maxMove, Math.hypot(e.clientX - startX, pull));
     power = clamp(pull / maxDragPx(), 0, 1);
     // slingshot aim: pull left to send the ball right
     aim = clamp((startX - e.clientX) / AIM_PX, -1, 1);
@@ -79,7 +84,10 @@ export function setupInput(canvas: HTMLCanvasElement, h: InputHandlers): InputCo
     dragging = false;
     const finalPower = clamp(power + flick * 0.12, 0, 1);
     if (finalPower < 0.06) {
-      h.onCancel();
+      // A little finger that just taps or presses (barely moves) still gets a
+      // roll; a drag that went sideways or up is a real cancel.
+      if (maxMove < 18) h.onTap();
+      else h.onCancel();
       return;
     }
     h.onRelease(finalPower, aim);

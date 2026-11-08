@@ -23,6 +23,7 @@ export class Hud {
   private pipsEl = $("pips");
   private streakEl = $("streak");
   private hintEl = $("hint");
+  private ghostEl = $("ghost");
   private powerWrap = $("power-wrap");
   private powerFill = $("power-fill");
   private startOv = $("start");
@@ -34,7 +35,11 @@ export class Hud {
   private pips: HTMLElement[] = [];
 
   constructor(opts: { onPlay: () => void; onMute: () => void }) {
-    $("play-btn").addEventListener("click", opts.onPlay);
+    // A pre-reader shouldn't have to find the button: a tap anywhere on the
+    // start screen begins the game (PLAY is still there, big, for everyone else).
+    this.startOv.addEventListener("click", () => {
+      if (!this.startOv.classList.contains("hidden")) opts.onPlay();
+    });
     $("again-btn").addEventListener("click", opts.onPlay);
     this.muteBtn.addEventListener("click", opts.onMute);
 
@@ -87,6 +92,11 @@ export class Hud {
   setHint(text: string): void {
     this.hintEl.textContent = text;
     this.hintEl.style.opacity = text ? "1" : "0";
+  }
+
+  /** Looping "pull down" finger over the lane. */
+  setGhost(on: boolean): void {
+    this.ghostEl.classList.toggle("on", on);
   }
 
   setPower(p: number | null): void {
