@@ -423,6 +423,36 @@
       50% { scale: 1.12; }
     }
 
+    /* Keep the top HUD inside the notch / rounded-corner safe area. */
+    .hud-top {
+      padding-top: max(18px, env(safe-area-inset-top));
+      padding-left: max(clamp(14px, 3vw, 28px), env(safe-area-inset-left));
+      padding-right: max(clamp(14px, 3vw, 28px), env(safe-area-inset-right));
+    }
+
+    /* ---- Narrow (phone portrait) layout ---- */
+    @media (max-width: 600px) {
+      .hud-top { gap: 8px; padding-top: max(12px, env(safe-area-inset-top)); }
+      .health-panel { min-width: 0; flex: 1 1 auto; max-width: 46vw; padding: 8px 12px; }
+      .hud-top > div:last-child { flex: 0 0 auto; gap: 8px !important; }
+      .score-panel { gap: 6px; padding: 8px 12px; min-height: 56px; }
+      .score-label { font-size: 9px; letter-spacing: 0.1em; }
+      #score { font-size: 20px; }
+      .combo { font-size: 14px; }
+      .controls-hint { display: none; }
+      /* Mount picker moves to a 2x2 grid under the health bar, leaving the
+         bottom of the screen to the joystick and action buttons. */
+      .hud-bottom {
+        bottom: auto;
+        top: calc(max(12px, env(safe-area-inset-top)) + 64px);
+        left: max(14px, env(safe-area-inset-left));
+      }
+      .mount-info { padding: 8px; }
+      .mount-name { display: none; }
+      .mount-slots { display: grid; grid-template-columns: repeat(2, auto); gap: 6px; }
+      html body.touch #joystick-zone { bottom: max(40px, env(safe-area-inset-bottom)); left: 14px; }
+    }
+
     /* ---- Touch devices: bigger targets, icon-only hints ---- */
     body.touch .controls-hint { display: none; }
     body.touch .mount-slot { width: 56px; height: 56px; font-size: 20px; border-radius: 14px; }
