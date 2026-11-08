@@ -17,20 +17,37 @@
       </div>
       <p class="subtitle">How do you want to play?</p>
       <div class="mode-grid">
-        <button class="mode-card two-player-card" onclick="startGame('two')">
-          <div class="mode-emoji">👫</div>
-          <div class="mode-name">2 Players</div>
-          <div class="mode-details">Take turns on one device</div>
+        <button class="mode-card easy-card" onclick="startGame('easy')" aria-label="Easy: play the computer">
+          <div class="mode-emoji">🐣</div>
+          <div class="mode-text">
+            <div class="mode-name">Easy</div>
+            <div class="mode-details">Play the computer — great for beginners</div>
+          </div>
+          <div class="level-dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
         </button>
-        <button class="mode-card easy-card" onclick="startGame('easy')">
-          <div class="mode-emoji">🤖</div>
-          <div class="mode-name">vs Computer</div>
-          <div class="mode-details">Easy — good for beginners</div>
+        <button class="mode-card medium-card" onclick="startGame('medium')" aria-label="Medium: play the computer">
+          <div class="mode-emoji">🦊</div>
+          <div class="mode-text">
+            <div class="mode-name">Medium</div>
+            <div class="mode-details">The computer blocks you sometimes</div>
+          </div>
+          <div class="level-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></div>
         </button>
-        <button class="mode-card hard-card" onclick="startGame('hard')">
+        <button class="mode-card hard-card" onclick="startGame('hard')" aria-label="Hard: play the computer">
           <div class="mode-emoji">🧠</div>
-          <div class="mode-name">vs Computer</div>
-          <div class="mode-details">Hard — a real challenge</div>
+          <div class="mode-text">
+            <div class="mode-name">Hard</div>
+            <div class="mode-details">The computer never loses!</div>
+          </div>
+          <div class="level-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></div>
+        </button>
+        <button class="mode-card two-player-card" onclick="startGame('two')" aria-label="2 Players">
+          <div class="mode-emoji">👫</div>
+          <div class="mode-text">
+            <div class="mode-name">2 Players</div>
+            <div class="mode-details">Take turns on one device</div>
+          </div>
+          <div class="mode-pair" aria-hidden="true">❌<span class="o">⭕</span></div>
         </button>
       </div>
     </div>
@@ -44,7 +61,7 @@
           </svg>
         </button>
         <div class="scoreboard">
-          <div class="score-box score-x">
+          <div class="score-box score-x" id="score-box-x">
             <div class="score-mark">❌</div>
             <div class="score-val" id="score-x">0</div>
           </div>
@@ -52,7 +69,7 @@
             <div class="score-mark">🤝</div>
             <div class="score-val" id="score-draw">0</div>
           </div>
-          <div class="score-box score-o">
+          <div class="score-box score-o" id="score-box-o">
             <div class="score-mark">⭕</div>
             <div class="score-val" id="score-o">0</div>
           </div>
@@ -65,7 +82,11 @@
         </button>
       </div>
 
-      <div class="turn-badge" id="turn-badge">❌'s turn</div>
+      <div class="turn-badge turn-x" id="turn-badge" role="status" aria-live="polite">
+        <span class="turn-who" id="turn-who"></span>
+        <span class="turn-mark" id="turn-mark">❌</span>
+        <span class="turn-label" id="turn-label">❌'s turn</span>
+      </div>
 
       <div id="board"></div>
     </div>
@@ -75,8 +96,20 @@
       <div class="win-content">
         <div class="win-emoji" id="win-emoji">🎉</div>
         <h2 id="win-title">You win!</h2>
-        <button class="primary-btn" onclick="newRound()">Play Again</button>
-        <button class="secondary-btn" onclick="showModeSelect()">Change Mode</button>
+        <button class="primary-btn" onclick="newRound()" aria-label="Play Again">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          <span>Play Again</span>
+        </button>
+        <button class="secondary-btn" onclick="showModeSelect()" aria-label="Change Mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+          <span>Change Mode</span>
+        </button>
       </div>
     </div>
 

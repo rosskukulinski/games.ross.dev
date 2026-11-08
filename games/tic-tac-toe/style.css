@@ -75,12 +75,31 @@ body {
 }
 .mode-card:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(99, 102, 241, 0.16); }
 .mode-card:active { transform: scale(0.98); }
+.mode-card { min-height: 84px; }
+.mode-text { flex: 1; min-width: 0; }
 .two-player-card { border-color: #a5b4fc; }
-.easy-card { border-color: #6ee7b7; }
-.hard-card { border-color: #fca5a5; }
-.mode-emoji { font-size: 40px; line-height: 1; }
-.mode-name { font-size: 20px; font-weight: 700; }
+.easy-card { border-color: #6ee7b7; background: #f0fdf4; }
+.medium-card { border-color: #fcd34d; background: #fffbeb; }
+.hard-card { border-color: #f87171; background: #fef2f2; }
+.easy-card .mode-name { color: #059669; }
+.medium-card .mode-name { color: #d97706; }
+.hard-card .mode-name { color: #dc2626; }
+.mode-emoji { font-size: 44px; line-height: 1; }
+.mode-name { font-size: 22px; font-weight: 800; }
 .mode-details { font-size: 14px; color: var(--text-light); margin-top: 2px; }
+
+/* Difficulty at a glance for kids who can't read the words: 1, 2 or 3 dots. */
+.level-dots { display: flex; gap: 6px; flex-shrink: 0; }
+.level-dots i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e5e7eb;
+}
+.easy-card .level-dots i.on { background: #10b981; }
+.medium-card .level-dots i.on { background: #f59e0b; }
+.hard-card .level-dots i.on { background: #ef4444; }
+.mode-pair { font-size: 22px; flex-shrink: 0; letter-spacing: 2px; }
 
 /* ── Top bar ── */
 .top-bar {
@@ -92,8 +111,8 @@ body {
 }
 .icon-btn {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   border: none;
   border-radius: 12px;
   background: var(--surface);
@@ -105,7 +124,7 @@ body {
   box-shadow: 0 2px 6px rgba(0,0,0,0.06);
 }
 .icon-btn:active { transform: scale(0.94); }
-.icon-btn svg { width: 22px; height: 22px; }
+.icon-btn svg { width: 26px; height: 26px; }
 
 .scoreboard {
   flex: 1;
@@ -120,21 +139,49 @@ body {
   text-align: center;
   min-width: 56px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  border: 3px solid transparent;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }
+.score-x.active { border-color: var(--x-color); box-shadow: 0 0 14px rgba(239, 68, 68, 0.45); transform: scale(1.08); }
+.score-o.active { border-color: var(--o-color); box-shadow: 0 0 14px rgba(59, 130, 246, 0.45); transform: scale(1.08); }
 .score-mark { font-size: 18px; line-height: 1; }
 .score-val { font-size: 20px; font-weight: 800; margin-top: 2px; }
 .score-x .score-val { color: var(--x-color); }
 .score-o .score-val { color: var(--o-color); }
 
 .turn-badge {
-  text-align: center;
-  font-size: 22px;
-  font-weight: 700;
-  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 8px 14px;
   margin-bottom: 18px;
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--surface);
+  border: 4px solid transparent;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.turn-who { font-size: 34px; line-height: 1; }
+.turn-mark { font-size: 48px; line-height: 1; }
+.turn-mark:empty { display: none; }
+.turn-label { font-size: 18px; font-weight: 700; color: var(--text-light); }
+.turn-badge.turn-x { border-color: var(--x-color); box-shadow: 0 0 22px rgba(239, 68, 68, 0.35); }
+.turn-badge.turn-o { border-color: var(--o-color); box-shadow: 0 0 22px rgba(59, 130, 246, 0.35); }
+.turn-badge.turn-x .turn-label { color: var(--x-color); }
+.turn-badge.turn-o .turn-label { color: var(--o-color); }
+.turn-badge:not(.thinking):not(.result):not(.turn-draw) .turn-mark { animation: turnbob 1s ease-in-out infinite alternate; }
+.turn-badge.thinking .turn-mark { animation: think 0.9s ease-in-out infinite; }
+.turn-badge.result { background: #fefce8; }
+.turn-badge.turn-draw { border-color: #a5b4fc; }
+@keyframes turnbob {
+  from { transform: scale(1); }
+  to { transform: scale(1.18); }
+}
+@keyframes think {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 
 /* ── Board ── */
@@ -145,7 +192,12 @@ body {
   max-width: 420px;
   margin: 0 auto;
   aspect-ratio: 1;
+  padding: 8px;
+  border-radius: 26px;
+  transition: box-shadow 0.2s;
 }
+#board[data-turn="X"]:not(.done) { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.35); }
+#board[data-turn="O"]:not(.done) { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.35); }
 .cell {
   background: var(--surface);
   border: none;
@@ -182,7 +234,7 @@ body {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.35);
   align-items: center;
   justify-content: center;
   z-index: 100;
@@ -196,11 +248,11 @@ body {
   max-width: 340px;
   width: 88%;
   animation: pop 0.3s ease;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
 }
 .win-emoji { font-size: 64px; line-height: 1; }
 .win-content h2 { font-size: 28px; margin: 14px 0 24px; }
 .primary-btn, .secondary-btn {
-  display: block;
   width: 100%;
   border: none;
   border-radius: 14px;
@@ -209,9 +261,41 @@ body {
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
-.primary-btn { background: var(--primary); color: white; }
+.primary-btn svg, .secondary-btn svg { flex-shrink: 0; }
+/* Play Again is big; Change Mode is smaller and well below it, so a jittery
+   tap aimed at Play Again cannot land on it. */
+.primary-btn {
+  background: var(--primary);
+  color: white;
+  min-height: 88px;
+  font-size: 22px;
+  border-radius: 20px;
+  box-shadow: 0 6px 0 #4338ca;
+}
+.primary-btn svg { width: 34px; height: 34px; }
+.secondary-btn {
+  width: auto;
+  min-height: 56px;
+  margin: 44px auto 0;
+  padding: 10px 20px;
+  font-size: 15px;
+}
+.secondary-btn svg { width: 22px; height: 22px; }
 .primary-btn:active { transform: scale(0.97); }
 .secondary-btn { background: #e5e7eb; color: var(--text); }
 .secondary-btn:active { transform: scale(0.97); }
+
+/* The ⭕ emoji is red on Apple devices, same as ❌. Tint every O blue so the
+   two players differ by colour, not just shape. */
+.cell.mark-o,
+.score-o .score-mark,
+.turn-badge.turn-o .turn-mark,
+.mode-pair .o {
+  color: transparent;
+  text-shadow: 0 0 0 var(--o-color);
+}
