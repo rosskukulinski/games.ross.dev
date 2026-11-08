@@ -99,6 +99,7 @@ export class View {
   private goalFlash = 0;
   private goalFlashAtTop = false;
   private lastPips: [number, number] = [-1, -1];
+  private target = TARGET_SCORE;
 
   constructor(private readonly app: Application) {
     this.app.stage.addChild(this.world);
@@ -255,6 +256,22 @@ export class View {
     this.drawTable();
     this.lastPips = [-1, -1];
     this.layoutHud();
+  }
+
+  /** Goals to win this match: fewer in an easy solo game, so fewer pips. */
+  setTargetScore(n: number): void {
+    if (n === this.target) return;
+    this.target = n;
+    this.lastPips = [-1, -1];
+  }
+
+  get targetScore(): number {
+    return this.target;
+  }
+
+  /** Table units → logical canvas pixels (the inverse of toTable). */
+  toLogical(x: number, y: number): { x: number; y: number } {
+    return this.px(x, y);
   }
 
   setNames(names: [string, string]): void {
@@ -417,10 +434,12 @@ export class View {
 
   private drawPips(target: Graphics, score: number, color: number, y: number): void {
     target.clear();
-    const r = 6;
-    const gap = 19;
-    const startX = TX + TABLE_PX_W - (TARGET_SCORE - 1) * gap - 22;
-    for (let i = 0; i < TARGET_SCORE; i++) {
+    const n = this.target;
+    // Fewer goals to win means bigger pips: three fat dots read at a glance.
+    const r = n <= 3 ? 9 : n <= 5 ? 7.5 : 6;
+    const gap = r * 3.2;
+    const startX = TX + TABLE_PX_W - (n - 1) * gap - 22;
+    for (let i = 0; i < n; i++) {
       const x = startX + i * gap;
       if (i < score) target.circle(x, y, r).fill({ color });
       else target.circle(x, y, r).stroke({ width: 2, color, alpha: 0.35 });
@@ -481,8 +500,10 @@ export class View {
   }
 
   celebrate(won: boolean): void {
-    const color = won ? COL_YOU : COL_OPP;
-    for (let i = 0; i < 6; i++) {
+    // Even a loss gets a (smaller) shower of golden sparks as a consolation.
+    const color = won ? COL_YOU : COL_PUCK_GLOW;
+    const bursts = won ? 6 : 3;
+    for (let i = 0; i < bursts; i++) {
       const x = TX + 40 + Math.random() * (TABLE_PX_W - 80);
       const y = TY + 60 + Math.random() * (TABLE_PX_H - 120);
       this.fx.burst(x, y, 24, { color, speed: 340, life: 1.1, size: 7 });
@@ -569,16 +590,25 @@ export class View {
         text = 'GOAL!';
         sub = this.goalFlashAtTop ? 'Nice shot!' : '';
         break;
-      case PHASE_OVER:
-        text = state.winner === this.mySide ? 'YOU WIN!' : 'YOU LOSE';
-        sub = `${state.scores[this.mySide]} – ${state.scores[this.mySide === 0 ? 1 : 0]}`;
+      case PHASE_OVER: {
+        // No "YOU LOSE" for a five-year-old: a loss is a good try, and any
+        // goal they did score gets a star each.
+        const mine = state.scores[this.mySide];
+        const theirs = state.scores[this.mySide === 0 ? 1 : 0];
+        const won = state.winner === this.mySide;
+        text = won ? 'YOU WIN!' : 'GOOD TRY!';
+        const stars = mine > 0 ? '  ' + '⭐'.repeat(Math.min(mine, 7)) : '';
+        sub = `${mine} – ${theirs}${won ? '' : stars}`;
         break;
+      }
       default:
         text = '';
     }
 
     if (this.centerText.text !== text) {
       this.centerText.text = text;
+      // "GOOD TRY!" at the full 96px runs past the rails; long words shrink.
+      this.centerText.style.fontSize = text.length > 8 ? 74 : 96;
       if (text) this.centerPop = 1;
     }
     this.setText(this.centerSub, sub);

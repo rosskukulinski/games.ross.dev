@@ -32,7 +32,7 @@ simulation in-page and speaks the same protocol as the Durable Object, so
 | `src/shared/rules.ts` | The simulation. **Shared verbatim with the Worker.** |
 | `src/protocol.ts` | Message types + the `Transport` interface both modes implement |
 | `src/net.ts` | WebSocket transport, server discovery, health probe |
-| `src/bot.ts` | In-page transport with a bot opponent (easy/normal/hard) |
+| `src/bot.ts` | In-page transport with a bot opponent (easy/normal/hard), solo match length, mercy rule |
 | `src/view.ts` | All Pixi rendering |
 | `src/fx.ts` | Pooled additive particles + screen shake |
 | `src/audio.ts` | Synthesized Web Audio (no asset files) |
@@ -63,6 +63,25 @@ directory to invalidate it.
   travelled and slides it back out *around* the paddle.
 - **Fixed-timestep with catch-up.** The bot transport advances by real elapsed
   time, so a slow device drops frames instead of playing in slow motion.
+
+## Kid-friendly solo play
+
+- **Easy is the default** (🐢 / 🐰 / 🚀 chips, ≥64px); the last pick is
+  remembered in `localStorage` (`air-hockey-difficulty`).
+- **Solo matches are shorter**: first to 3 on Easy, 5 on Normal, 7 on Hard
+  (`SOLO_TARGET`). `BotTransport` ends the match itself, turning the goal that
+  reaches the target into the same `PHASE_OVER` + `win` event the rules emit —
+  so `rules.ts` (and the Worker) still play every online match to
+  `TARGET_SCORE`. Don't move this into `rules.ts`: that redeploys the Worker.
+- **Mercy rule**: the bot slows and naps more once it leads (Easy: from one
+  goal up, Normal: from two). Hard never eases off.
+- A loss reads **GOOD TRY!** with a star per goal scored, an upbeat jingle and
+  golden sparks — never "YOU LOSE".
+- Keyboard paddle ramps from 120 to 230 units/s while a key is held.
+- In landscape the empty strips above/below the rails are cropped off screen,
+  so the table is ~9% bigger on an iPad on its stand.
+- Debug hooks for harnesses: `__game.difficulty`, `__game.targetScore`,
+  `__game.tableToClient(x, y)` (table units → CSS client px).
 
 ## Local development
 
