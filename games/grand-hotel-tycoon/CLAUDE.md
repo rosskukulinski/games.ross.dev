@@ -70,7 +70,7 @@ began before anyone understood cleaning. So:
   emoji) projected over `guideTarget()`, with a ring pulsing on the ground
   under it. Hidden once you're within 2.6 m or a job is running.
 - **Ghost finger / arrow keys** (`#move-hint`) until the first move.
-- **Tap to walk:** a short tap (<320 ms, <16 px travel) walks the manager to
+- **Tap to walk:** a short tap (<450 ms, <16 px travel) walks the manager to
   that ground point (`screenToGround` unprojects onto y=0). Dragging still
   steers and cancels it. Every tap draws a ring, so misses get feedback too.
 - **Title card** is four picture tiles; tapping anywhere on the backdrop opens

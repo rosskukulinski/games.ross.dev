@@ -457,7 +457,19 @@
       #minimap { width: 92px; height: 74px; }
       #money-panel { min-width: 148px; padding: 9px 14px 10px; }
       #bank { font-size: 27px; }
-      #hint { font-size: 13px; padding: 9px 16px; bottom: 14px; }
+      #hint {
+        font-size: 13px; padding: 9px 16px; bottom: 14px;
+        white-space: normal; width: max-content; max-width: calc(100vw - 24px);
+      }
+      /* Phones: nothing may sit on top of the mute/pause column (x > 100vw-68,
+         y < 130). Stars squeeze in between money and buttons, toasts drop
+         below the buttons and wrap, the minimap clears the hint bar. */
+      #rating-panel { left: 172px; transform: none; padding: 8px 12px; }
+      #guest-line { display: none; }
+      .star { width: 18px; height: 18px; }
+      #toasts { top: 142px; width: calc(100vw - 24px); }
+      .toast { white-space: normal; font-size: 14px; padding: 9px 16px; text-align: left; }
+      #minimap-wrap { bottom: 84px; }
     }
     @media (max-height: 460px) {
       #minimap-wrap { display: none; }

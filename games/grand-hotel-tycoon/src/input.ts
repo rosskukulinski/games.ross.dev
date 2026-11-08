@@ -20,7 +20,7 @@ export interface InputHooks {
 }
 
 /** A press shorter and smaller than this is a tap, not a steer. */
-const TAP_MS = 320;
+const TAP_MS = 450;
 const TAP_SLOP = 16;
 
 export class Input {
