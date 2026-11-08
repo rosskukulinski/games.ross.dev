@@ -227,12 +227,28 @@
     }
     .prompt.small { margin-top: 16px; font-size: clamp(13px, 2vw, 16px); opacity: 0.75; }
 
-    @media (max-height: 640px) {
-      .howto { margin-top: 16px; gap: 12px; }
-      .howto-card { width: 84px; height: 84px; border-radius: 18px; }
+    /* phones and short screens: keep the cards 3-across and the play
+       button on-screen */
+    @media (max-width: 500px), (max-height: 700px) {
+      .screen { padding: 12px; }
+      .title { font-size: clamp(36px, 10vw, 64px); letter-spacing: 2px; }
+      .subtitle { margin-top: 6px; font-size: 13px; letter-spacing: 2px; }
+      .howto { margin-top: 18px; gap: 10px; flex-wrap: nowrap; }
+      .howto-card { width: min(88px, 26vw); height: min(88px, 26vw); border-radius: 18px; gap: 3px; }
       .howto-card svg { width: 44px; height: 44px; }
-      .big-btn { margin-top: 18px; width: 104px; height: 104px; }
+      .howto-card .tag { font-size: 13px; }
+      .big-btn { margin-top: 20px; width: 104px; height: 104px; flex-shrink: 0; }
       .big-btn svg { width: 48px; height: 48px; }
+      .keys { margin-top: 12px; }
+      #go-score { margin-top: 14px; }
+    }
+    @media (max-height: 520px) {
+      .subtitle, .keys { display: none; }
+      .howto { margin-top: 10px; }
+      .howto + .howto { margin-top: 8px !important; }
+      .howto-card { width: 70px; height: 70px; }
+      .howto-card svg { width: 36px; height: 36px; }
+      .big-btn { margin-top: 12px; width: 88px; height: 88px; }
     }
 
     /* ------- tap zones (during play) ------- */
