@@ -79,3 +79,22 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(46, 125, 50, 0.4);
 }
+
+.game-over-buttons {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.game-over button.play-again {
+  min-height: 80px;
+  font-size: 1.8rem;
+  border-radius: 20px;
+}
+
+.game-over button.menu-btn {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+  min-height: 64px;
+  padding: 12px 28px;
+}

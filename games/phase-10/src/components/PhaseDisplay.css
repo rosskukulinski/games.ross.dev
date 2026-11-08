@@ -79,3 +79,40 @@
 .phase-item.completed .phase-description {
   color: #43a047;
 }
+
+/* Tablets: the Goal strip shows the current phase as pictures, so the
+   side list shrinks to just the numbers to give the hand one full row. */
+@media (max-width: 1200px) {
+  .phase-display {
+    min-width: 0;
+    padding: 10px 6px;
+  }
+
+  .phase-display h3 {
+    font-size: 0;
+    border-bottom: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .phase-item {
+    padding: 4px;
+    justify-content: center;
+  }
+
+  .phase-number {
+    width: 34px;
+    height: 34px;
+    font-size: 0.95rem;
+    margin-right: 0;
+  }
+
+  .phase-description,
+  .phase-check {
+    display: none;
+  }
+
+  .phase-item.completed .phase-number::after {
+    content: '';
+  }
+}

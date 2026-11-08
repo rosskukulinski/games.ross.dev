@@ -1,6 +1,6 @@
 import './Card.css';
 
-export default function Card({ card, faceDown = false, selected = false, onClick, small = false }) {
+export default function Card({ card, faceDown = false, selected = false, onClick, small = false, helpful = false }) {
   if (faceDown) {
     return (
       <div className={`card card-back ${small ? 'card-small' : ''}`}>
@@ -26,12 +26,13 @@ export default function Card({ card, faceDown = false, selected = false, onClick
 
   return (
     <div
-      className={`card ${className} ${selected ? 'card-selected' : ''} ${small ? 'card-small' : ''} ${onClick ? 'card-clickable' : ''}`}
+      className={`card ${className} ${selected ? 'card-selected' : ''} ${small ? 'card-small' : ''} ${onClick ? 'card-clickable' : ''} ${helpful ? 'card-helpful' : ''}`}
       onClick={onClick}
     >
       <div className="card-corner card-corner-top">{display}</div>
       <div className="card-center">{display}</div>
       <div className="card-corner card-corner-bottom">{display}</div>
+      {helpful && <div className="card-star" aria-hidden="true">⭐</div>}
     </div>
   );
 }

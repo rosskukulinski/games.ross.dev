@@ -1,6 +1,8 @@
 import Card from './Card';
 import PhaseDisplay from './PhaseDisplay';
-import { canHitOnGroup, getGroupType } from '../game/phases';
+import GoalStrip from './GoalStrip';
+import { canHitOnGroup, getGroupType, findPhaseCards } from '../game/phases';
+import { sortHand, helpfulCardIds } from '../game/helper';
 import './GameBoard.css';
 
 export default function GameBoard({
@@ -12,8 +14,12 @@ export default function GameBoard({
   onLayDown,
   onDiscard,
   onHit,
+  onHelp,
+  onEarlyCardTap,
+  onClearSelection,
+  nudge = 0,
 }) {
-  const { players, deck, discardPile, currentPlayer, turnPhase, message } = gameState;
+  const { players, deck, discardPile, currentPlayer, turnPhase, message, easy, celebrate } = gameState;
   const humanPlayer = players[0];
   const bots = players.slice(1);
   const isHumanTurn = currentPlayer === 0;
@@ -21,7 +27,18 @@ export default function GameBoard({
 
   const canDrawDeck = isHumanTurn && turnPhase === 'draw';
   const canDrawDiscard = isHumanTurn && turnPhase === 'draw' && discardTop && discardTop.type !== 'skip';
-  const canLayDown = isHumanTurn && turnPhase === 'play' && !humanPlayer.hasLaidPhase && selectedCards.length > 0;
+  const inPlay = isHumanTurn && turnPhase === 'play';
+  // Whole hand can make the phase right now / the selection already does.
+  const handCanLay = inPlay && !humanPlayer.hasLaidPhase && !!findPhaseCards(humanPlayer.hand, humanPlayer.currentPhase);
+  const selectionLays = inPlay && !humanPlayer.hasLaidPhase && selectedCards.length > 0 &&
+    !!findPhaseCards(selectedCards, humanPlayer.currentPhase);
+  // Easy: the button only appears when it will work. Classic: any selection.
+  const canLayDown = inPlay && !humanPlayer.hasLaidPhase && (easy ? handCanLay : selectedCards.length > 0);
+  const layReady = easy ? handCanLay : selectionLays;
+  const helpful = easy && !humanPlayer.hasLaidPhase ? helpfulCardIds(humanPlayer.hand, humanPlayer.currentPhase) : new Set();
+  const hand = sortHand(humanPlayer.hand);
+  const nudging = Date.now() - nudge < 1200;
+  const showCelebrate = celebrate && Date.now() - celebrate.id < 2500;
   const canDiscard = isHumanTurn && turnPhase === 'play' && selectedCards.length === 1;
   const canHit = isHumanTurn && turnPhase === 'play' && humanPlayer.hasLaidPhase && selectedCards.length === 1;
 
@@ -42,6 +59,12 @@ export default function GameBoard({
 
   return (
     <div className="game-board">
+      {showCelebrate && (
+        <div key={celebrate.id} className="celebrate" aria-live="polite">
+          <div className="celebrate-stars">⭐⭐⭐</div>
+          <div className="celebrate-text">{celebrate.text}</div>
+        </div>
+      )}
       {/* Left sidebar - Phase display */}
       <div className="sidebar-left">
         <PhaseDisplay
@@ -104,15 +127,18 @@ export default function GameBoard({
         {/* Center - Deck and Discard */}
         <div className="center-area">
           <div
-            className={`deck-pile ${canDrawDeck ? 'clickable' : ''}`}
+            key={`deck-${nudge}`}
+            className={`deck-pile ${canDrawDeck ? 'clickable draw-cue' : ''} ${canDrawDeck && nudging ? 'nudge' : ''}`}
             onClick={canDrawDeck ? onDrawDeck : undefined}
           >
+            {canDrawDeck && <div className="draw-arrow" aria-hidden="true">👇</div>}
             <Card faceDown />
             <div className="pile-label">Deck ({deck.length})</div>
           </div>
 
           <div
-            className={`discard-pile ${canDrawDiscard ? 'clickable' : ''}`}
+            key={`disc-${nudge}`}
+            className={`discard-pile ${canDrawDiscard ? 'clickable' : ''} ${canDrawDiscard && nudging ? 'nudge' : ''}`}
             onClick={canDrawDiscard ? onDrawDiscard : undefined}
           >
             {discardTop ? (
@@ -122,65 +148,91 @@ export default function GameBoard({
             )}
             <div className="pile-label">Discard</div>
           </div>
-        </div>
 
-        {/* Player's laid phase */}
-        {humanPlayer.laidPhase && (
-          <div className="player-laid-phase">
-            <div className="laid-phase-label">Your Phase {humanPlayer.currentPhase}</div>
-            <div className="laid-groups">
-              {humanPlayer.laidPhase.map((group, gi) => {
-                const isHittable = canHit && selectedCards.length === 1 && canHitGroup(selectedCards[0], 0, gi);
-                return (
-                  <div
-                    key={gi}
-                    className={`laid-group ${isHittable ? 'hittable' : ''}`}
-                    onClick={isHittable ? () => onHit(selectedCards[0], 0, gi) : undefined}
-                  >
-                    {group.map((card) => (
-                      <Card key={card.id} card={card} small />
-                    ))}
-                    {isHittable && <div className="hit-indicator">+ Hit</div>}
-                  </div>
-                );
-              })}
+          {/* Player's laid phase */}
+          {humanPlayer.laidPhase && (
+            <div className="player-laid-phase">
+              <div className="laid-phase-label">⭐ Phase {humanPlayer.currentPhase} done! Throw away the rest.</div>
+              <div className="laid-groups">
+                {humanPlayer.laidPhase.map((group, gi) => {
+                  const isHittable = canHit && selectedCards.length === 1 && canHitGroup(selectedCards[0], 0, gi);
+                  return (
+                    <div
+                      key={gi}
+                      className={`laid-group ${isHittable ? 'hittable' : ''}`}
+                      onClick={isHittable ? () => onHit(selectedCards[0], 0, gi) : undefined}
+                    >
+                      {group.map((card) => (
+                        <Card key={card.id} card={card} small />
+                      ))}
+                      {isHittable && <div className="hit-indicator">+ Hit</div>}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+          {!humanPlayer.laidPhase && (
+            <GoalStrip
+              hand={humanPlayer.hand}
+              phase={humanPlayer.currentPhase}
+              easy={easy}
+              laid={humanPlayer.hasLaidPhase}
+            />
+          )}
+        </div>
 
         {/* Player's hand */}
         <div className="player-area">
           <div className="player-hand">
-            {humanPlayer.hand.map((card) => (
+            {hand.map((card) => (
               <Card
                 key={card.id}
                 card={card}
+                helpful={helpful.has(card.id)}
                 selected={selectedCards.some(c => c.id === card.id)}
-                onClick={isHumanTurn && turnPhase === 'play' ? () => onCardSelect(card) : undefined}
+                onClick={
+                  inPlay ? () => onCardSelect(card)
+                    : canDrawDeck ? onEarlyCardTap
+                    : undefined
+                }
               />
             ))}
           </div>
 
           {/* Action buttons */}
           <div className="action-buttons">
+            {easy && isHumanTurn && (
+              <button className="action-btn help-btn" onClick={onHelp}>
+                💡 Help me
+              </button>
+            )}
             {canLayDown && (
-              <button className="action-btn lay-btn" onClick={onLayDown}>
-                Lay Down Phase
+              <button className={`action-btn lay-btn ${layReady ? 'lay-ready' : ''}`} onClick={() => onLayDown()}>
+                {layReady ? '⭐ Lay down!' : 'Lay Down Phase'}
               </button>
             )}
             {canDiscard && (
-              <button className="action-btn discard-btn" onClick={onDiscard}>
-                Discard Selected
+              <button className="action-btn discard-btn" onClick={() => onDiscard()}>
+                👋 Discard
               </button>
             )}
-            {isHumanTurn && turnPhase === 'play' && selectedCards.length > 1 && !humanPlayer.hasLaidPhase && (
+            {inPlay && selectedCards.length > 1 && (
+              <button className="action-btn clear-btn" onClick={onClearSelection}>
+                ✕ Clear
+              </button>
+            )}
+            {inPlay && selectedCards.length === 0 && (
               <div className="selection-hint">
-                Select cards for your phase, or select 1 card to discard
+                {easy && helpful.size > 0 ? 'Keep the ⭐ cards. Tap one card to throw away.' : 'Tap 1 card to throw away'}
               </div>
+            )}
+            {inPlay && selectedCards.length > 1 && !humanPlayer.hasLaidPhase && !layReady && (
+              <div className="selection-hint">Pick 1 card to throw away</div>
             )}
             {canHit && (
               <div className="selection-hint">
-                Click a laid group to hit, or discard the selected card
+                Tap a glowing group to add your card, or discard it
               </div>
             )}
           </div>

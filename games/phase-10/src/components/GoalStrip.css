@@ -1,0 +1,79 @@
+.goal-strip {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: white;
+  text-align: center;
+  align-self: center;
+  max-width: 100%;
+}
+
+.goal-title {
+  font-weight: bold;
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+}
+
+.goal-sub {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.goal-done {
+  background: rgba(76, 175, 80, 0.35);
+  border: 2px solid #81c784;
+}
+
+.goal-groups {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.goal-group {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  padding: 6px;
+  border: 2px solid transparent;
+}
+
+.goal-group.goal-complete {
+  border-color: #81c784;
+  box-shadow: 0 0 12px rgba(129, 199, 132, 0.6);
+}
+
+.goal-slots {
+  display: flex;
+  gap: 3px;
+}
+
+.goal-slots .card-small {
+  width: 36px;
+  height: 52px;
+}
+
+.goal-slots .card-small .card-center {
+  font-size: 18px;
+}
+
+.goal-slots .card-small .card-corner {
+  display: none;
+}
+
+/* Empty slot: a faded example card behind a dashed outline */
+.goal-slot {
+  border-radius: 8px;
+  outline: 2px dashed rgba(255, 255, 255, 0.55);
+  outline-offset: -1px;
+}
+
+.goal-slot .card {
+  opacity: 0.3;
+}
+
+.goal-label {
+  font-size: 0.8rem;
+  margin-top: 4px;
+  opacity: 0.9;
+}
