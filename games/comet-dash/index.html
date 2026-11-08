@@ -99,13 +99,13 @@
 
     #mute {
       position: absolute; top: 18px; right: 18px; z-index: 6;
-      width: 52px; height: 52px;
-      border-radius: 16px;
+      width: 64px; height: 64px;
+      border-radius: 18px;
       border: 1px solid var(--panel-border);
       background: var(--panel);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      color: #eef0ff; font-size: 22px;
+      color: #eef0ff; font-size: 28px;
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.2s ease;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
@@ -121,10 +121,10 @@
       text-align: center;
       background: radial-gradient(ellipse at 50% 38%, rgba(20, 8, 60, 0.42), rgba(3, 0, 14, 0.78) 78%);
       opacity: 1;
-      transition: opacity 0.5s ease;
+      transition: opacity 0.5s ease, visibility 0s;
       padding: 24px;
     }
-    .screen.hidden { opacity: 0; pointer-events: none; }
+    .screen.hidden { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity 0.5s ease, visibility 0s 0.5s; }
     #hud.hidden { opacity: 0; }
 
     .title {
@@ -146,22 +146,6 @@
       text-transform: uppercase;
       text-shadow: 0 0 14px rgba(90, 70, 255, 0.5);
     }
-    .controls {
-      margin-top: 34px;
-      display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
-      max-width: 640px;
-    }
-    .ctrl {
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      border-radius: 14px;
-      padding: 10px 18px;
-      font-size: 14px; font-weight: 700;
-      color: #dfe4ff;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
-    .ctrl b { color: var(--cyan); text-shadow: 0 0 8px rgba(55, 242, 255, 0.7); }
     .prompt {
       margin-top: 40px;
       font-size: clamp(16px, 2.6vw, 22px);
@@ -174,6 +158,121 @@
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.55; transform: scale(0.985); }
+    }
+
+    /* icon-only how-to-play: three tap zones, then what's good / bad */
+    .howto {
+      margin-top: 30px;
+      display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
+    }
+    .howto-card {
+      width: 112px; height: 112px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 22px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: inset 0 0 24px rgba(90, 70, 255, 0.08);
+    }
+    .howto-card svg { width: 58px; height: 58px; overflow: visible; }
+    .howto-card .tag {
+      font-size: 15px; font-weight: 900; letter-spacing: 1px;
+      color: #dfe4ff;
+    }
+    .howto-card.good { border-color: rgba(255, 213, 74, 0.55); }
+    .howto-card.bad { border-color: rgba(255, 143, 60, 0.55); }
+    .howto-card.hop { border-color: rgba(255, 63, 216, 0.55); }
+    .keys {
+      margin-top: 18px;
+      display: flex; gap: 10px; justify-content: center; align-items: center;
+      font-size: 14px; font-weight: 800; color: #9aa3e6; letter-spacing: 1px;
+    }
+    .keycap {
+      min-width: 36px; padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      color: var(--cyan);
+      text-shadow: 0 0 8px rgba(55, 242, 255, 0.6);
+    }
+
+    .big-btn {
+      margin-top: 30px;
+      width: 132px; height: 132px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.85);
+      background: radial-gradient(circle at 38% 32%, #6ff7ff 0%, #2bb8ff 35%, #7a4dff 75%, #ff3fd8 100%);
+      box-shadow: 0 0 40px rgba(55, 242, 255, 0.6), 0 0 90px rgba(255, 63, 216, 0.35), inset 0 -8px 20px rgba(20, 0, 60, 0.35);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      animation: bob 1.4s ease-in-out infinite;
+      transition: opacity 0.3s ease, filter 0.3s ease;
+    }
+    .big-btn svg { width: 60px; height: 60px; filter: drop-shadow(0 2px 6px rgba(20, 0, 60, 0.5)); }
+    .big-btn:active { transform: scale(0.93); }
+    @keyframes bob {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.07); }
+    }
+    #restart:not(.ready) {
+      opacity: 0.3; filter: grayscale(0.8);
+      animation: none; transform: scale(0.86);
+      cursor: default;
+    }
+    #restart.ready { animation: pop-in 0.35s cubic-bezier(.2, 1.6, .5, 1), bob 1.4s 0.35s ease-in-out infinite; }
+    @keyframes pop-in {
+      from { transform: scale(0.6); }
+      to { transform: scale(1); }
+    }
+    .prompt.small { margin-top: 16px; font-size: clamp(13px, 2vw, 16px); opacity: 0.75; }
+
+    @media (max-height: 640px) {
+      .howto { margin-top: 16px; gap: 12px; }
+      .howto-card { width: 84px; height: 84px; border-radius: 18px; }
+      .howto-card svg { width: 44px; height: 44px; }
+      .big-btn { margin-top: 18px; width: 104px; height: 104px; }
+      .big-btn svg { width: 48px; height: 48px; }
+    }
+
+    /* ------- tap zones (during play) ------- */
+    #zones {
+      position: absolute; inset: 0; z-index: 3;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    #zones.hidden { opacity: 0; }
+    .zone {
+      position: absolute; top: 0; bottom: 0; width: 33.333%;
+      display: flex; align-items: center;
+      opacity: 0.32;
+    }
+    #zone-left { left: 0; justify-content: flex-start; padding-left: 14px;
+      background: linear-gradient(90deg, rgba(55, 242, 255, 0.10), transparent 40%); }
+    #zone-right { right: 0; justify-content: flex-end; padding-right: 14px;
+      background: linear-gradient(270deg, rgba(55, 242, 255, 0.10), transparent 40%); }
+    #zone-jump { left: 33.333%; align-items: flex-end; justify-content: center; padding-bottom: 22px;
+      background: linear-gradient(0deg, rgba(255, 63, 216, 0.10), transparent 30%); }
+    .zone svg { width: 64px; height: 64px; filter: drop-shadow(0 0 10px rgba(55, 242, 255, 0.9)); }
+    #zone-jump svg { filter: drop-shadow(0 0 10px rgba(255, 63, 216, 0.9)); }
+    .zone.hit { animation: zone-hit 0.35s ease-out; }
+    @keyframes zone-hit {
+      0% { opacity: 0.95; }
+      100% { opacity: 0.32; }
+    }
+    .ripple {
+      position: fixed; z-index: 4;
+      width: 90px; height: 90px; margin: -45px 0 0 -45px;
+      border-radius: 50%;
+      border: 4px solid var(--cyan);
+      box-shadow: 0 0 22px rgba(55, 242, 255, 0.8);
+      pointer-events: none;
+      animation: ripple 0.45s ease-out forwards;
+    }
+    .ripple-jump { border-color: var(--magenta); box-shadow: 0 0 22px rgba(255, 63, 216, 0.8); }
+    @keyframes ripple {
+      from { transform: scale(0.3); opacity: 1; }
+      to { transform: scale(1.4); opacity: 0; }
     }
 
     #go-title {
@@ -244,29 +343,58 @@
     </div>
   </div>
 
+  <!-- tap-zone hints: left third / right third steer, middle jumps -->
+  <div id="zones" class="hidden">
+    <div class="zone" id="zone-left"><svg viewBox="0 0 60 60"><path d="M36 12 L18 30 L36 48" fill="none" stroke="#37f2ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="zone" id="zone-jump"><svg viewBox="0 0 60 60"><path d="M12 40 L30 20 L48 40" fill="none" stroke="#ff3fd8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="zone" id="zone-right"><svg viewBox="0 0 60 60"><path d="M24 12 L42 30 L24 48" fill="none" stroke="#37f2ff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  </div>
+
   <button id="mute" aria-label="Toggle sound">&#128266;</button>
   <div id="paused-banner" class="hidden">PAUSED</div>
 
   <div id="start-screen" class="screen">
     <div class="title">COMET DASH</div>
     <div class="subtitle">Ride the neon skyway</div>
-    <div class="controls">
-      <div class="ctrl"><b>&larr; &rarr;</b> or <b>A / D</b> &mdash; change lanes</div>
-      <div class="ctrl"><b>&uarr;</b> / <b>W</b> / <b>Space</b> &mdash; jump</div>
-      <div class="ctrl"><b>Swipe</b> to steer &amp; jump on touch</div>
+    <!-- How to play, in pictures: tap left / middle / right, grab stars,
+         dodge pillars, hop the low gates. -->
+    <div class="howto">
+      <div class="howto-card" aria-label="Tap left side to move left">
+        <svg viewBox="0 0 60 60"><path d="M36 12 L18 30 L36 48" fill="none" stroke="#37f2ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="howto-card" aria-label="Tap the middle to jump">
+        <svg viewBox="0 0 60 60"><path d="M12 38 L30 18 L48 38" fill="none" stroke="#ff3fd8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 52 H46" stroke="#ff3fd8" stroke-width="5" stroke-linecap="round" opacity="0.5"/></svg>
+      </div>
+      <div class="howto-card" aria-label="Tap right side to move right">
+        <svg viewBox="0 0 60 60"><path d="M24 12 L42 30 L24 48" fill="none" stroke="#37f2ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
     </div>
-    <div class="controls" style="margin-top:14px">
-      <div class="ctrl" style="border-color: rgba(255,171,60,0.4)">Grab <b style="color:var(--orange)">stars</b> &middot; dodge <b style="color:var(--magenta)">barriers</b> &middot; jump the <b style="color:var(--cyan)">low gates</b></div>
+    <div class="howto" style="margin-top:14px">
+      <div class="howto-card good" aria-label="Grab stars">
+        <svg viewBox="0 0 60 60"><path d="M30 6 L37 22 L54 23 L41 34 L45 51 L30 42 L15 51 L19 34 L6 23 L23 22 Z" fill="#ffd54a" stroke="#fff3b0" stroke-width="2" stroke-linejoin="round"/></svg>
+        <div class="tag" style="color:#ffd54a">+50</div>
+      </div>
+      <div class="howto-card bad" aria-label="Go around pillars">
+        <svg viewBox="0 0 60 60"><rect x="8" y="10" width="20" height="42" rx="3" fill="#120f2a" stroke="#ff8f3c" stroke-width="4"/><path d="M34 31 H52 M45 24 L52 31 L45 38" fill="none" stroke="#37f2ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="howto-card hop" aria-label="Jump over low gates">
+        <svg viewBox="0 0 60 60"><path d="M10 54 V40 M50 54 V40 M8 42 H52" stroke="#ff3fd8" stroke-width="5" stroke-linecap="round"/><path d="M8 34 Q30 0 52 34" fill="none" stroke="#37f2ff" stroke-width="4" stroke-linecap="round" stroke-dasharray="2 7"/></svg>
+      </div>
     </div>
-    <div class="prompt">TAP OR PRESS ANY KEY TO START</div>
+    <div class="big-btn" aria-label="Start">
+      <svg viewBox="0 0 60 60"><path d="M20 12 L48 30 L20 48 Z" fill="#fff" stroke="#fff" stroke-width="5" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="keys"><span class="keycap">&larr; &rarr;</span><span class="keycap">&uarr; / Space</span></div>
   </div>
 
   <div id="gameover-screen" class="screen hidden">
     <div id="go-title">SHIP DOWN!</div>
     <div id="go-score">0</div>
     <div id="go-best">BEST 0</div>
-    <div id="go-newbest" class="hidden">NEW BEST!</div>
-    <div class="prompt">TAP OR PRESS ANY KEY TO FLY AGAIN</div>
+    <div id="go-newbest" class="hidden">&#9733; NEW BEST! &#9733;</div>
+    <button id="restart" class="big-btn" aria-label="Fly again" disabled>
+      <svg viewBox="0 0 60 60"><path d="M45 30 A15 15 0 1 1 38 17" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M33 8 L44 15 L35 25 Z" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 
   <script type="module" src="./src/main.ts"></script>

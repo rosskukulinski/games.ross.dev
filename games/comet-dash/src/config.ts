@@ -6,9 +6,24 @@ export const LANE_X = [-3, 0, 3];
 export const SHIP_BASE_Y = 0.95; // hover height of the ship
 export const SHIP_Z = 0; // ship stays fixed in z; the world scrolls past
 
-export const SPEED_START = 19;
+// A gentle start — little kids get a few calm seconds to find the controls;
+// the ramp still reaches full speed in a bit over a minute.
+export const SPEED_START = 14;
 export const SPEED_MAX = 58;
 export const SPEED_RAMP = 0.55; // units/sec gained per second
+
+/** Seconds into a run before any pillar (the un-jumpable obstacle) spawns. */
+export const WARMUP_NO_PILLARS = 10;
+/** Seconds into a run before pillar walls / pillar+gate combos spawn. */
+export const WARMUP_GENTLE = 25;
+
+/** After a crash: the big restart button works after this many seconds… */
+export const RESTART_BUTTON_DELAY = 1.5;
+/** …a key press after this many… */
+export const RESTART_KEY_DELAY = 1.5;
+/** …and a tap anywhere else only after this many, so stray taps from a
+ *  little kid still mashing the screen don't skip the score card. */
+export const RESTART_ANY_TAP_DELAY = 2.6;
 
 export const JUMP_VELOCITY = 13.5;
 export const GRAVITY = -34;
