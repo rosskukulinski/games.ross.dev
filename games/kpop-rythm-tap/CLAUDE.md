@@ -27,7 +27,7 @@ A rhythm/music tapping game featuring 10 original K-pop tracks from the KPOP Dem
 - **Desktop**: Arrow keys (←↓↑→) or D F J K
 - **Touch / mouse**: Tap or click anywhere in a lane (pointer events)
 - **Starter (2 lanes)**: ← ↓ D F hit the left lane, ↑ → J K the right
-- **Pause**: Escape key or pause button
+- **Pause**: Escape key or pause button; also auto-pauses when the tab/app is hidden
 
 ## Lanes
 
@@ -42,7 +42,7 @@ A rhythm/music tapping game featuring 10 original K-pop tracks from the KPOP Dem
 
 `window.__game` is a read-only getter object for automated play-tests: `phase`,
 `mode`, `lanes`, `score`, `combo`, `maxCombo`, `hits`, `misses`, `emptyTaps`,
-`judgments`, `totalNotes`, `songTime`, `firstNoteTime`, `endTime`, `notes`
+`judgments`, `totalNotes`, `songTime`, `firstNoteTime`, `startAt`, `paused`, `endTime`, `notes`
 (`{time, lane}`), `windows`.
 
 ## Architecture

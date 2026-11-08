@@ -115,6 +115,9 @@ export default function App() {
     def('totalNotes', () => g()?.totalNotes ?? 0);
     def('songTime', () => (g()?.active ? getAudio().getCurrentTime() : null));
     def('firstNoteTime', () => g()?.beatmap[0]?.time ?? null);
+    // song time playback started at (negative = silent pre-roll)
+    def('startAt', () => g()?.startAt ?? null);
+    def('paused', () => !!g()?.paused);
     def('endTime', () => g()?.endTime ?? null);
     def('notes', () => (g()?.beatmap ?? []).map((n) => ({ time: n.time, lane: n.lane })));
     def('windows', () => {
@@ -250,19 +253,32 @@ export default function App() {
 
   const pauseGame = useCallback(() => {
     const g = gs.current;
-    if (!g || !g.active) return;
+    if (!g || !g.active || g.paused) return;
     g.paused = true;
     getAudio().pause();
     updateUi({ phase: 'paused' });
   }, [updateUi, getAudio]);
 
   const resumeGame = useCallback(() => {
-    if (!gs.current) return;
-    gs.current.paused = false;
-    gs.current.lastTime = 0;
+    const g = gs.current;
+    // idempotent: a double-tap on Resume (or Resume + Escape) must not
+    // restart the audio twice
+    if (!g || !g.active || !g.paused) return;
+    g.paused = false;
+    g.lastTime = 0;
     getAudio().resume();
     updateUi({ phase: 'playing' });
   }, [updateUi, getAudio]);
+
+  // Pause when the tab / app goes to the background, so the song doesn't run
+  // on (or freeze with a suspended AudioContext) while nobody is looking.
+  useEffect(() => {
+    const onHide = () => {
+      if (document.hidden) pauseGame();
+    };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [pauseGame]);
 
   const quitToSelect = useCallback(() => {
     if (gs.current) gs.current.active = false;
@@ -872,7 +888,7 @@ export default function App() {
         </div>
         <div className="difficulty-actions">
           <button className="btn btn-play" onClick={() => selectSong(selectedSong, difficulty)}>
-            ▶ Play
+            ▶ Play <span className="play-mode" aria-label={MODES[difficulty].label}>{MODES[difficulty].icon}</span>
           </button>
           <button className="btn btn-secondary" onClick={() => updateUi({ selectedSong: null })}>
             Back

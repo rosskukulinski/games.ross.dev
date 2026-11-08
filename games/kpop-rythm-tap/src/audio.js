@@ -84,6 +84,9 @@ export class AudioEngine {
 
   resume() {
     if (!this.paused) return;
+    // the context can be suspended by the OS (iOS interruptions, background
+    // tabs); its clock is frozen until it runs again
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     this._startSource(this.pauseTime);
     this.paused = false;
   }
