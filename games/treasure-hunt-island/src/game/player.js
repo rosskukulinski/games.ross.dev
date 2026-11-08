@@ -20,11 +20,17 @@ export function updatePlayer(player, input, dt) {
   if (input.left) dx -= 1;
   if (input.right) dx += 1;
 
+  // Tap/hold-to-walk supplies an analog vector when no direction key is held
+  if (dx === 0 && dy === 0 && (input.vx || input.vy)) {
+    dx = input.vx || 0;
+    dy = input.vy || 0;
+  }
+
   if (dx === 0 && dy === 0) return;
 
-  // Normalize diagonal
-  if (dx !== 0 && dy !== 0) {
-    const len = Math.hypot(dx, dy);
+  // Normalize diagonal (analog input shorter than 1 means "ease in")
+  const len = Math.hypot(dx, dy);
+  if (len > 1) {
     dx /= len;
     dy /= len;
   }

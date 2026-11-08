@@ -6,7 +6,7 @@ export const ITEM_POOLS = {
     { col: 3, row: 5 },
     { col: 13, row: 9 },
     { col: 5, row: 12 },
-    { col: 14, row: 4 },
+    { col: 15, row: 5 }, // beside the rocks; (14,4) was walled in on all sides
   ],
   map: [
     { col: 4, row: 4 },
@@ -55,18 +55,40 @@ export function drawItems(ctx, items, time) {
   }
 }
 
-function drawItem(ctx, item, time) {
-  const { x, y, id } = item;
-  const bob = Math.sin(time / 300 + x) * 2;
+// Tools are drawn half again as big as their tile art, with a pulsing beacon,
+// so a young player can spot them from across the island.
+const ITEM_SCALE = 1.5;
 
-  // Glow ring
+function drawItem(ctx, item, time) {
+  const bob = Math.sin(time / 300 + item.x) * 2;
+  const pulse = Math.sin(time / 400);
+
+  // Outer pulsing ring
   ctx.save();
-  ctx.globalAlpha = 0.3 + Math.sin(time / 400) * 0.15;
+  ctx.strokeStyle = '#fff59d';
+  ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.35 + pulse * 0.25;
+  ctx.beginPath();
+  ctx.arc(item.x, item.y + bob, 22 + pulse * 4, 0, Math.PI * 2);
+  ctx.stroke();
+  // Glow disc
+  ctx.globalAlpha = 0.4 + pulse * 0.15;
   ctx.fillStyle = '#f1c40f';
   ctx.beginPath();
-  ctx.arc(x, y + bob, 14, 0, Math.PI * 2);
+  ctx.arc(item.x, item.y + bob, 18, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+
+  ctx.save();
+  ctx.translate(item.x, item.y);
+  ctx.scale(ITEM_SCALE, ITEM_SCALE);
+  drawItemArt(ctx, item.id, bob / ITEM_SCALE);
+  ctx.restore();
+}
+
+// Item art centred on (0, 0)
+function drawItemArt(ctx, id, bob) {
+  const x = 0, y = 0;
 
   if (id === 'shovel') {
     // Handle

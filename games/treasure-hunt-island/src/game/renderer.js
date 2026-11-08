@@ -39,8 +39,105 @@ export function render(ctx, gs, time) {
     drawCompassArrow(ctx, gs.player, gs.treasure);
   }
 
-  // Layer 9: Interaction hints
+  // Layer 9: Where-to-go-next helper for players who haven't found anything lately
+  if (gs.guide) {
+    drawGuide(ctx, gs.player, gs.guide, time);
+  }
+
+  // Layer 10: Walk-to marker from a tap on the island
+  if (gs.walkTarget) {
+    drawWalkMarker(ctx, gs.walkTarget, time);
+  }
+
+  // Layer 11: Pickup celebration
+  if (gs.pickupFx) {
+    drawPickupFx(ctx, gs.pickupFx, time);
+  }
+
+  // Layer 12: Interaction hints
   drawInteractionHints(ctx, gs, time);
+}
+
+// A big pulsing arrow beside the player pointing at the next goal, plus a
+// bouncing marker above the goal itself. Pictures only, so a pre-reader can
+// follow it.
+function drawGuide(ctx, player, target, time) {
+  const dx = target.x - player.x;
+  const dy = target.y - player.y;
+  const dist = Math.hypot(dx, dy);
+  const pulse = (Math.sin(time / 180) + 1) / 2;
+
+  if (dist > 48) {
+    const angle = Math.atan2(dy, dx);
+    const r = 34 + pulse * 6;
+    ctx.save();
+    ctx.translate(player.x + Math.cos(angle) * r, player.y + Math.sin(angle) * r);
+    ctx.rotate(angle);
+    ctx.globalAlpha = 0.75 + pulse * 0.25;
+    ctx.fillStyle = '#ffeb3b';
+    ctx.strokeStyle = '#5d4037';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-2, -12);
+    ctx.lineTo(-2, -5);
+    ctx.lineTo(-12, -5);
+    ctx.lineTo(-12, 5);
+    ctx.lineTo(-2, 5);
+    ctx.lineTo(-2, 12);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Bouncing down-arrow over the goal
+  const by = target.y - 34 - Math.abs(Math.sin(time / 220)) * 8;
+  ctx.save();
+  ctx.fillStyle = '#ffeb3b';
+  ctx.strokeStyle = '#5d4037';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(target.x, by + 12);
+  ctx.lineTo(target.x - 10, by);
+  ctx.lineTo(target.x - 4, by);
+  ctx.lineTo(target.x - 4, by - 10);
+  ctx.lineTo(target.x + 4, by - 10);
+  ctx.lineTo(target.x + 4, by);
+  ctx.lineTo(target.x + 10, by);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawWalkMarker(ctx, t, time) {
+  const r = 8 + Math.sin(time / 150) * 2;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(t.x, t.y + 6, r, r * 0.5, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawPickupFx(ctx, fx, time) {
+  const p = Math.min((performance.now() - fx.start) / 700, 1);
+  if (p >= 1) return;
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2 + p * 2;
+    const d = 8 + p * 46;
+    ctx.save();
+    ctx.globalAlpha = 1 - p;
+    ctx.fillStyle = i % 2 ? '#fff59d' : '#f1c40f';
+    ctx.beginPath();
+    ctx.arc(fx.x + Math.cos(a) * d, fx.y + Math.sin(a) * d, 3.5 * (1 - p * 0.5), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawSparkles(ctx, gs, time) {
@@ -162,33 +259,33 @@ function drawDigAnim(ctx, digAnim, time) {
   }
 }
 
-function drawInteractionHints(ctx, gs, time) {
-  const { player, npcs, items } = gs;
+function drawHintBubble(ctx, x, y, label, touch, time) {
+  ctx.save();
+  ctx.globalAlpha = 0.75 + Math.sin(time / 300) * 0.2;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (touch) {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.beginPath();
+    ctx.arc(x, y, 13, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '16px system-ui, sans-serif';
+    ctx.fillText(label.icon, x, y + 1);
+  } else {
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px Arial';
+    ctx.fillText(label.text, x, y);
+  }
+  ctx.restore();
+}
 
-  // Check nearby NPCs
+function drawInteractionHints(ctx, gs, time) {
+  const { player, npcs } = gs;
+
+  // Tools are picked up just by walking onto them, so only people need a hint.
   for (const npc of npcs) {
     if (distance(player.x, player.y, npc.x, npc.y) < INTERACT_RANGE) {
-      ctx.save();
-      ctx.globalAlpha = 0.6 + Math.sin(time / 300) * 0.2;
-      ctx.fillStyle = '#fff';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('[E] Talk', npc.x, npc.y + 22);
-      ctx.restore();
-    }
-  }
-
-  // Check nearby uncollected items
-  for (const item of items) {
-    if (item.collected) continue;
-    if (distance(player.x, player.y, item.x, item.y) < INTERACT_RANGE) {
-      ctx.save();
-      ctx.globalAlpha = 0.6 + Math.sin(time / 300) * 0.2;
-      ctx.fillStyle = '#fff';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('[E] Pick up', item.x, item.y + 20);
-      ctx.restore();
+      drawHintBubble(ctx, npc.x, npc.y + 26, { icon: '\u{1F4AC}', text: '[E] Talk' }, gs.touch, time);
     }
   }
 }
