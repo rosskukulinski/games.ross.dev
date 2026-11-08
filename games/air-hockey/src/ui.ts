@@ -1,4 +1,4 @@
-import type { Difficulty } from './bot';
+import { SOLO_TARGET, type Difficulty } from './bot';
 import { audio } from './audio';
 import { CODE_ALPHABET, CODE_LENGTH } from './shared/rules';
 
@@ -24,6 +24,18 @@ const SCREENS: Exclude<ScreenName, 'none'>[] = [
   'waiting',
 ];
 
+const DIFFICULTY_KEY = 'air-hockey-difficulty';
+
+function loadDifficulty(): Difficulty {
+  try {
+    const saved = localStorage.getItem(DIFFICULTY_KEY);
+    if (saved === 'easy' || saved === 'normal' || saved === 'hard') return saved;
+  } catch {
+    // Storage blocked; fall through to the default.
+  }
+  return 'easy';
+}
+
 function el<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
   if (!node) throw new Error(`missing #${id}`);
@@ -38,7 +50,8 @@ export class Ui {
   onQuit: (() => void) | null = null;
   onRematch: (() => void) | null = null;
 
-  difficulty: Difficulty = 'normal';
+  /** Easy by default: the youngest player here is five. The last pick sticks. */
+  difficulty: Difficulty = loadDifficulty();
   private current: ScreenName = 'menu';
   private readonly codeBoxes: HTMLInputElement[];
 
@@ -59,11 +72,10 @@ export class Ui {
       btn.addEventListener('click', () => {
         audio.unlock();
         audio.uiClick();
-        for (const other of document.querySelectorAll('.diff')) other.classList.remove('is-active');
-        btn.classList.add('is-active');
-        this.difficulty = (btn.dataset.diff as Difficulty) ?? 'normal';
+        this.setDifficulty((btn.dataset.diff as Difficulty) ?? 'easy');
       });
     }
+    this.setDifficulty(this.difficulty);
 
     el('btn-friend').addEventListener('click', () => {
       audio.unlock();
@@ -117,6 +129,22 @@ export class Ui {
     });
 
     this.wireCodeBoxes();
+  }
+
+  private setDifficulty(d: Difficulty): void {
+    this.difficulty = d;
+    for (const btn of document.querySelectorAll<HTMLButtonElement>('.diff')) {
+      const on = btn.dataset.diff === d;
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', String(on));
+    }
+    const n = SOLO_TARGET[d];
+    el('menu-tagline').textContent = `First to ${n} goals wins`;
+    try {
+      localStorage.setItem(DIFFICULTY_KEY, d);
+    } catch {
+      // Private mode — the choice just won't be remembered.
+    }
   }
 
   // --- Screens -------------------------------------------------------------

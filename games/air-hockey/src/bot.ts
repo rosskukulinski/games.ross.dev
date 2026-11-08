@@ -1,13 +1,16 @@
 import type { ClientMessage, ServerMessage, Transport } from './protocol';
 import {
   type Match,
+  type Side,
   type StepEvent,
   PADDLE_R,
+  PHASE_GOAL,
   PHASE_OVER,
   PHASE_WAITING,
   PUCK_R,
   TABLE_H,
   TABLE_W,
+  TARGET_SCORE,
   TICK_DT,
   TICK_RATE,
   clampPaddleTarget,
@@ -19,6 +22,30 @@ import {
 } from './shared/rules';
 
 export type Difficulty = 'easy' | 'normal' | 'hard';
+
+/**
+ * Goals to win a solo match. Online play is always first to TARGET_SCORE (the
+ * Worker enforces it); against the bot a five-year-old's attention runs out
+ * well before seven goals, so the gentler levels end sooner. The bot transport
+ * ends the match itself, so the shared rules (and the Worker) never change.
+ */
+export const SOLO_TARGET: Record<Difficulty, number> = {
+  easy: 3,
+  normal: 5,
+  hard: 7,
+};
+
+/**
+ * How much the bot backs off when it is winning comfortably: speed is
+ * multiplied by `slow` and `nap` is added to its nap chance, per goal of lead
+ * beyond `after`. Hard never eases off — it is there for the grown-ups.
+ */
+const MERCY: Record<Difficulty, { slow: number; nap: number; after: number }> = {
+  // Easy starts easing off as soon as it is a goal up; Normal at two up.
+  easy: { slow: 0.75, nap: 0.2, after: 0 },
+  normal: { slow: 0.85, nap: 0.12, after: 1 },
+  hard: { slow: 1, nap: 0, after: 0 },
+};
 
 /** Longest real-time gap the simulation will try to catch up on, in seconds. */
 const MAX_CATCHUP_SECONDS = 0.25;
@@ -93,6 +120,8 @@ export class BotTransport implements Transport {
   private match: Match = createMatch();
   private loop: ReturnType<typeof setInterval> | null = null;
   private readonly cfg: BotConfig;
+  private readonly difficulty: Difficulty;
+  readonly targetScore: number;
 
   // Bot hand position + current aim wobble.
   private handX = TABLE_W / 2;
@@ -106,6 +135,8 @@ export class BotTransport implements Transport {
 
   constructor(difficulty: Difficulty) {
     this.cfg = CONFIG[difficulty];
+    this.difficulty = difficulty;
+    this.targetScore = Math.min(SOLO_TARGET[difficulty], TARGET_SCORE);
     // Deliver the handshake after construction so callers can attach handlers.
     setTimeout(() => {
       this.onMessage?.({ t: 'joined', side: 0, code: 'SOLO', tickRate: TICK_RATE });
@@ -156,6 +187,7 @@ export class BotTransport implements Transport {
       steps++;
       this.driveBot(TICK_DT);
       events.push(...step(this.match, TICK_DT));
+      this.checkSoloWin(events);
     }
     if (steps === 0) return;
 
@@ -166,22 +198,46 @@ export class BotTransport implements Transport {
     });
   }
 
+  /**
+   * End the match at the solo target. The shared rules would play on to
+   * TARGET_SCORE; a goal that reaches the shorter target is turned into the
+   * same PHASE_OVER + 'win' event the rules emit, so the client can't tell.
+   */
+  private checkSoloWin(events: StepEvent[]): void {
+    const m = this.match;
+    if (m.phase !== PHASE_GOAL || this.targetScore >= TARGET_SCORE) return;
+    const scorer: Side | -1 =
+      m.scores[0] >= this.targetScore ? 0 : m.scores[1] >= this.targetScore ? 1 : -1;
+    if (scorer === -1) return;
+    m.phase = PHASE_OVER;
+    m.winner = scorer;
+    m.timer = 0;
+    events.push({ kind: 'win', x: TABLE_W / 2, y: TABLE_H / 2, power: 1, side: scorer });
+  }
+
   private driveBot(dt: number): void {
     const { puck } = this.match;
     const cfg = this.cfg;
+
+    // Mercy rule: once the bot is ahead it starts to dawdle, so a kid who is
+    // behind always gets a real chance to catch up.
+    const mercy = MERCY[this.difficulty];
+    const excessLead = Math.max(0, this.match.scores[1] - this.match.scores[0] - mercy.after);
+    const mercySlow = Math.pow(mercy.slow, excessLead);
+    const napChance = Math.min(0.8, cfg.napChance + mercy.nap * excessLead);
 
     this.noiseTimer -= dt;
     if (this.noiseTimer <= 0) {
       this.noiseTimer = cfg.reaction;
       this.noiseX = (Math.random() * 2 - 1) * cfg.noise;
       this.noiseY = (Math.random() * 2 - 1) * cfg.noise * 0.6;
-      this.napping = Math.random() < cfg.napChance;
+      this.napping = Math.random() < napChance;
     }
 
     const homeY = PADDLE_R + 14;
     let wantX: number;
     let wantY: number;
-    let speed = cfg.speed;
+    let speed = cfg.speed * mercySlow;
 
     if (this.napping) {
       // Zoned out — amble home and ignore the puck until the next re-roll.

@@ -17,6 +17,7 @@ import {
   PHASE_WAITING,
   TABLE_H,
   TABLE_W,
+  TARGET_SCORE,
   advancePaddle,
   clampPaddleTarget,
   decodeSnapshot,
@@ -54,8 +55,14 @@ let rematchFlags: [boolean, boolean] = [false, false];
 let lastCountdownBeep = -1;
 let sinceInputSend = 0;
 const keys = new Set<string>();
+/** Seconds the movement keys have been held, for keyboard acceleration. */
+let keyHeld = 0;
+let soloDifficulty: Difficulty | null = null;
 
 // --- Boot ------------------------------------------------------------------
+
+/** Logical px of the empty margin strip (above and below the table) cropped in landscape. */
+const LANDSCAPE_CROP_Y = 40;
 
 async function boot(): Promise<void> {
   const app = new Application();
@@ -72,11 +79,22 @@ async function boot(): Promise<void> {
   if (!host) throw new Error('missing #app');
   host.appendChild(app.canvas);
 
-  // Fixed logical resolution, CSS-scaled to fit the window.
+  // Fixed logical resolution, CSS-scaled to fit the window. On a landscape
+  // screen (an iPad on its stand) the tall table is height-bound and was only
+  // ~420px wide, so let the empty strips above and below the rails run off
+  // screen: the felt, rails and goals all stay visible and the table grows ~9%.
+  // In portrait those strips hold the HUD chips, so nothing is cropped there.
   const resize = (): void => {
-    const scale = Math.min(window.innerWidth / VIEW_W, window.innerHeight / VIEW_H);
+    const landscape = window.innerWidth > window.innerHeight;
+    const visibleH = landscape ? VIEW_H - 2 * LANDSCAPE_CROP_Y : VIEW_H;
+    const scale = Math.min(window.innerWidth / VIEW_W, window.innerHeight / visibleH);
     app.canvas.style.width = `${Math.floor(VIEW_W * scale)}px`;
-    app.canvas.style.height = `${Math.floor(VIEW_H * scale)}px`;
+    const h = Math.floor(VIEW_H * scale);
+    app.canvas.style.height = `${h}px`;
+    // A grid item taller than its container overflows downward only; shift it
+    // up so the crop is shared equally between the top and bottom strips.
+    const overflow = Math.max(0, h - window.innerHeight);
+    app.canvas.style.transform = overflow ? `translateY(${-overflow / 2}px)` : '';
   };
   window.addEventListener('resize', resize);
   resize();
@@ -135,6 +153,23 @@ async function boot(): Promise<void> {
     setTarget(x: number, y: number) {
       localTarget = clampPaddleTarget(mySide, x, y);
     },
+    /** Solo difficulty in play ('easy' | 'normal' | 'hard'), or null online / idle. */
+    get difficulty() {
+      return soloDifficulty;
+    },
+    /** Goals needed to win the current match (3/5/7 solo, 7 online). */
+    get targetScore() {
+      return view.targetScore;
+    },
+    /** Table units -> CSS client pixels, for harnesses that drag the paddle. */
+    tableToClient(x: number, y: number) {
+      const logical = view.toLogical(x, y);
+      const rect = app.canvas.getBoundingClientRect();
+      return {
+        x: rect.left + (logical.x / VIEW_W) * rect.width,
+        y: rect.top + (logical.y / VIEW_H) * rect.height,
+      };
+    },
   };
 }
 
@@ -183,16 +218,36 @@ function wireInput(app: Application, view: View): void {
   window.addEventListener('blur', () => keys.clear());
 }
 
-/** Keyboard is a fallback for laptops without a comfortable mouse. */
+/** Keyboard speed in table units per second: a quick tap nudges, a hold races. */
+const KEY_SPEED_START = 120;
+const KEY_SPEED_MAX = 230;
+/** Seconds of holding to reach full keyboard speed. */
+const KEY_RAMP = 0.5;
+
+/**
+ * Keyboard is a fallback for laptops without a comfortable mouse. It used to
+ * crawl at 95 units/s, far too slow to get back in front of a shot; holding a
+ * key now ramps up close to the paddle's own speed limit.
+ */
 function applyKeyboard(dt: number): void {
-  const speed = 95 * dt;
   let dx = 0;
   let dy = 0;
   if (keys.has('arrowleft') || keys.has('a')) dx -= 1;
   if (keys.has('arrowright') || keys.has('d')) dx += 1;
   if (keys.has('arrowup') || keys.has('w')) dy -= 1;
   if (keys.has('arrowdown') || keys.has('s')) dy += 1;
-  if (dx === 0 && dy === 0) return;
+  if (dx === 0 && dy === 0) {
+    keyHeld = 0;
+    return;
+  }
+  keyHeld += dt;
+  const ramp = Math.min(1, keyHeld / KEY_RAMP);
+  const speed = (KEY_SPEED_START + (KEY_SPEED_MAX - KEY_SPEED_START) * ramp) * dt;
+  // Pull the target back onto the paddle first: if a drag left the target far
+  // away, a key press should move the paddle from where it is, not from there.
+  if (Math.hypot(localTarget.x - localPaddle.x, localTarget.y - localPaddle.y) > 6) {
+    localTarget = { ...localPaddle };
+  }
   const len = Math.hypot(dx, dy);
   // The view is flipped for side 1, so "up" on the keyboard is -y on screen
   // but +y in table space.
@@ -231,6 +286,7 @@ function teardown(): void {
 function quitToMenu(ui: Ui): void {
   teardown();
   mode = 'idle';
+  soloDifficulty = null;
   roomCode = '';
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   ui.setOverStatus('');
@@ -256,6 +312,7 @@ function attach(t: Transport, ui: Ui, view: View): void {
 function startSolo(difficulty: Difficulty, ui: Ui, view: View): void {
   teardown();
   mode = 'solo';
+  soloDifficulty = difficulty;
   isHost = false;
   roomCode = '';
   names = ['You', 'Computer'];
@@ -267,7 +324,9 @@ function startSolo(difficulty: Difficulty, ui: Ui, view: View): void {
   ui.setConnectionInfo('Solo · ' + difficulty);
   ui.setOverStatus('');
   ui.show('none');
-  attach(new BotTransport(difficulty), ui, view);
+  const bot = new BotTransport(difficulty);
+  view.setTargetScore(bot.targetScore);
+  attach(bot, ui, view);
 }
 
 async function startHost(ui: Ui, view: View): Promise<void> {
@@ -284,6 +343,8 @@ async function startHost(ui: Ui, view: View): Promise<void> {
   const code = randomCode();
   teardown();
   mode = 'online';
+  soloDifficulty = null;
+  view.setTargetScore(TARGET_SCORE);
   isHost = true;
   roomCode = code;
   ui.setHostCode(code);
@@ -308,6 +369,8 @@ async function startJoin(code: string, ui: Ui, view: View): Promise<void> {
 
   teardown();
   mode = 'online';
+  soloDifficulty = null;
+  view.setTargetScore(TARGET_SCORE);
   isHost = false;
   roomCode = code;
   ui.setOverStatus('');

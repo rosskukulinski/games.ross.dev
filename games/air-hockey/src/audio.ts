@@ -117,7 +117,9 @@ class AudioKit {
   }
 
   win(won: boolean): void {
-    const notes = won ? [523, 659, 784, 1047, 1319] : [392, 349, 294, 233];
+    // A loss gets a short, upbeat "good try" phrase rather than a sad slide:
+    // the youngest player here loses a lot, and shouldn't be told off for it.
+    const notes = won ? [523, 659, 784, 1047, 1319] : [392, 494, 587];
     notes.forEach((f, i) => {
       this.tone(f, 0.42, { type: 'triangle', gain: 0.3, delay: i * 0.13 });
       this.tone(f * 2, 0.34, { type: 'sine', gain: 0.11, delay: i * 0.13 });

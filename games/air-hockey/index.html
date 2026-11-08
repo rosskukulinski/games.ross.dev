@@ -31,21 +31,32 @@
       <!-- Main menu -->
       <section class="screen" id="screen-menu">
         <h1 class="title">AIR<span>HOCKEY</span></h1>
-        <p class="tagline">First to 7 goals wins</p>
+        <p class="tagline" id="menu-tagline">First to 3 goals wins</p>
         <div class="stack">
           <button class="btn btn-primary" id="btn-solo" type="button">
             <span class="btn-icon">🤖</span> Play the Computer
           </button>
+          <!-- Icons first so a pre-reader can pick: slow turtle, quick bunny,
+               rocket. Easy is the default — see Ui.difficulty. -->
           <div class="difficulty" role="group" aria-label="Computer difficulty">
-            <button class="diff" data-diff="easy" type="button">Easy</button>
-            <button class="diff is-active" data-diff="normal" type="button">Normal</button>
-            <button class="diff" data-diff="hard" type="button">Hard</button>
+            <button class="diff is-active" data-diff="easy" type="button" aria-label="Easy" aria-pressed="true">
+              <span class="diff-icon" aria-hidden="true">🐢</span><span class="diff-label">Easy</span>
+            </button>
+            <button class="diff" data-diff="normal" type="button" aria-label="Normal" aria-pressed="false">
+              <span class="diff-icon" aria-hidden="true">🐰</span><span class="diff-label">Normal</span>
+            </button>
+            <button class="diff" data-diff="hard" type="button" aria-label="Hard" aria-pressed="false">
+              <span class="diff-icon" aria-hidden="true">🚀</span><span class="diff-label">Hard</span>
+            </button>
           </div>
           <button class="btn btn-secondary" id="btn-friend" type="button">
             <span class="btn-icon">👋</span> Play a Friend
           </button>
         </div>
-        <p class="hint">Move your paddle with the mouse or your finger.</p>
+        <p class="hint">
+          <span class="hint-hand" aria-hidden="true">👆</span>
+          Drag to move your paddle.
+        </p>
       </section>
 
       <!-- Host / join chooser -->
@@ -115,7 +126,9 @@
       <!-- Match over -->
       <section class="screen screen-bottom hidden" id="screen-over">
         <div class="stack">
-          <button class="btn btn-primary" id="btn-again" type="button">Play Again</button>
+          <button class="btn btn-primary btn-big" id="btn-again" type="button">
+            <span class="btn-icon" aria-hidden="true">🔁</span> Play Again
+          </button>
           <button class="btn btn-ghost" data-back="menu" type="button">Back to Menu</button>
         </div>
         <p class="tagline" id="over-status"></p>

@@ -186,8 +186,8 @@ body {
 
 .hint {
   margin: 4px 0 0;
-  color: #6d80ad;
-  font-size: 13px;
+  color: #7f92c0;
+  font-size: 15px;
   line-height: 1.5;
   max-width: 34ch;
 }
@@ -225,6 +225,16 @@ body {
   font-size: 20px;
 }
 
+#btn-solo,
+#btn-friend {
+  min-height: 60px;
+  font-size: 19px;
+}
+
+#btn-solo {
+  min-height: 64px;
+}
+
 .btn-primary {
   background: linear-gradient(180deg, #6df3ff, #12b6d8);
   box-shadow: 0 8px 26px rgba(63, 232, 255, 0.3);
@@ -259,14 +269,34 @@ body {
 
 .diff {
   flex: 1;
-  font: 600 14px/1 var(--font);
-  padding: 11px 8px;
-  border-radius: 12px;
-  border: 1px solid rgba(120, 160, 255, 0.25);
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font: 700 15px/1 var(--font);
+  padding: 8px 6px;
+  border-radius: 14px;
+  border: 2px solid rgba(120, 160, 255, 0.25);
   background: rgba(12, 20, 48, 0.6);
   color: var(--muted);
   cursor: pointer;
   transition: all 0.15s;
+}
+
+.diff:active {
+  transform: scale(0.95);
+}
+
+/* Icon first: a five-year-old picks the turtle, not the word "Easy". */
+.diff-icon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.diff-label {
+  font-size: 15px;
 }
 
 .diff.is-active {
@@ -274,6 +304,34 @@ body {
   color: #04060f;
   background: var(--cyan);
   font-weight: 800;
+  box-shadow: 0 0 18px rgba(63, 232, 255, 0.45);
+}
+
+/* --- Big end-of-match button: one fat tap back into play --- */
+
+.btn-big {
+  min-height: 64px;
+  font-size: 20px;
+}
+
+/* --- Menu hint: a little hand that shows the drag --- */
+
+.hint-hand {
+  display: inline-block;
+  font-size: 24px;
+  margin-right: 6px;
+  vertical-align: middle;
+  animation: drag-hint 1.6s ease-in-out infinite;
+}
+
+@keyframes drag-hint {
+  0%,
+  100% {
+    transform: translateX(-10px);
+  }
+  50% {
+    transform: translateX(10px);
+  }
 }
 
 /* --- Room code --- */
@@ -339,5 +397,8 @@ body {
   }
   .spinner {
     animation-duration: 2.4s;
+  }
+  .hint-hand {
+    animation: none;
   }
 }
