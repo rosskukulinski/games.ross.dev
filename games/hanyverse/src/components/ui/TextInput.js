@@ -45,7 +45,18 @@ export class TextInput extends Phaser.GameObjects.Container {
     this.setSize(width, height);
     this.setInteractive({ useHandCursor: true });
 
+    // Focus on pointerdown (keeps iOS happy: the keyboard only opens inside
+    // the touch gesture) AND again on pointerup. With a mouse, the browser's
+    // default mousedown action runs after Phaser's handler and moves focus to
+    // <body>, blurring the hidden input straight away; refocusing on
+    // pointerup (and once more after the event settles) makes it stick.
     this.on('pointerdown', () => this.focus());
+    this.on('pointerup', () => {
+      this.focus();
+      setTimeout(() => {
+        if (this.isFocused && document.activeElement !== this.domInput) this.focus();
+      }, 0);
+    });
 
     // Create hidden DOM input for mobile keyboard
     this.createHiddenInput();
@@ -71,6 +82,11 @@ export class TextInput extends Phaser.GameObjects.Container {
 
     this.domInput.addEventListener('blur', () => {
       this.blur();
+    });
+
+    // Enter / Done on the on-screen keyboard closes it
+    this.domInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.domInput.blur();
     });
 
     // Clean up on scene shutdown

@@ -14,9 +14,14 @@ export class ColorPicker extends Phaser.GameObjects.Container {
   }
 
   createColorPicker() {
-    const swatchSize = 36;
+    // Two columns of big swatches: a clumsy 5-year-old finger needs ~64px.
+    const swatchSize = 64;
     const gap = 8;
-    const totalHeight = this.colors.length * swatchSize + (this.colors.length - 1) * gap;
+    const columns = 2;
+    const rows = Math.ceil(this.colors.length / columns);
+    const totalWidth = columns * swatchSize + (columns - 1) * gap;
+    const totalHeight = rows * swatchSize + (rows - 1) * gap;
+    const startX = -totalWidth / 2 + swatchSize / 2;
     const startY = -totalHeight / 2 + swatchSize / 2;
 
     // Background panel
@@ -24,31 +29,36 @@ export class ColorPicker extends Phaser.GameObjects.Container {
     this.panel = this.scene.add.graphics();
     this.panel.fillStyle(0xffffff, 0.2);
     this.panel.fillRoundedRect(
-      -swatchSize / 2 - panelPadding,
+      -totalWidth / 2 - panelPadding,
       -totalHeight / 2 - panelPadding,
-      swatchSize + panelPadding * 2,
+      totalWidth + panelPadding * 2,
       totalHeight + panelPadding * 2,
       15
     );
     this.add(this.panel);
 
     // Label
-    const label = this.scene.add.text(0, startY - 35, 'Skin', {
-      fontSize: '12px',
+    const label = this.scene.add.text(0, -totalHeight / 2 - panelPadding - 16, 'Skin', {
+      fontSize: '18px',
       fontFamily: 'Arial, sans-serif',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5).setShadow(1, 1, '#00000055', 2);
     this.add(label);
 
     this.colors.forEach((color, index) => {
-      const y = startY + index * (swatchSize + gap);
-      const swatch = this.createSwatch(color, y, swatchSize);
+      const x = startX + (index % columns) * (swatchSize + gap);
+      const y = startY + Math.floor(index / columns) * (swatchSize + gap);
+      const swatch = this.createSwatch(color, x, y, swatchSize);
       this.swatches.push({ key: color.key, hex: color.hex, container: swatch });
     });
   }
 
-  createSwatch(color, y, size) {
-    const container = this.scene.add.container(0, y);
+  createSwatch(color, x, y, size) {
+    const container = this.scene.add.container(x, y);
+
+    // Invisible full-size square so the container has real bounds / hit area
+    container.add(this.scene.add.rectangle(0, 0, size, size, 0xffffff, 0.001));
 
     // Swatch circle
     const circle = this.scene.add.graphics();
@@ -109,12 +119,12 @@ export class ColorPicker extends Phaser.GameObjects.Container {
       swatch.container.ring.setVisible(isSelected);
 
       if (isSelected) {
-        swatch.container.setScale(1.15);
+        swatch.container.setScale(1.08);
         if (animate) {
           this.scene.tweens.add({
             targets: swatch.container,
-            scaleX: 1.2,
-            scaleY: 1.2,
+            scaleX: 1.15,
+            scaleY: 1.15,
             duration: 100,
             yoyo: true
           });

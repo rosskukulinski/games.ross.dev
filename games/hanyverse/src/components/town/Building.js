@@ -32,7 +32,18 @@ export default class Building extends Phaser.GameObjects.Container {
 
     // Make interactive
     this.setSize(this.sprite.width, this.sprite.height);
-    this.setInteractive({ useHandCursor: true });
+    // The sprite hangs ABOVE the container origin (origin 0.5, 1), but a
+    // container's default hit area is centred on it — which made the bottom
+    // half of the road in front a hidden "enter" button and the top half of
+    // the building dead. Line the hit area up with the drawn sprite (plus the
+    // name label above it).
+    const w = this.sprite.width;
+    const h = this.sprite.height;
+    this.setInteractive({
+      hitArea: new Phaser.Geom.Rectangle(0, -h / 2 - 22, w, h + 22),
+      hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+      useHandCursor: true
+    });
 
     // Hover effects
     this.on('pointerover', this.onPointerOver, this);

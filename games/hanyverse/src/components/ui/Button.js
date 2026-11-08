@@ -26,6 +26,9 @@ export class Button extends Phaser.GameObjects.Container {
   }
 
   createButton() {
+    // Invisible full-size rect so the container's bounds match its hit area
+    this.add(this.scene.add.rectangle(0, 0, this.config.width, this.config.height, 0xffffff, 0.001));
+
     // Background
     if (this.config.texture && this.scene.textures.exists(this.config.texture)) {
       this.background = this.scene.add.image(0, 0, this.config.texture);

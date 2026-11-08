@@ -118,3 +118,10 @@ When replacing placeholder graphics:
 - Mobile-first, touch-friendly
 - Large tap targets (minimum 44px)
 - Bright, cheerful colors
+
+## Kid-friendliness notes
+- PLAY never asks for a name: new players get a random fun name (`randomFunName()` in `AvatarCreationScene.js`), re-rollable with the 🎲 button; typing still works.
+- Avatar tiles and skin swatches are 64px (5-year-old fingers).
+- Town: five bouncing starter coins (+5 each) around the spawn point, collectable once per day (`hanyverse_starter_coins` in localStorage).
+- `Building`/`EmptyLot` use an explicit hit area that matches the sprite (origin 0.5,1); the default container hit area was offset half a building down.
+- Debug hook: `window.__hanyverse.state()` returns scenes, name, coins, starter coins left, player position, activeElement.

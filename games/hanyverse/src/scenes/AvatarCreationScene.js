@@ -12,6 +12,17 @@ import { SKIN_COLORS } from '../data/skinColors.js';
 import { FACES } from '../data/faceData.js';
 import { getTopsByGender, getBottomsByGender, HAIR_STYLES } from '../data/clothingData.js';
 
+// A 5-year-old can't type, so every new player starts with a fun name that
+// they (or a grown-up) can change. PLAY never asks for one.
+const FUN_NAMES = [
+  'Star', 'Sunny', 'Bubbles', 'Sparkle', 'Rainbow', 'Comet', 'Pixel', 'Ziggy',
+  'Coco', 'Berry', 'Skye', 'Maple', 'Pebble', 'Rocket', 'Daisy', 'Nova'
+];
+
+export function randomFunName() {
+  return FUN_NAMES[Math.floor(Math.random() * FUN_NAMES.length)];
+}
+
 export default class AvatarCreationScene extends Phaser.Scene {
   constructor() {
     super({ key: 'AvatarCreationScene' });
@@ -19,6 +30,7 @@ export default class AvatarCreationScene extends Phaser.Scene {
 
   create() {
     this.layout = new ResponsiveLayout(this);
+    this.starting = false;
 
     // Initialize avatar configuration
     this.avatarConfig = this.getDefaultConfig();
@@ -27,6 +39,9 @@ export default class AvatarCreationScene extends Phaser.Scene {
     const savedAvatar = StorageManager.loadAvatar();
     if (savedAvatar) {
       this.avatarConfig = { ...this.avatarConfig, ...savedAvatar };
+    }
+    if (!this.avatarConfig.name || !this.avatarConfig.name.trim()) {
+      this.avatarConfig.name = randomFunName();
     }
 
     // Create all UI elements
@@ -148,13 +163,13 @@ export default class AvatarCreationScene extends Phaser.Scene {
   createFaceSelector() {
     this.faceSelector = new GridSelector(
       this,
-      GAME_WIDTH - 120,
+      GAME_WIDTH - 128,
       240,
       {
         items: FACES,
         columns: 2,
-        itemWidth: 55,
-        itemHeight: 55,
+        itemWidth: 64,
+        itemHeight: 64,
         gap: 10,
         title: 'Face',
         onSelect: (face) => this.onFaceChange(face)
@@ -165,13 +180,13 @@ export default class AvatarCreationScene extends Phaser.Scene {
   createHairSelector() {
     this.hairSelector = new GridSelector(
       this,
-      GAME_WIDTH - 120,
-      420,
+      GAME_WIDTH - 128,
+      455,
       {
         items: HAIR_STYLES,
         columns: 3,
-        itemWidth: 55,
-        itemHeight: 55,
+        itemWidth: 64,
+        itemHeight: 64,
         gap: 10,
         title: 'Hair',
         onSelect: (hair) => this.onHairChange(hair)
@@ -185,12 +200,12 @@ export default class AvatarCreationScene extends Phaser.Scene {
     this.topsSelector = new GridSelector(
       this,
       GAME_WIDTH / 2 - 120,
-      560,
+      530,
       {
         items: tops,
         columns: 3,
-        itemWidth: 60,
-        itemHeight: 60,
+        itemWidth: 64,
+        itemHeight: 64,
         gap: 12,
         title: 'Tops',
         onSelect: (item) => this.onTopChange(item)
@@ -202,12 +217,12 @@ export default class AvatarCreationScene extends Phaser.Scene {
     this.bottomsSelector = new GridSelector(
       this,
       GAME_WIDTH / 2 + 150,
-      560,
+      530,
       {
         items: bottoms,
         columns: 2,
-        itemWidth: 60,
-        itemHeight: 60,
+        itemWidth: 64,
+        itemHeight: 64,
         gap: 12,
         title: 'Bottoms',
         onSelect: (item) => this.onBottomChange(item)
@@ -217,7 +232,7 @@ export default class AvatarCreationScene extends Phaser.Scene {
 
   createNameInput() {
     // Label
-    this.add.text(GAME_WIDTH / 2, 670, 'Your Name', {
+    this.add.text(GAME_WIDTH / 2, 664, 'Your Name', {
       fontSize: '18px',
       fontFamily: 'Arial, sans-serif',
       color: '#ffffff'
@@ -237,6 +252,27 @@ export default class AvatarCreationScene extends Phaser.Scene {
         }
       }
     );
+
+    // Dice: tap for a new fun name, no typing needed
+    this.nameDice = new Button(
+      this,
+      GAME_WIDTH / 2 + 196,
+      710,
+      {
+        text: '🎲',
+        width: 64,
+        height: 64,
+        fontSize: '30px',
+        backgroundColor: 0xa78bfa,
+        backgroundColorPressed: 0x8b5cf6,
+        onClick: () => {
+          let name = randomFunName();
+          if (name === this.avatarConfig.name) name = randomFunName();
+          this.nameInput.setValue(name);
+          this.avatar.playSelectionAnimation();
+        }
+      }
+    );
   }
 
   createPlayButton() {
@@ -246,13 +282,34 @@ export default class AvatarCreationScene extends Phaser.Scene {
       710,
       {
         text: '♥ PLAY ♥',
-        width: 200,
-        height: 55,
+        width: 220,
+        height: 72,
+        fontSize: '28px',
         backgroundColor: 0x4ade80,
         backgroundColorPressed: 0x22c55e,
         onClick: () => this.onPlayClick()
       }
     );
+
+    // Gentle "tap me" glow behind PLAY so a pre-reader knows where to go
+    // (pulsing a halo, not the button, keeps the button's press squish)
+    const glow = this.add.graphics();
+    glow.fillStyle(0xfff59d, 0.55);
+    glow.fillRoundedRect(-122, -44, 244, 88, 44);
+    glow.setPosition(this.playButton.x, this.playButton.y);
+    glow.setDepth(this.playButton.depth - 1);
+    this.children.moveBelow(glow, this.playButton);
+    this.playGlow = glow;
+    this.playPulse = this.tweens.add({
+      targets: glow,
+      scaleX: 1.12,
+      scaleY: 1.2,
+      alpha: 0.2,
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
   }
 
   // Event handlers
@@ -318,9 +375,15 @@ export default class AvatarCreationScene extends Phaser.Scene {
 
   onBottomChange(item) {
     // Don't allow bottom selection if wearing a dress
+    // Picking bottoms while wearing a dress just swaps the dress for a shirt
+    // (a text-only "remove the dress first" message is useless to a pre-reader)
     if (this.avatar.isWearingDress()) {
-      this.showMessage('Remove dress first to select bottoms!');
-      return;
+      const shirt = getTopsByGender(this.avatarConfig.gender).find(t => t.type !== 'dress');
+      if (shirt) {
+        this.avatarConfig.top = shirt.key;
+        this.avatar.updateTop(shirt.key);
+        this.topsSelector.setSelected(shirt.key, false);
+      }
     }
 
     this.avatarConfig.bottom = item.key;
@@ -329,12 +392,15 @@ export default class AvatarCreationScene extends Phaser.Scene {
   }
 
   onPlayClick() {
-    // Validate name
+    // Never block PLAY: a cleared name just gets a fresh fun one
+    if (this.starting) return;
     if (!this.avatarConfig.name || this.avatarConfig.name.trim().length === 0) {
-      this.showMessage('Please enter your name!');
-      this.nameInput.focus();
-      return;
+      this.avatarConfig.name = randomFunName();
+      this.nameInput.setValue(this.avatarConfig.name);
     }
+    this.starting = true;
+    if (this.playPulse) this.playPulse.stop();
+    if (this.playGlow) this.playGlow.setVisible(false);
 
     // Save avatar configuration
     StorageManager.saveAvatar(this.avatarConfig);
