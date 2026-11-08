@@ -15,33 +15,42 @@ let mode = 'two';
 let busy = false;
 let gameOver = false;
 let scores = { R: 0, Y: 0 };
+let hoverCol = -1;
+let robotStreak = 0;
+let roundId = 0;       // bumps on every new round so stale timers do nothing   // Easy: rounds the robot has won in a row (it gets sleepier)     // column the finger / mouse / keyboard is aiming at
 
 const boardEl = document.getElementById('board');
 const dropRowEl = document.getElementById('drop-row');
 const turnBadge = document.getElementById('turn-badge');
+const boardWrap = document.getElementById('board-wrap');
+const highlightEl = document.getElementById('col-highlight');
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function vsComputer() {
-  return mode === 'easy' || mode === 'hard';
+  return mode === 'easy' || mode === 'medium' || mode === 'hard';
 }
 
 function startGame(selectedMode) {
   mode = selectedMode;
   scores = { R: 0, Y: 0 };
+  robotStreak = 0;
   updateScores();
   switchScreen('game-screen');
   buildBoard();
   newRound();
 }
 
+// Taps are handled for the whole board area at once (see pointer handling
+// below), so the drop arrows and slots are just pictures — no listeners.
 function buildBoard() {
-  boardEl.innerHTML = '';
+  boardEl.querySelectorAll('.slot').forEach((s) => s.remove());
   dropRowEl.innerHTML = '';
   for (let c = 0; c < COLS; c++) {
-    const btn = document.createElement('button');
-    btn.className = 'drop-btn';
-    btn.textContent = '⬇️';
-    btn.addEventListener('click', () => handleDrop(c));
-    dropRowEl.appendChild(btn);
+    const cell = document.createElement('div');
+    cell.className = 'drop-btn';
+    cell.dataset.col = c;
+    cell.innerHTML = '<span class="drop-arrow">▼</span><span class="ghost-disc"></span>';
+    dropRowEl.appendChild(cell);
   }
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -49,32 +58,34 @@ function buildBoard() {
       slot.className = 'slot';
       slot.dataset.row = r;
       slot.dataset.col = c;
-      slot.addEventListener('click', () => handleDrop(c));
       boardEl.appendChild(slot);
     }
   }
 }
 
 function newRound() {
+  roundId++;
   board = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
   current = RED;
   gameOver = false;
   busy = false;
   hideWin();
   clearDiscs();
+  disarmAll();
+  setHover(-1);
   updateDropButtons();
   updateTurnBadge();
 }
 
 function clearDiscs() {
-  for (const slot of boardEl.children) {
+  for (const slot of boardEl.querySelectorAll('.slot')) {
     slot.innerHTML = '';
     slot.classList.remove('win');
   }
 }
 
 function slotEl(r, c) {
-  return boardEl.children[r * COLS + c];
+  return boardEl.querySelectorAll('.slot')[r * COLS + c];
 }
 
 function lowestEmptyRow(b, col) {
@@ -84,10 +95,14 @@ function lowestEmptyRow(b, col) {
   return -1;
 }
 
+function canPlay() {
+  return !busy && !gameOver && !(vsComputer() && current === COMPUTER);
+}
+
 function handleDrop(col) {
-  if (busy || gameOver) return;
-  if (vsComputer() && current === COMPUTER) return;
-  if (lowestEmptyRow(board, col) === -1) return;
+  if (col < 0 || gameOver) return;
+  if (!canPlay()) { nudgeBadge(); return; }
+  if (lowestEmptyRow(board, col) === -1) { refuseColumn(col); return; }
   dropDisc(col, current, () => afterMove());
 }
 
@@ -96,16 +111,20 @@ function dropDisc(col, color, done) {
   if (row === -1) return;
   board[row][col] = color;
   busy = true;
-  const disc = document.createElement('div');
-  disc.className = 'disc ' + (color === RED ? 'red' : 'yellow') + ' drop';
-  slotEl(row, col).appendChild(disc);
-  disc.addEventListener('animationend', function handler() {
-    disc.removeEventListener('animationend', handler);
+  const round = roundId;
+  const finish = () => {
+    if (round !== roundId || !busy) return;
     busy = false;
     done();
-  }, { once: true });
+  };
+  const disc = document.createElement('div');
+  disc.className = 'disc ' + (color === RED ? 'red' : 'yellow') + ' drop';
+  disc.style.setProperty('--fall-rows', row + 1);
+  slotEl(row, col).appendChild(disc);
+  updateGhost();
+  disc.addEventListener('animationend', finish, { once: true });
   // Fallback in case animationend doesn't fire
-  setTimeout(() => { if (busy) { busy = false; done(); } }, 500);
+  setTimeout(finish, 500);
 }
 
 function afterMove() {
@@ -118,7 +137,8 @@ function afterMove() {
       current = COMPUTER;
       updateTurnBadge();
       updateDropButtons();
-      setTimeout(computerMove, 400);
+      const round = roundId;
+      setTimeout(() => { if (round === roundId) computerMove(); }, 400);
     } else {
       current = HUMAN;
       updateTurnBadge();
@@ -133,21 +153,36 @@ function afterMove() {
 
 function computerMove() {
   if (gameOver) return;
-  const col = mode === 'hard' ? bestColumn(5) : easyColumn();
+  const col = mode === 'hard' ? bestColumn(5)
+    : mode === 'medium' ? easyColumn(1, 1)
+    : easyColumn(...easySkill());
   dropDisc(col, COMPUTER, () => afterMove());
 }
 
-/* ── Easy AI: win if possible, block if needed, else weighted random ── */
-function easyColumn() {
+/* ── Easy / Medium AI: win if possible, block if needed, else weighted random.
+   Easy only *sometimes* spots a win or a block, so a 5-year-old can beat it;
+   Medium always does (this was the old Easy). ── */
+// Easy spots its own win 40% of the time and a block 15%, and otherwise
+// plays any column. After it wins a round it gets sleepier, and after two in
+// a row it stops looking for wins at all. Tuned by simulation against a kid
+// tapping columns at random: ~33% kid wins fresh, ~50% after one loss, ~55%
+// after two (the old Easy, now Medium, let that kid win 3%).
+const EASY_SKILL = [[0.4, 0.15], [0.15, 0.05], [0, 0]];
+function easySkill() {
+  const [win, block] = EASY_SKILL[Math.min(robotStreak, EASY_SKILL.length - 1)];
+  return [win, block, 0];
+}
+
+function easyColumn(winChance = 1, blockChance = 1, centerPull = 1) {
   const valid = validColumns(board);
-  for (const c of valid) {
-    if (wouldWin(board, c, COMPUTER)) return c;
+  if (Math.random() < winChance) {
+    for (const c of valid) if (wouldWin(board, c, COMPUTER)) return c;
   }
-  for (const c of valid) {
-    if (wouldWin(board, c, HUMAN)) return c;
+  if (Math.random() < blockChance) {
+    for (const c of valid) if (wouldWin(board, c, HUMAN)) return c;
   }
-  // Prefer center-ish columns
-  const weights = valid.map((c) => ({ c, w: 4 - Math.abs(c - 3) }));
+  // Prefer center-ish columns (centerPull 0 = any column equally likely)
+  const weights = valid.map((c) => ({ c, w: 1 + centerPull * (3 - Math.abs(c - 3)) }));
   const total = weights.reduce((s, x) => s + x.w, 0);
   let pick = Math.random() * total;
   for (const { c, w } of weights) {
@@ -309,6 +344,7 @@ function endRound(winner, line) {
     scores[winner]++;
     updateScores();
   }
+  if (vsComputer()) robotStreak = winner === COMPUTER ? robotStreak + 1 : 0;
   setTimeout(() => showWin(winner), line ? 650 : 300);
 }
 
@@ -319,17 +355,167 @@ function updateDropButtons() {
     const playable = interactive && lowestEmptyRow(board, c) !== -1;
     btn.classList.toggle('show', playable);
   }
+  dropRowEl.dataset.color = current === RED ? 'red' : 'yellow';
+  updateGhost();
 }
 
 function updateTurnBadge() {
+  turnBadge.classList.toggle('red-turn', current === RED);
+  turnBadge.classList.toggle('yellow-turn', current === YELLOW);
   if (vsComputer()) {
     turnBadge.textContent = current === HUMAN
-      ? 'Your turn ' + DOT[HUMAN]
-      : 'Computer thinking… ' + DOT[COMPUTER];
+      ? DOT[HUMAN] + ' Your turn'
+      : '🤖 ' + DOT[COMPUTER] + ' thinking…';
   } else {
-    turnBadge.textContent = DOT[current] + " " + NAME[current] + "'s turn";
+    turnBadge.textContent = DOT[current] + ' ' + NAME[current] + "'s turn";
   }
 }
+
+/* ── Aiming: ghost disc over the column + landing-spot preview ── */
+function setHover(col) {
+  hoverCol = col;
+  updateGhost();
+}
+
+function updateGhost() {
+  const active = hoverCol >= 0 && canPlay();
+  const row = active ? lowestEmptyRow(board, hoverCol) : -1;
+  for (let c = 0; c < COLS; c++) {
+    dropRowEl.children[c]?.classList.toggle('aim', active && c === hoverCol && row !== -1);
+  }
+  boardEl.querySelectorAll('.slot.preview').forEach((s) => s.classList.remove('preview', 'red', 'yellow'));
+  if (active) {
+    highlightEl.style.setProperty('--col', hoverCol);
+    highlightEl.classList.add('show');
+    if (row !== -1) slotEl(row, hoverCol).classList.add('preview', current === RED ? 'red' : 'yellow');
+  } else {
+    highlightEl.classList.remove('show');
+  }
+}
+
+function refuseColumn(col) {
+  highlightEl.style.setProperty('--col', col);
+  highlightEl.classList.remove('nope');
+  void highlightEl.offsetWidth; // restart the shake animation
+  highlightEl.classList.add('show', 'nope');
+  setTimeout(() => highlightEl.classList.remove('nope'), 400);
+}
+
+function nudgeBadge() {
+  turnBadge.classList.remove('nudge');
+  void turnBadge.offsetWidth;
+  turnBadge.classList.add('nudge');
+}
+
+/* Which column is page-x nearest to? Every x maps to a column, so the gaps
+   between holes and the board edges all count — no dead zones. */
+function colFromX(x) {
+  const top = boardEl.querySelectorAll('.slot');
+  let best = -1;
+  let bestDist = Infinity;
+  for (let c = 0; c < COLS; c++) {
+    const r = top[c].getBoundingClientRect();
+    const d = Math.abs(x - (r.left + r.width / 2));
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return best;
+}
+
+/* Touch-down aims, sliding re-aims, lifting drops. A finger released well
+   outside the board cancels, so an older kid can change their mind. */
+let activePointer = null;
+const CANCEL_MARGIN = 60;
+
+boardWrap.addEventListener('pointerdown', (e) => {
+  if (activePointer !== null) return; // ignore a second finger / palm
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  activePointer = e.pointerId;
+  try { boardWrap.setPointerCapture(e.pointerId); } catch {}
+  if (!canPlay()) { if (!gameOver) nudgeBadge(); return; }
+  setHover(colFromX(e.clientX));
+});
+
+boardWrap.addEventListener('pointermove', (e) => {
+  if (activePointer !== null && e.pointerId !== activePointer) return;
+  if (activePointer === null && e.pointerType !== 'mouse') return;
+  if (!canPlay()) return;
+  setHover(colFromX(e.clientX));
+});
+
+boardWrap.addEventListener('pointerup', (e) => {
+  if (e.pointerId !== activePointer) return;
+  activePointer = null;
+  const r = boardWrap.getBoundingClientRect();
+  const outside = e.clientX < r.left - CANCEL_MARGIN || e.clientX > r.right + CANCEL_MARGIN
+    || e.clientY < r.top - CANCEL_MARGIN || e.clientY > r.bottom + CANCEL_MARGIN;
+  if (outside) { setHover(-1); return; }
+  const col = canPlay() ? colFromX(e.clientX) : -1;
+  if (col >= 0) handleDrop(col);
+  if (e.pointerType !== 'mouse') setHover(-1);
+  else updateGhost();
+});
+
+boardWrap.addEventListener('pointercancel', (e) => {
+  if (e.pointerId !== activePointer) return;
+  activePointer = null;
+  setHover(-1);
+});
+
+boardWrap.addEventListener('pointerleave', (e) => {
+  if (e.pointerType === 'mouse' && activePointer === null) setHover(-1);
+});
+
+/* ── Keyboard: ←/→ aim, ↓ / Space / Enter drop ── */
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('game-screen').classList.contains('active')) return;
+  const winShown = document.getElementById('win-screen').classList.contains('show');
+  if (winShown) {
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.tagName !== 'BUTTON') {
+      e.preventDefault();
+      newRound();
+    }
+    return;
+  }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'a' || e.key === 'd') {
+    e.preventDefault();
+    const dir = (e.key === 'ArrowLeft' || e.key === 'a') ? -1 : 1;
+    const start = hoverCol < 0 ? 3 : Math.max(0, Math.min(COLS - 1, hoverCol + dir));
+    setHover(start);
+  } else if (e.key === 'ArrowDown' || e.key === ' ' || e.key === 'Enter' || e.key === 's') {
+    e.preventDefault();
+    handleDrop(hoverCol < 0 ? 3 : hoverCol);
+  }
+});
+
+/* ── Back / New Round: mid-game they need a second tap, so a stray tap from
+   a small hand can't wipe the board. The armed button turns orange and
+   wiggles; the second tap within 3 s goes through. ── */
+const ARM_MS = 3000;
+function gameInProgress() {
+  return !gameOver && board.some((row) => row.some(Boolean));
+}
+
+function disarmAll() {
+  document.querySelectorAll('.icon-btn.armed').forEach((b) => {
+    b.classList.remove('armed');
+    clearTimeout(b._armTimer);
+  });
+}
+
+function guarded(btn, action) {
+  btn.addEventListener('click', () => {
+    if (!gameInProgress() || btn.classList.contains('armed')) {
+      disarmAll();
+      action();
+      return;
+    }
+    disarmAll();
+    btn.classList.add('armed');
+    btn._armTimer = setTimeout(() => btn.classList.remove('armed'), ARM_MS);
+  });
+}
+guarded(document.getElementById('back-btn'), () => showModeSelect());
+guarded(document.getElementById('restart-btn'), () => newRound());
 
 function updateScores() {
   document.getElementById('score-red').textContent = scores.R;
@@ -355,10 +541,30 @@ function showWin(winner) {
     title.textContent = DOT[winner] + ' ' + NAME[winner] + ' wins!';
   }
   document.getElementById('win-screen').classList.add('show');
+  const celebrate = winner !== null && (!vsComputer() || winner === HUMAN);
+  if (celebrate) confetti(winner);
+}
+
+function confetti(winner) {
+  const box = document.getElementById('confetti');
+  box.innerHTML = '';
+  if (reduceMotion) return;
+  const colors = winner === RED ? ['red', 'red', 'yellow'] : ['yellow', 'yellow', 'red'];
+  for (let i = 0; i < 36; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-disc ' + colors[i % colors.length];
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDelay = (Math.random() * 0.8).toFixed(2) + 's';
+    p.style.animationDuration = (1.8 + Math.random() * 1.4).toFixed(2) + 's';
+    p.style.setProperty('--size', (14 + Math.random() * 18).toFixed(0) + 'px');
+    p.style.setProperty('--drift', ((Math.random() - 0.5) * 160).toFixed(0) + 'px');
+    box.appendChild(p);
+  }
 }
 
 function hideWin() {
   document.getElementById('win-screen').classList.remove('show');
+  document.getElementById('confetti').innerHTML = '';
 }
 
 function switchScreen(id) {
@@ -368,9 +574,24 @@ function switchScreen(id) {
 
 function showModeSelect() {
   hideWin();
+  disarmAll();
   switchScreen('mode-select');
 }
 
 window.startGame = startGame;
 window.newRound = newRound;
 window.showModeSelect = showModeSelect;
+
+// Read-only debug hook for play-test scripts.
+window.__c4 = {
+  get state() {
+    return {
+      mode, current, busy, gameOver, hoverCol, scores: { ...scores },
+      board: board.map((r) => r.slice()),
+      canPlay: canPlay(),
+      robotStreak,
+      easySkill: easySkill(),
+    };
+  },
+  colFromX,
+};
