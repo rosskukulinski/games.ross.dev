@@ -14,15 +14,28 @@ const WIN_LINES = [
 
 let board = [];
 let current = X;
-let mode = 'two';        // 'two' | 'easy' | 'hard'
+let mode = 'two';        // 'two' | 'easy' | 'medium' | 'hard'
 let gameOver = false;
 let scores = { X: 0, O: 0, draw: 0 };
 
 const boardEl = document.getElementById('board');
 const turnBadge = document.getElementById('turn-badge');
+const turnWho = document.getElementById('turn-who');
+const turnMark = document.getElementById('turn-mark');
+const turnLabel = document.getElementById('turn-label');
+const winScreen = document.getElementById('win-screen');
+
+// How long the winning line shows on the board before the overlay appears.
+const WIN_LINE_MS = 1300;
+const DRAW_MS = 900;
+// Ignore backdrop taps right after the overlay appears so a stray tap that was
+// aimed at the board does not skip the result.
+const OVERLAY_GUARD_MS = 400;
+let overlayShownAt = 0;
+let endTimer = null;
 
 function vsComputer() {
-  return mode === 'easy' || mode === 'hard';
+  return mode === 'easy' || mode === 'medium' || mode === 'hard';
 }
 
 function startGame(selectedMode) {
@@ -37,6 +50,8 @@ function newRound() {
   board = Array(9).fill('');
   current = X;
   gameOver = false;
+  clearTimeout(endTimer);
+  lockBoard(false);
   hideWin();
   renderBoard();
   updateTurnBadge();
@@ -50,7 +65,7 @@ function renderBoard() {
     cell.dataset.index = i;
     if (board[i]) {
       cell.textContent = MARK[board[i]];
-      cell.classList.add('filled');
+      cell.classList.add('filled', 'mark-' + board[i].toLowerCase());
     }
     cell.addEventListener('click', () => handleMove(i));
     boardEl.appendChild(cell);
@@ -79,12 +94,12 @@ function placeMark(i, mark) {
   board[i] = mark;
   const cell = boardEl.children[i];
   cell.textContent = MARK[mark];
-  cell.classList.add('filled', 'pop');
+  cell.classList.add('filled', 'pop', 'mark-' + mark.toLowerCase());
 }
 
 function computerMove() {
   if (gameOver) return;
-  const move = mode === 'hard' ? bestMove() : randomMove();
+  const move = mode === 'hard' ? bestMove() : mode === 'medium' ? mediumMove() : randomMove();
   placeMark(move, COMPUTER);
   lockBoard(false);
   if (checkEnd()) return;
@@ -95,6 +110,28 @@ function computerMove() {
 function randomMove() {
   const open = board.map((v, i) => (v ? null : i)).filter((v) => v !== null);
   return open[Math.floor(Math.random() * open.length)];
+}
+
+// A move that completes a line for `mark`, or null.
+function finishingMove(mark) {
+  for (const [a, b, c] of WIN_LINES) {
+    const line = [board[a], board[b], board[c]];
+    if (line.filter((v) => v === mark).length === 2 && line.includes('')) {
+      return [a, b, c][line.indexOf('')];
+    }
+  }
+  return null;
+}
+
+// Medium: usually takes a win, often blocks one, otherwise plays loosely.
+// Beatable by a kid who sets up two threats, but punishes careless play.
+function mediumMove() {
+  const win = finishingMove(COMPUTER);
+  if (win !== null && Math.random() < 0.85) return win;
+  const block = finishingMove(HUMAN);
+  if (block !== null && Math.random() < 0.6) return block;
+  if (!board[4] && Math.random() < 0.5) return 4;
+  return randomMove();
 }
 
 function bestMove() {
@@ -161,16 +198,22 @@ function checkEnd() {
     gameOver = true;
     const winner = board[line[0]];
     line.forEach((i) => boardEl.children[i].classList.add('win'));
+    boardEl.classList.add('done');
     scores[winner]++;
     updateScores();
-    setTimeout(() => showWin(winner), 700);
+    showResultBadge(winner);
+    lockBoard(true);
+    endTimer = setTimeout(() => showWin(winner), WIN_LINE_MS);
     return true;
   }
   if (board.every((c) => c)) {
     gameOver = true;
+    boardEl.classList.add('done');
     scores.draw++;
     updateScores();
-    setTimeout(() => showWin(null), 400);
+    showResultBadge(null);
+    lockBoard(true);
+    endTimer = setTimeout(() => showWin(null), DRAW_MS);
     return true;
   }
   return false;
@@ -180,11 +223,40 @@ function lockBoard(locked) {
   boardEl.style.pointerEvents = locked ? 'none' : 'auto';
 }
 
+function setBadge(cls, who, mark, label) {
+  turnBadge.className = 'turn-badge ' + cls;
+  turnWho.textContent = who;
+  turnMark.textContent = mark;
+  turnLabel.textContent = label;
+}
+
+// Whose turn it is is shown by a big glowing X or O (plus a glow on that
+// player's score box and the board edge), so a pre-reader does not need the
+// words underneath.
 function updateTurnBadge() {
+  const cls = current === X ? 'turn-x' : 'turn-o';
   if (vsComputer()) {
-    turnBadge.textContent = current === HUMAN ? 'Your turn ' + MARK[HUMAN] : 'Computer thinking… ' + MARK[COMPUTER];
+    if (current === HUMAN) setBadge(cls, '👉', MARK[HUMAN], 'Your turn');
+    else setBadge(cls + ' thinking', '🤖', MARK[COMPUTER], 'Computer thinking…');
   } else {
-    turnBadge.textContent = MARK[current] + "'s turn";
+    setBadge(cls, '👉', MARK[current], MARK[current] + "'s turn");
+  }
+  document.getElementById('score-box-x').classList.toggle('active', current === X);
+  document.getElementById('score-box-o').classList.toggle('active', current === O);
+  boardEl.classList.remove('done');
+  boardEl.dataset.turn = current;
+}
+
+function showResultBadge(winner) {
+  document.getElementById('score-box-x').classList.toggle('active', winner === X);
+  document.getElementById('score-box-o').classList.toggle('active', winner === O);
+  if (winner === null) {
+    setBadge('turn-draw', '🤝', '', 'Draw');
+  } else if (vsComputer() && winner === COMPUTER) {
+    setBadge('turn-o result', '🤖', MARK[winner], 'Computer wins');
+  } else {
+    setBadge((winner === X ? 'turn-x' : 'turn-o') + ' result', '🎉', MARK[winner],
+      vsComputer() ? 'You win' : MARK[winner] + ' wins');
   }
 }
 
@@ -212,12 +284,20 @@ function showWin(winner) {
     emoji.textContent = '🎉';
     title.textContent = MARK[winner] + ' wins!';
   }
-  document.getElementById('win-screen').classList.add('show');
+  overlayShownAt = performance.now();
+  winScreen.classList.add('show');
 }
 
 function hideWin() {
-  document.getElementById('win-screen').classList.remove('show');
+  winScreen.classList.remove('show');
 }
+
+// A tap anywhere on the dim backdrop (not just the button) plays again.
+winScreen.addEventListener('click', (e) => {
+  if (e.target !== winScreen) return;
+  if (performance.now() - overlayShownAt < OVERLAY_GUARD_MS) return;
+  newRound();
+});
 
 function switchScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
@@ -225,6 +305,7 @@ function switchScreen(id) {
 }
 
 function showModeSelect() {
+  clearTimeout(endTimer);
   hideWin();
   switchScreen('mode-select');
 }
@@ -232,3 +313,11 @@ function showModeSelect() {
 window.startGame = startGame;
 window.newRound = newRound;
 window.showModeSelect = showModeSelect;
+
+// Read-only state for play-test harnesses.
+window.__ttt = {
+  get state() {
+    return { mode, current, gameOver, board: board.slice(), scores: { ...scores },
+      overlay: winScreen.classList.contains('show') };
+  },
+};
