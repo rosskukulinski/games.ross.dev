@@ -2,11 +2,17 @@ export interface InputHandlers {
   onLeft: () => void;
   onRight: () => void;
   onJump: () => void;
-  /** Any interaction — used to start/restart and to unlock audio. */
-  onAny: () => void;
+  /** A short tap at a screen position — the game maps it to a tap zone. */
+  onTap: (x: number, y: number) => void;
+  /**
+   * Any interaction — used to start/restart, unpause and unlock audio.
+   * Returns true when the interaction was consumed (it started a run,
+   * restarted, or unpaused), so it should not also steer or jump.
+   */
+  onAny: (source: "key" | "pointer") => boolean;
 }
 
-/** Keyboard + touch (swipe) input. */
+/** Keyboard + touch (tap zones and swipes) input. */
 export function setupInput(h: InputHandlers): void {
   window.addEventListener(
     "keydown",
@@ -14,22 +20,20 @@ export function setupInput(h: InputHandlers): void {
       if (e.repeat) return;
       // ignore pure modifier presses
       if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
-      h.onAny();
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "Space"].includes(e.code)) e.preventDefault();
+      if (h.onAny("key")) return;
       switch (e.code) {
         case "ArrowLeft":
         case "KeyA":
-          e.preventDefault();
           h.onLeft();
           break;
         case "ArrowRight":
         case "KeyD":
-          e.preventDefault();
           h.onRight();
           break;
         case "ArrowUp":
         case "KeyW":
         case "Space":
-          e.preventDefault();
           h.onJump();
           break;
       }
@@ -37,10 +41,9 @@ export function setupInput(h: InputHandlers): void {
     { passive: false }
   );
 
-  // --- touch / pointer swipes ---
+  // --- touch / pointer: taps (zones) and swipes ---
   let startX = 0;
   let startY = 0;
-  let startT = 0;
   let tracking = false;
 
   const SWIPE_DIST = 28;
@@ -49,7 +52,10 @@ export function setupInput(h: InputHandlers): void {
     tracking = true;
     startX = e.clientX;
     startY = e.clientY;
-    startT = performance.now();
+  });
+
+  window.addEventListener("pointercancel", () => {
+    tracking = false;
   });
 
   window.addEventListener("pointerup", (e) => {
@@ -57,14 +63,14 @@ export function setupInput(h: InputHandlers): void {
     tracking = false;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    const dt = performance.now() - startT;
-    h.onAny();
-    if (dt > 700) return; // slow drag, ignore
+    if (h.onAny("pointer")) return;
     if (Math.abs(dx) < SWIPE_DIST && Math.abs(dy) < SWIPE_DIST) {
-      // tap = jump (also the start/restart trigger via onAny)
-      h.onJump();
+      // tap: left third = left lane, right third = right lane, middle = jump.
+      // Use where the finger came down — a wobbly tap still counts there.
+      h.onTap(startX, startY);
       return;
     }
+    // swipe — slow or wobbly ones still count; the dominant axis wins
     if (Math.abs(dx) > Math.abs(dy)) {
       if (dx > 0) h.onRight();
       else h.onLeft();

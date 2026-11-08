@@ -20,6 +20,8 @@ import {
   LANE_X, SHIP_BASE_Y, SPEED_START, SPEED_MAX, SPEED_RAMP,
   JUMP_VELOCITY, GRAVITY, SPAWN_Z, KILL_Z, SEGMENT_COUNT, SEGMENT_LENGTH,
   PICKUP_SCORE, PALETTE, hex,
+  WARMUP_NO_PILLARS, WARMUP_GENTLE,
+  RESTART_BUTTON_DELAY, RESTART_KEY_DELAY, RESTART_ANY_TAP_DELAY,
 } from "./config";
 import { buildWorld, type World } from "./world";
 import { buildShip, type Ship } from "./ship";
@@ -80,8 +82,12 @@ export class Game {
   private untilNextPattern = 30;
   private untilNextRing = 90;
   private shakeTime = 0;
-  private deadTimer = 0;
+  /** Wall-clock time (ms) of the last crash — the restart lockout uses real
+   *  time, so it's the same on a slow device as on a fast one. */
+  private deadAt = 0;
   private elapsed = 0;
+  /** Seconds since the current run started (drives the gentle opening). */
+  runTime = 0;
 
   private pillars: Obstacle[] = [];
   private barriers: Obstacle[] = [];
@@ -141,6 +147,10 @@ export class Game {
     this.hud.setBest(this.best);
     this.hud.setMuted(this.audio.muted);
     this.hud.showStart();
+    this.hud.onRestart = () => {
+      this.audio.unlock();
+      if (this.restartReady) this.restart();
+    };
     this.hud.onMuteToggle = () => {
       this.audio.unlock();
       this.audio.setMuted(!this.audio.muted);
@@ -256,17 +266,53 @@ export class Game {
 
   // ------------------------------------------------------------- input
 
-  handleAny(): void {
+  // read-only state for play-test tooling (window.__game)
+  get alive(): boolean {
+    return this.state === "playing";
+  }
+  /** True once the big restart button on the game-over card is live. */
+  get restartReady(): boolean {
+    return this.state === "dead" && this.secondsSinceCrash() >= RESTART_BUTTON_DELAY;
+  }
+
+  private secondsSinceCrash(): number {
+    return (performance.now() - this.deadAt) / 1000;
+  }
+
+  /**
+   * Start / restart / unpause. Returns true when the input was used up by
+   * that, so the same tap or key doesn't also steer or jump.
+   */
+  handleAny(source: "key" | "pointer" = "pointer"): boolean {
     this.audio.unlock();
     if (this.paused) {
       this.setPaused(false);
-      return;
+      return true;
     }
     if (this.state === "ready") {
       this.startRun();
-    } else if (this.state === "dead" && this.deadTimer > 0.9) {
-      this.restart();
+      return true;
     }
+    if (this.state === "dead") {
+      const wait = source === "key" ? RESTART_KEY_DELAY : RESTART_ANY_TAP_DELAY;
+      if (this.secondsSinceCrash() >= wait) this.restart();
+      return true;
+    }
+    return false;
+  }
+
+  /** Tap zones: left third steers left, right third steers right, middle jumps. */
+  handleTap(x: number, y: number): void {
+    if (this.state !== "playing" || this.paused) return;
+    const w = window.innerWidth;
+    let zone: "left" | "right" | "jump";
+    if (x < w / 3) zone = "left";
+    else if (x > (w * 2) / 3) zone = "right";
+    else zone = "jump";
+    this.hud.tapFeedback(zone, x, y);
+    if (zone === "left") this.handleLeft();
+    else if (zone === "right") this.handleRight();
+    else this.handleJump();
   }
 
   handleLeft(): void {
@@ -308,19 +354,24 @@ export class Game {
   private startRun(): void {
     this.state = "playing";
     this.speed = SPEED_START;
+    this.runTime = 0;
     this.primeCourse();
     this.hud.showPlaying();
     this.hud.setScore(0);
   }
 
-  /** Seed some content ahead so the opening seconds aren't an empty track. */
+  /**
+   * Seed some content ahead so the opening seconds aren't an empty track —
+   * stars to grab and one low gate (tap to hop it), but no pillars yet.
+   */
   private primeCourse(): void {
     this.spawnPickupLine(1, 62);
     this.spawnRing(105);
     const lane = Math.floor(Math.random() * 3);
-    this.spawnPillar(lane, 140);
-    this.spawnPickupLine((lane + 1) % 3, 138);
-    this.spawnBarrier(Math.floor(Math.random() * 3), 175);
+    this.spawnPickupLine(lane, 135);
+    const gate = (lane + 1 + Math.floor(Math.random() * 2)) % 3;
+    this.spawnBarrier(gate, 175);
+    this.spawnPickupLine(gate, 170, true);
     this.untilNextPattern = 205 - 175 + 10;
   }
 
@@ -355,7 +406,7 @@ export class Game {
     this.combo = 0;
     this.untilNextPattern = 30;
     this.untilNextRing = 60;
-    this.deadTimer = 0;
+    this.runTime = 0;
 
     this.ship.root.position.set(LANE_X[this.lane], SHIP_BASE_Y, 0);
     this.ship.root.rotation.set(0, 0, 0);
@@ -373,7 +424,8 @@ export class Game {
 
   private crash(): void {
     this.state = "dead";
-    this.deadTimer = 0;
+    this.deadAt = performance.now();
+    const deadAt = this.deadAt;
     this.shakeTime = 0.75;
     this.combo = 0;
 
@@ -397,9 +449,15 @@ export class Game {
     }
     // Global from /arcade/arcade.js — absent when this game runs standalone.
     (window as any).Arcade?.submit({ game: "comet-dash", value: Math.floor(this.score) });
+    this.hud.setRestartReady(false);
     window.setTimeout(() => {
-      this.hud.showGameOver(this.score, this.best, isNewBest);
-    }, 900);
+      if (this.state === "dead" && this.deadAt === deadAt) {
+        this.hud.showGameOver(this.score, this.best, isNewBest);
+      }
+    }, 800);
+    window.setTimeout(() => {
+      if (this.state === "dead" && this.deadAt === deadAt) this.hud.setRestartReady(true);
+    }, RESTART_BUTTON_DELAY * 1000);
   }
 
   // ------------------------------------------------------------- lane / spawn helpers
@@ -461,7 +519,23 @@ export class Game {
   private spawnPattern(): void {
     const lanes = [0, 1, 2];
     const pick = (arr: number[]) => arr[Math.floor(Math.random() * arr.length)];
-    const roll = Math.random();
+    // gentle opening: no pillars at all, then no pillar walls / combos
+    if (this.runTime < WARMUP_NO_PILLARS) {
+      if (Math.random() < 0.5) {
+        const l = pick(lanes);
+        this.spawnBarrier(l, SPAWN_Z);
+        this.spawnPickupLine(l, SPAWN_Z - 5, true);
+      } else {
+        const a = pick(lanes);
+        this.spawnPickupLine(a, SPAWN_Z);
+        this.spawnPickupLine(pick(lanes.filter((x) => x !== a)), SPAWN_Z + 16);
+      }
+      return;
+    }
+    // during the gentle phase, roll only the single-pillar / gate / stars patterns
+    const roll = this.runTime < WARMUP_GENTLE
+      ? [0.1, 0.5, 0.6, 0.9][Math.floor(Math.random() * 4)]
+      : Math.random();
 
     if (roll < 0.24) {
       // one pillar, stars beside it
@@ -515,9 +589,9 @@ export class Game {
     const dead = this.state === "dead";
 
     if (dead) {
-      this.deadTimer += dt;
       this.speed = Math.max(0, this.speed - dt * 60); // world screeches to a halt
     } else if (!idle) {
+      this.runTime += dt;
       this.speed = Math.min(SPEED_MAX, this.speed + SPEED_RAMP * dt);
     } else {
       this.speed = 14; // gentle cruise behind the start screen

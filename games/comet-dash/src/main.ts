@@ -17,14 +17,17 @@ const engine = new Engine(canvas, true, {
 
 const game = new Game(engine);
 
-// debug/testing hook (used by the automated smoke test)
+// debug/testing hook (used by the automated smoke test and play-tests).
+// The Game itself, plus read-only getters: state, score, best, alive, lane,
+// runTime, restartReady — see Game.
 (window as unknown as { __game: Game }).__game = game;
 
 setupInput({
   onLeft: () => game.handleLeft(),
   onRight: () => game.handleRight(),
   onJump: () => game.handleJump(),
-  onAny: () => game.handleAny(),
+  onTap: (x, y) => game.handleTap(x, y),
+  onAny: (source) => game.handleAny(source),
 });
 
 engine.runRenderLoop(() => {
