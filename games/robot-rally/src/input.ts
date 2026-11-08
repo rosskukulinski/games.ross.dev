@@ -69,6 +69,16 @@ export class Input {
     if (!zone || !base || !knob || !jumpBtn) return;
 
     const MAX = 46;
+    // At rest the ring sits faded in the bottom-left corner (CSS .home) so a
+    // first-time player can see where to put a thumb; touching anywhere in
+    // the zone still re-centres it under the finger.
+    const goHome = () => {
+      base.classList.add('home');
+      base.style.left = '';
+      base.style.top = '';
+      knob.style.transform = 'translate(-50%, -50%)';
+    };
+    goHome();
 
     // iOS Safari ignores touch-action for its own gestures — the left-edge
     // back-swipe starts exactly where the joystick lives, and a recognised
@@ -93,7 +103,7 @@ export class Input {
         /* ignore */
       }
       this.joyOrigin = { x: e.clientX, y: e.clientY };
-      base.style.display = 'block';
+      base.classList.remove('home');
       base.style.left = `${e.clientX}px`;
       base.style.top = `${e.clientY}px`;
       knob.style.transform = 'translate(-50%, -50%)';
@@ -119,7 +129,7 @@ export class Input {
       this.joyPointer = null;
       this.joyVec.x = 0;
       this.joyVec.y = 0;
-      base.style.display = 'none';
+      goHome();
     };
     zone.addEventListener('pointerup', joyEnd);
     zone.addEventListener('pointercancel', joyEnd);
