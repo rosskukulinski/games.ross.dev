@@ -400,7 +400,11 @@ body {
     width: min(640px, calc(100vw - 16px), calc((100dvh - 280px) * 640 / 576));
   }
 
-  .side { align-self: start; padding-bottom: 0; }
+  .side { align-self: start; padding-bottom: 0; min-width: 0; }
+
+  /* Phones: shrink the pad and button to fit half the screen width each */
+  .side .dpad { --cell: min(72px, calc((50vw - 24px) / 3)); }
+  .side .action-btn { --size: min(112px, calc(50vw - 48px)); }
   .side-left { justify-content: flex-start; padding-left: 12px; }
   .side-right { justify-content: flex-end; padding-right: 12px; align-items: center; }
 }
@@ -408,10 +412,11 @@ body {
 /* One big touch area split into arrow zones with no gaps between them */
 .dpad {
   display: grid;
-  grid-template-columns: 72px 72px 72px;
-  grid-template-rows: 72px 72px 72px;
-  width: 216px;
-  height: 216px;
+  --cell: 72px;
+  grid-template-columns: repeat(3, var(--cell));
+  grid-template-rows: repeat(3, var(--cell));
+  width: calc(var(--cell) * 3);
+  height: calc(var(--cell) * 3);
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 70%, transparent 71%);
   touch-action: none;
@@ -448,8 +453,9 @@ body {
 .dpad-down  { grid-column: 2; grid-row: 3; border-radius: 0 0 16px 16px; border-top: none; }
 
 .action-btn {
-  width: 112px;
-  height: 112px;
+  --size: 112px;
+  width: var(--size);
+  height: var(--size);
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, rgba(255, 220, 90, 0.75), rgba(230, 160, 20, 0.6));
   border: 3px solid rgba(255, 235, 150, 0.9);
@@ -463,7 +469,7 @@ body {
 }
 
 .action-icon {
-  font-size: 48px;
+  font-size: calc(var(--size) * 0.43);
   line-height: 1;
 }
 
