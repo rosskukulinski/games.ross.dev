@@ -137,7 +137,11 @@
 .backBtn {
   display: block;
   margin: 24px auto 0;
-  padding: 10px 32px;
+  min-height: 60px;
+  min-width: 220px;
+  padding: 14px 36px;
+  font-size: 1.15rem;
+  touch-action: manipulation;
   background: none;
   border: 2px solid #2d6a4f;
   border-radius: 20px;

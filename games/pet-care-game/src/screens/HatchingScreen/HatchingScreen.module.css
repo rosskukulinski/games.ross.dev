@@ -11,11 +11,46 @@
   text-align: center;
 }
 
+.eggBtn {
+  position: relative;
+  display: block;
+  margin: 0 auto;
+  padding: 16px 32px;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.18) 0%, rgba(255, 215, 0, 0) 70%);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.eggBump {
+  display: block;
+  animation: eggBump 0.3s ease-out;
+}
+
+.spark {
+  position: absolute;
+  top: 40%;
+  font-size: 2rem;
+  pointer-events: none;
+  animation: sparkUp 0.9s ease-out forwards;
+}
+
+.tapHand {
+  position: absolute;
+  right: 6px;
+  bottom: 18px;
+  font-size: 2.4rem;
+  pointer-events: none;
+  animation: tapHint 1.2s ease-in-out infinite;
+}
+
 .progressTrack {
-  width: 200px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  width: 240px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
   margin: 20px auto;
   overflow: hidden;
 }
@@ -23,13 +58,14 @@
 .progressFill {
   height: 100%;
   background: linear-gradient(90deg, #667eea, #ffd700);
-  border-radius: 3px;
+  border-radius: 7px;
   transition: width 0.3s ease;
 }
 
 .hint {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.3rem;
+  font-weight: 700;
 }
 
 .hatchedArea {
@@ -37,13 +73,11 @@
   animation: fadeInUp 0.5s ease;
 }
 
-.sparkle {
-  margin-bottom: 16px;
-}
-
-.sparkleEmoji {
-  font-size: 3rem;
-  animation: pulse 1s ease-in-out infinite;
+.babyDragon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+  animation: pulse 2s ease-in-out infinite;
 }
 
 .congrats {
@@ -52,25 +86,44 @@
   margin: 0 0 8px;
 }
 
-.prompt {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 1rem;
-  margin-bottom: 16px;
+.nameRow {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  margin: 8px auto 36px;
 }
 
 .nameInput {
   display: block;
   width: 100%;
-  max-width: 240px;
-  margin: 0 auto 16px;
+  max-width: 220px;
+  min-height: 60px;
   padding: 12px 16px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.1);
   color: white;
-  font-size: 1.1rem;
+  font-size: 1.5rem;
+  font-weight: 700;
   text-align: center;
   outline: none;
+}
+
+.diceBtn {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  font-size: 2rem;
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  border-radius: 16px;
+  background: rgba(255, 215, 0, 0.15);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.diceBtn:active {
+  transform: rotate(90deg) scale(0.9);
 }
 
 .nameInput:focus {
@@ -82,15 +135,18 @@
 }
 
 .confirmBtn {
-  padding: 14px 36px;
+  min-height: 64px;
+  padding: 16px 40px;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
   border: none;
   border-radius: 30px;
-  font-size: 1.05rem;
+  font-size: 1.3rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+  touch-action: manipulation;
+  animation: readyGlow 1.6s ease-in-out infinite;
 }
 
 .confirmBtn:hover:not(:disabled) {
@@ -108,7 +164,28 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes eggBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.08) rotate(-4deg); }
+  100% { transform: scale(1); }
+}
+
+@keyframes sparkUp {
+  from { opacity: 1; transform: translateY(0) scale(0.8); }
+  to { opacity: 0; transform: translateY(-90px) scale(1.3); }
+}
+
+@keyframes tapHint {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes readyGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 215, 0, 0.35); }
+}
+
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+  50% { transform: scale(1.05); }
 }

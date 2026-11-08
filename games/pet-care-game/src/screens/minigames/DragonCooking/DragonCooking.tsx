@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useGameStore } from '../../../store/useGameStore';
 import { useCountdown } from '../../../hooks/useCountdown';
+import { useOnFinish } from '../../../hooks/useOnFinish';
 import { INGREDIENTS, generateRecipe, calculateReward, GAME_TIME, STARTING_RECIPE_LENGTH } from './dragonCookingLogic';
 import type { Recipe } from './dragonCookingLogic';
 import styles from './DragonCooking.module.css';
@@ -52,11 +53,11 @@ export function DragonCooking() {
     }
   }, [isRunning, recipe, currentIndex, recipesCompleted, recipeLength]);
 
-  if ((isFinished) && gameStarted && reward === 0) {
+  useOnFinish(isFinished && gameStarted, () => {
     const r = calculateReward(recipesCompleted);
     setReward(r);
     addCurrency(r);
-  }
+  });
 
   if (!gameStarted) {
     return (
@@ -66,7 +67,7 @@ export function DragonCooking() {
           <p>Follow the recipe — tap ingredients in order!</p>
           <p className={styles.tip}>Recipes get longer as you cook more. Wrong tap restarts the recipe!</p>
           <button className={styles.startBtn} onClick={startGame}>Cook!</button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back</button>
         </div>
       </div>
     );
@@ -83,7 +84,7 @@ export function DragonCooking() {
           <button className={styles.startBtn} onClick={() => { setReward(0); setGameStarted(false); }}>
             Cook Again
           </button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back to Hub</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back to Hub</button>
         </div>
       </div>
     );

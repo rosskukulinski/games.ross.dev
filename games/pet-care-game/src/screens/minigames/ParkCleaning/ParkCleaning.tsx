@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useGameStore } from '../../../store/useGameStore';
 import { useCountdown } from '../../../hooks/useCountdown';
+import { useOnFinish } from '../../../hooks/useOnFinish';
 import { generateTrashItems, calculateReward, getTrashIcon } from './parkCleaningLogic';
 import type { TrashItem } from './parkCleaningLogic';
 import styles from './ParkCleaning.module.css';
@@ -34,11 +35,11 @@ export function ParkCleaning() {
   }, [isRunning]);
 
   // Calculate reward when game ends
-  if (isFinished && gameStarted && reward === 0) {
+  useOnFinish(isFinished && gameStarted, () => {
     const r = calculateReward(score, TRASH_COUNT);
     setReward(r);
     addCurrency(r);
-  }
+  });
 
   if (!gameStarted) {
     return (
@@ -48,7 +49,7 @@ export function ParkCleaning() {
           <p>Tap the trash items to clean them up!</p>
           <p className={styles.tip}>Hidden items (partially transparent) are worth 2x!</p>
           <button className={styles.startBtn} onClick={startGame}>Start!</button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back</button>
         </div>
       </div>
     );
@@ -65,7 +66,7 @@ export function ParkCleaning() {
           <button className={styles.startBtn} onClick={() => { setReward(0); setGameStarted(false); }}>
             Play Again
           </button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back to Hub</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back to Hub</button>
         </div>
       </div>
     );

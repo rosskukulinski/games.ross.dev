@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useGameStore } from '../../../store/useGameStore';
 import { useCountdown } from '../../../hooks/useCountdown';
+import { useOnFinish } from '../../../hooks/useOnFinish';
 import { RACE_DURATION, MAX_SPEED, SPEED_GAIN_PER_TAP, SPEED_DECAY_PER_SECOND, DISTANCE_FACTOR, calculateReward } from './dragonRacingLogic';
 import styles from './DragonRacing.module.css';
 
@@ -59,11 +60,11 @@ export function DragonRacing() {
     setSpeed(speedRef.current);
   };
 
-  if (isFinished && gameStarted && reward === 0) {
+  useOnFinish(isFinished && gameStarted, () => {
     const r = calculateReward(distanceRef.current);
     setReward(r);
     addCurrency(r);
-  }
+  });
 
   if (!gameStarted) {
     return (
@@ -73,7 +74,7 @@ export function DragonRacing() {
           <p>Tap rapidly to build speed and race your dragon!</p>
           <p className={styles.tip}>Speed decays over time — keep tapping!</p>
           <button className={styles.startBtn} onClick={startGame}>Race!</button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back</button>
         </div>
       </div>
     );
@@ -89,7 +90,7 @@ export function DragonRacing() {
           <button className={styles.startBtn} onClick={() => { setReward(0); setGameStarted(false); }}>
             Race Again
           </button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back to Hub</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back to Hub</button>
         </div>
       </div>
     );

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useGameStore } from '../../../store/useGameStore';
 import { useCountdown } from '../../../hooks/useCountdown';
+import { useOnFinish } from '../../../hooks/useOnFinish';
 import { generateDirtSpots, scrubRate, calculateReward, getDirtEmoji } from './cageCleaningLogic';
 import type { DirtSpot } from './cageCleaningLogic';
 import styles from './CageCleaning.module.css';
@@ -54,7 +55,7 @@ export function CageCleaning() {
     };
   }, [activeSpot, isRunning]);
 
-  if (isFinished && gameStarted && reward === 0) {
+  useOnFinish(isFinished && gameStarted, () => {
     const r = calculateReward(spots);
     setReward(r);
     addCurrency(r);
@@ -73,7 +74,7 @@ export function CageCleaning() {
         });
       }
     }
-  }
+  });
 
   const cleanedCount = spots.filter(s => s.cleanProgress >= 1).length;
 
@@ -85,7 +86,7 @@ export function CageCleaning() {
           <p>Press and hold on dirt spots to scrub them clean!</p>
           <p className={styles.tip}>Clean all spots for a bonus! Also boosts your dragon's hygiene.</p>
           <button className={styles.startBtn} onClick={startGame}>Start!</button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back</button>
         </div>
       </div>
     );
@@ -103,7 +104,7 @@ export function CageCleaning() {
           <button className={styles.startBtn} onClick={() => { setReward(0); setGameStarted(false); }}>
             Play Again
           </button>
-          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>Back to Hub</button>
+          <button className={styles.backLink} onClick={() => navigate('minigame-hub')}>⬅ Back to Hub</button>
         </div>
       </div>
     );

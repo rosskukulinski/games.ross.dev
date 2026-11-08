@@ -26,7 +26,9 @@ export const EGG_COSTS = {
 } as const;
 
 // Hatch time in seconds
-export const HATCH_TIME = 60;
+export const HATCH_TIME = 30;
+// Each tap on the warming egg adds this many seconds of warmth (10 taps hatch it)
+export const HATCH_TAP_BOOST = 3;
 
 // Love meter
 export const MAX_LOVE = 100;

@@ -53,14 +53,16 @@
 }
 
 .continueBtn, .newGameBtn {
-  padding: 14px 48px;
-  border-radius: 30px;
-  font-size: 1.1rem;
+  min-height: 64px;
+  padding: 16px 48px;
+  border-radius: 32px;
+  font-size: 1.3rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
-  min-width: 200px;
+  min-width: 260px;
+  touch-action: manipulation;
 }
 
 .continueBtn {
