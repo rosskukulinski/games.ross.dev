@@ -2,6 +2,7 @@
 
 import {
   Application,
+  Circle,
   Container,
   Graphics,
   Sprite,
@@ -11,7 +12,7 @@ import {
 import { AdvancedBloomFilter, GlowFilter, RGBSplitFilter, ShockwaveFilter } from 'pixi-filters';
 import { audio } from './audio';
 import { GameTextures, makeTextures, NeonBackground, ParticleSystem } from './fx';
-import { BrickSpec, getLevels, LEVEL_COUNT, LevelDef, NEON } from './levels';
+import { BrickSpec, getLevels, LEVEL_COUNT, LevelDef, NEON, paddleWidthFor, SHIELD_LEVELS } from './levels';
 import { Ease, killAllTweens, tween, tweenProps, updateTweens } from './tween';
 
 export const W = 900;
@@ -25,6 +26,17 @@ const BRICK_H = 30;
 const BRICK_GAP = 6;
 const BRICK_TOP = 168;
 const BALL_R = 11;
+/** Height of the warm-up levels' safety shield, between the paddle and the floor. */
+const SHIELD_Y = 1156;
+/** A ball left resting on the paddle launches itself after this long. */
+const AUTO_LAUNCH_SEC = 3;
+/** Arrow / A-D paddle speed, logical px per second. */
+const KEY_PADDLE_SPEED = 1100;
+/** How much wider than the level's paddle the Wide power-up makes it. */
+const WIDE_EXTRA = 75;
+/** Warm-up levels cap how much paddle hits can speed the ball up. */
+const WARMUP_LEVELS = 4;
+const WARMUP_SPEEDUP_CAP = 1.3;
 // hidden test/demo hook: ?juice cranks the power-up drop rate for screenshots
 const POWERUP_CHANCE = typeof location !== 'undefined' && location.search.includes('juice') ? 0.85 : 0.24;
 const MAX_BALLS = 6;
@@ -163,8 +175,17 @@ export class Game {
   // paddle / input
   private paddleX = W / 2;
   private paddleTargetX = W / 2;
-  private paddleW = 150;
-  private paddleWTarget = 150;
+  private basePaddleW = paddleWidthFor(0);
+  private paddleW = this.basePaddleW;
+  private paddleWTarget = this.basePaddleW;
+  /** -1 / 0 / 1 while an arrow or A/D key is held. */
+  private keyDir = 0;
+  /** Seconds the ball has been resting on the paddle, for the auto-launch. */
+  private stuckT = 0;
+
+  // warm-up safety shield (levels 1-3): saves one ball per life
+  private shield!: Graphics;
+  private shieldArmed = false;
 
   // powerup timers
   private wideT = 0;
@@ -241,6 +262,7 @@ export class Game {
 
     this.buildWalls();
     this.buildPaddle();
+    this.buildShield();
     this.buildHud();
     this.showStartScreen();
 
@@ -264,6 +286,63 @@ export class Game {
       .roundRect(FIELD_L - 2, FIELD_T - 2, FIELD_R - FIELD_L + 4, H, 10)
       .stroke({ width: 1.5, color: 0xbfe6ff, alpha: 0.9 });
     this.world.addChild(walls);
+  }
+
+  private buildShield(): void {
+    const g = new Graphics();
+    const l = FIELD_L + 4;
+    const r = FIELD_R - 4;
+    g.roundRect(l, SHIELD_Y - 5, r - l, 10, 5).fill({ color: 0x39ff14, alpha: 0.18 });
+    g.roundRect(l, SHIELD_Y - 2, r - l, 4, 2).fill({ color: 0x9dff7a, alpha: 0.95 });
+    // little chevrons so it reads as a force field, not a wall
+    for (let x = l + 30; x < r - 20; x += 60) {
+      g.moveTo(x - 10, SHIELD_Y + 10).lineTo(x, SHIELD_Y + 3).lineTo(x + 10, SHIELD_Y + 10)
+        .stroke({ width: 2.5, color: 0x39ff14, alpha: 0.7 });
+    }
+    g.filters = [new GlowFilter({ distance: 12, outerStrength: 2, color: 0x39ff14, quality: 0.2 })];
+    g.visible = false;
+    this.shield = g;
+    this.world.addChild(g);
+  }
+
+  /** Re-arm the shield if this level has one (called per level and per life). */
+  private armShield(): void {
+    this.shieldArmed = this.levelIndex < SHIELD_LEVELS;
+    this.shield.visible = this.shieldArmed;
+    this.shield.alpha = 0;
+    if (this.shieldArmed) {
+      tween(0.4, (t) => (this.shield.alpha = t));
+    }
+  }
+
+  /** The shield catches a ball that slipped past the paddle, then breaks. */
+  private shieldSave(ball: Ball): void {
+    this.shieldArmed = false;
+    ball.c.y = SHIELD_Y - BALL_R - 4;
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.6;
+    ball.vx = Math.cos(a) * ball.speed;
+    ball.vy = Math.sin(a) * ball.speed;
+    audio.paddleHit();
+    this.addShake(6);
+    this.flash(0.15, 0.25);
+    this.ringBurst(ball.c.x, SHIELD_Y, 0x39ff14, 1.2);
+    for (let i = 0; i < 26; i++) {
+      this.fxOver.spawn(this.tex.shard, FIELD_L + Math.random() * (FIELD_R - FIELD_L), SHIELD_Y, {
+        vx: (Math.random() - 0.5) * 220,
+        vy: -80 - Math.random() * 260,
+        gravity: 700,
+        life: 0.7 + Math.random() * 0.4,
+        tint: 0x39ff14,
+        scaleFrom: 0.5,
+        scaleTo: 0.1,
+        vr: (Math.random() - 0.5) * 12,
+      });
+    }
+    tween(0.35, (t) => (this.shield.alpha = 1 - t), {
+      onComplete: () => {
+        if (!this.shieldArmed) this.shield.visible = false;
+      },
+    });
   }
 
   private buildPaddle(): void {
@@ -355,7 +434,7 @@ export class Game {
       h.tint = 0xff2d95;
       h.scale.set(1.15);
       hc.addChild(glow, h);
-      hc.position.set(W - 110 - (MAX_LIVES - 1 - i) * 46, 46);
+      hc.position.set(W - 122 - (MAX_LIVES - 1 - i) * 46, 48);
       this.hud.addChild(hc);
       this.hearts.push(hc);
     }
@@ -363,11 +442,15 @@ export class Game {
 
     // mute button
     const mute = new Container();
-    const mbg = new Graphics().circle(0, 0, 22).fill({ color: 0x101030, alpha: 0.9 });
-    mbg.circle(0, 0, 22).stroke({ width: 2.5, color: 0x4d6cff });
+    const mbg = new Graphics().circle(0, 0, 30).fill({ color: 0x101030, alpha: 0.9 });
+    mbg.circle(0, 0, 30).stroke({ width: 3, color: 0x4d6cff });
     this.muteIcon = new Graphics();
+    this.muteIcon.scale.set(1.35);
     mute.addChild(mbg, this.muteIcon);
-    mute.position.set(W - 46, 46);
+    mute.position.set(W - 50, 48);
+    // the tap target is bigger than the drawn button: 92 logical px is ~59px
+    // on an iPad, where the canvas is letterboxed to 0.64x
+    mute.hitArea = new Circle(0, 0, 46);
     mute.eventMode = 'static';
     mute.cursor = 'pointer';
     mute.on('pointertap', (e) => {
@@ -470,7 +553,7 @@ export class Game {
     this.blink(sub);
 
     const hint = new Text({
-      text: 'Move: mouse or drag  •  Launch: tap or SPACE',
+      text: 'Move: drag, mouse or ← →  •  Launch: tap or SPACE',
       style: chunkyStyle(22, 0x8899dd),
     });
     hint.anchor.set(0.5);
@@ -643,6 +726,7 @@ export class Game {
     this.levelIndex = idx;
     const level = this.levels[idx];
     this.ballSpeedBase = level.ballSpeed;
+    this.basePaddleW = paddleWidthFor(idx);
     this.state = 'transition';
     this.clearOverlay();
     this.clearEntities();
@@ -668,6 +752,7 @@ export class Game {
 
     this.buildBricks(level);
     this.spawnBall(true);
+    this.armShield();
 
     // playing (ball stuck) once cascade lands
     this.pendingLaunch = false;
@@ -741,8 +826,10 @@ export class Game {
     this.fxUnder.clear();
     this.wideT = 0;
     this.laserT = 0;
-    this.paddleWTarget = 150;
-    this.paddleW = 150;
+    this.paddleWTarget = this.basePaddleW;
+    this.paddleW = this.basePaddleW;
+    this.shieldArmed = false;
+    this.shield.visible = false;
     this.redrawPaddle();
   }
 
@@ -788,6 +875,18 @@ export class Game {
     this.paddleTargetX = gx;
   }
 
+  /** True while a ball rests on the paddle waiting to be launched. */
+  get hasStuckBall(): boolean {
+    return (this.state === 'playing' || this.state === 'transition') && this.balls.some((b) => b.stuck);
+  }
+
+  /** Held arrow / A-D direction: -1 left, 1 right, 0 none. */
+  setKeyDir(dir: number): void {
+    this.keyDir = dir;
+    // start from where the paddle is, not wherever the mouse last was
+    if (dir !== 0) this.paddleTargetX = this.paddleX;
+  }
+
   private launchStuckBalls(): void {
     let launched = false;
     for (const b of this.balls) {
@@ -799,6 +898,7 @@ export class Game {
         launched = true;
       }
     }
+    this.stuckT = 0;
     if (launched) {
       audio.launch();
       this.addShake(3);
@@ -1086,7 +1186,7 @@ export class Game {
       case 'wide':
         stacked = this.wideT > 0;
         this.wideT = Math.min(WIDE_MAX, this.wideT + WIDE_TIME);
-        this.paddleWTarget = 225;
+        this.paddleWTarget = this.basePaddleW + WIDE_EXTRA;
         break;
       case 'multi': {
         const before = this.balls.length;
@@ -1210,6 +1310,7 @@ export class Game {
       });
     } else {
       this.spawnBall(true);
+      this.armShield();
     }
   }
 
@@ -1245,6 +1346,9 @@ export class Game {
 
     // paddle
     const halfW = this.paddleW / 2;
+    if (this.keyDir !== 0) {
+      this.paddleTargetX = Math.max(FIELD_L + halfW, Math.min(FIELD_R - halfW, this.paddleTargetX + this.keyDir * KEY_PADDLE_SPEED * dt));
+    }
     const targetX = Math.max(FIELD_L + halfW, Math.min(FIELD_R - halfW, this.paddleTargetX));
     const prevX = this.paddleX;
     this.paddleX += (targetX - this.paddleX) * Math.min(1, dt * 18);
@@ -1260,7 +1364,7 @@ export class Game {
     // powerup timers
     if (this.wideT > 0) {
       this.wideT -= dt;
-      if (this.wideT <= 0) this.paddleWTarget = 150;
+      if (this.wideT <= 0) this.paddleWTarget = this.basePaddleW;
     }
     if (this.laserT > 0) {
       this.laserT -= dt;
@@ -1279,6 +1383,14 @@ export class Game {
       // during transition, still park stuck balls on the paddle
       for (const b of this.balls) if (b.stuck) b.c.position.set(this.paddleX + b.stuckOffset, PADDLE_Y - 24);
       return;
+    }
+
+    // a ball left on the paddle launches itself, so nobody gets stuck waiting
+    if (this.balls.some((b) => b.stuck)) {
+      this.stuckT += dt;
+      if (this.stuckT >= AUTO_LAUNCH_SEC) this.launchStuckBalls();
+    } else {
+      this.stuckT = 0;
     }
 
     this.updateBalls(dt);
@@ -1378,6 +1490,7 @@ export class Game {
         this.collideWalls(ball);
         this.collidePaddle(ball);
         if (this.collideBricks(ball)) break; // brick hit consumed this step
+        if (this.shieldArmed && ball.vy > 0 && ball.c.y + BALL_R >= SHIELD_Y) this.shieldSave(ball);
         if (ball.c.y > H + 40) died = true;
       }
 
@@ -1457,7 +1570,8 @@ export class Game {
       const maxAngle = (72 * Math.PI) / 180;
       const a = -Math.PI / 2 + offset * maxAngle;
       // speed up slightly each paddle hit
-      ball.speed = Math.min(980, ball.speed * 1.02);
+      const cap = this.levelIndex < WARMUP_LEVELS ? Math.min(980, this.ballSpeedBase * WARMUP_SPEEDUP_CAP) : 980;
+      ball.speed = Math.min(cap, ball.speed * 1.02);
       ball.vx = Math.cos(a) * ball.speed;
       ball.vy = Math.sin(a) * ball.speed;
 
@@ -1620,6 +1734,29 @@ export class Game {
   get debugBallPos(): { x: number; y: number; stuck: boolean } | null {
     const b = this.balls[0];
     return b ? { x: b.c.x, y: b.c.y, stuck: b.stuck } : null;
+  }
+
+  /** True when a game-space point is on the mute button (so it doesn't also launch / start). */
+  isOnMute(gx: number, gy: number): boolean {
+    return Math.hypot(gx - (W - 50), gy - 48) <= 46;
+  }
+
+  /** Read-only snapshot for play-test validators (`window.__game`). */
+  get snapshot(): {
+    state: string; score: number; lives: number; level: number; bricksLeft: number;
+    ballSpeed: number; paddleW: number; shieldArmed: boolean; ballStuck: boolean;
+  } {
+    return {
+      state: this.state,
+      score: this.score,
+      lives: this.lives,
+      level: this.levelIndex + 1,
+      bricksLeft: this.bricks.filter((b) => b.alive).length,
+      ballSpeed: this.balls[0]?.speed ?? this.ballSpeedBase,
+      paddleW: Math.round(this.paddleW),
+      shieldArmed: this.shieldArmed,
+      ballStuck: this.balls.some((b) => b.stuck),
+    };
   }
 
   debugLoadLevel(n: number): void {
