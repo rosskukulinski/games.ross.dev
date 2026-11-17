@@ -64,6 +64,7 @@ one-time setup needed to point the game at the deployed Worker.
 | robot-rally | Robot Rally | Three.js + glTF assets + TS + Vite | `vite build` |
 | sir-name-alot | Sir-Name-Alot | Vue + Vite | `vite build` |
 | skee-ball | Skee-Ball | React + Vite | `vite build` |
+| spelling-star | Spelling Star | TS + Vite + Canvas 2D + Web Speech | `tsc && vite build` |
 | sudoku | Sudoku | Static (HTML/CSS/JS) | copy only |
 | tic-tac-toe | Tic-Tac-Toe | Static (HTML/CSS/JS) | copy only |
 | treasure-hunt-island | Treasure Hunt Island | React + Vite | `vite build` |
