@@ -518,6 +518,26 @@ button { font: inherit; color: inherit; border: 0; background: none; cursor: poi
 .ed-cols { display: flex; gap: 12px; flex-wrap: wrap; }
 .ed-cols label { min-width: 260px; }
 .ed-count { font-weight: 800; color: var(--mint); }
+.voice-box { padding: 14px; border-radius: 16px; background: rgba(0, 0, 0, 0.22); border: 1.5px solid var(--glass-edge); display: flex; flex-direction: column; gap: 10px; }
+.voice-box h3 { font-size: 17px; font-weight: 900; color: var(--gold); }
+.voice-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.voice-row select {
+  flex: 1 1 220px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1.5px solid var(--glass-edge);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.voice-row select option { color: #000; }
+.seg { display: inline-flex; border-radius: 999px; background: rgba(0, 0, 0, 0.3); border: 1.5px solid var(--glass-edge); padding: 3px; }
+.seg button { padding: 8px 14px; border-radius: 999px; font-weight: 800; font-size: 15px; }
+.seg button.on { background: linear-gradient(180deg, #ffe08a, #f4a93b); color: #3a1d00; }
+.btn.small { font-size: 15px; padding: 10px 16px; }
+.voice-help { font-size: 13px; }
 .ed-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .ed-actions .btn { font-size: 16px; padding: 12px 20px; }
 .spacer { flex: 1; }

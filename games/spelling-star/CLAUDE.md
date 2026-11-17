@@ -17,6 +17,18 @@ Format: one word per line, optional ` | sentence` read aloud after the word,
 like a teacher does on the test. Words are lowercased and stripped to a–z.
 Best scores are keyed by a hash of the word list, so a new week starts fresh.
 
+## Voice
+
+`src/speech.ts` ranks the device's English voices (Apple premium > enhanced >
+compact; Eloquence voices last; novelty voices like Bells/Zarvox hidden) and
+uses the best one unless a grown-up picks another in the word-list screen.
+Speed is Slow/Normal/Quick (rates 0.5/0.65/0.8 — Safari's 1.0 is brisk); the
+sentence reads 1.3× faster than the word. Parts are spoken one after another
+with a 650 ms pause ("word … sentence … word"). Settings live in
+`spelling-star-voice`. The compact voices that ship on an iPad sound robotic;
+the fix is downloading a Premium voice in iOS Settings, which the picker
+explains.
+
 ## Modes
 
 | Mode | Board | Notes |

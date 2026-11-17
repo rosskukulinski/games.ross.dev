@@ -1,7 +1,7 @@
 import './style.css';
 import { Sky, COLORS } from './sky';
 import { sfx } from './audio';
-import { speak, stopSpeaking, speechAvailable } from './speech';
+import { speak, stopSpeaking, speechAvailable, listVoices, getVoiceSettings, setVoiceSettings, onVoicesChanged, type Speed } from './speech';
 import { DEFAULT_LIST, loadList, saveList, parseList, listKey, type WordEntry, type WordList } from './words';
 
 type Mode = 'listen' | 'scramble' | 'gaps';
@@ -157,7 +157,8 @@ function loadBest(mode: Mode): Best | null {
 }
 
 function sayWord(entry: WordEntry, withSentence: boolean): void {
-  speak(withSentence && entry.sentence ? [entry.word, entry.sentence, entry.word] : [entry.word]);
+  // Sentences read a little quicker than the lone word, like a teacher does.
+  speak(withSentence && entry.sentence ? [entry.word, [entry.sentence, 1.3], entry.word] : [entry.word]);
 }
 
 const STAR_SVG = `<svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0-11 3.2-3.6 11-3.4 4.9 1.6 7 9.3 0 5 -7 9.3-4.9 1.6-11-3.4-3.2-3.6Z"/></svg>`;
@@ -258,6 +259,19 @@ function showEditor(): void {
         <label>Bonus words <small>(optional)</small><textarea id="ed-bonus" rows="11" spellcheck="false" autocapitalize="off" autocorrect="off">${esc(list.bonus)}</textarea></label>
       </div>
       <p class="ed-count"></p>
+      <div class="voice-box">
+        <h3>Reading voice</h3>
+        <div class="voice-row">
+          <select id="ed-voice" aria-label="Voice"></select>
+          <div class="seg" role="group" aria-label="Speed">
+            <button data-speed="slow">🐢 Slow</button>
+            <button data-speed="normal">Normal</button>
+            <button data-speed="quick">🐇 Quick</button>
+          </div>
+          <button class="btn ghost small" id="ed-test">▶ Test</button>
+        </div>
+        <p class="help voice-help"></p>
+      </div>
       <div class="ed-actions">
         <button class="btn ghost" id="ed-reset">Reset to built-in list</button>
         <span class="spacer"></span>
@@ -277,6 +291,7 @@ function showEditor(): void {
   recount();
   w.addEventListener('input', recount);
   b.addEventListener('input', recount);
+  wireVoicePicker(node, () => parseList({ title: t.value, words: w.value, bonus: b.value }).main[0]);
   node.querySelector('#ed-cancel')!.addEventListener('click', () => showTitle());
   node.querySelector('#ed-reset')!.addEventListener('click', () => {
     t.value = DEFAULT_LIST.title;
@@ -293,6 +308,60 @@ function showEditor(): void {
     showTitle();
   });
   setScreen('editor', node);
+}
+
+/** Voice + speed controls. Saved the moment they change, separately from the words. */
+function wireVoicePicker(node: HTMLElement, sample: () => WordEntry | undefined): void {
+  const select = node.querySelector<HTMLSelectElement>('#ed-voice')!;
+  const help = node.querySelector<HTMLElement>('.voice-help')!;
+  const test = (): void => {
+    const e = sample() ?? { word: 'spelling', sentence: 'I practice my spelling every week.', bonus: false };
+    sayWord(e, true);
+  };
+  const paint = (): void => {
+    const voices = listVoices();
+    const { activeId, speed } = getVoiceSettings();
+    select.replaceChildren(
+      ...(voices.length
+        ? voices.map((v) => {
+            const o = document.createElement('option');
+            o.value = v.id;
+            o.textContent = v.label;
+            o.selected = v.id === activeId;
+            return o;
+          })
+        : [Object.assign(document.createElement('option'), { textContent: 'Default voice' })]),
+    );
+    select.disabled = !voices.length;
+    node.querySelectorAll<HTMLButtonElement>('.seg button').forEach((b) => b.classList.toggle('on', b.dataset.speed === speed));
+    const best = voices[0]?.quality ?? 0;
+    help.innerHTML =
+      best >= 3
+        ? 'Voices marked ★ sound the most natural.'
+        : '<b>Want a far more natural voice?</b> On the iPad open <b>Settings → Accessibility → Spoken Content → Voices → English</b>, download a <b>Premium</b> voice (Ava, Zoe or Evan sound great), then come back and pick it here.';
+  };
+  paint();
+  const off = onVoicesChanged(paint);
+  const obs = new MutationObserver(() => {
+    if (!node.isConnected) {
+      off();
+      obs.disconnect();
+    }
+  });
+  obs.observe(app, { childList: true });
+  select.addEventListener('change', () => {
+    setVoiceSettings({ voiceId: select.value });
+    test();
+  });
+  node.querySelectorAll<HTMLButtonElement>('.seg button').forEach((b) =>
+    b.addEventListener('click', () => {
+      setVoiceSettings({ speed: b.dataset.speed as Speed });
+      sfx.tap();
+      paint();
+      test();
+    }),
+  );
+  node.querySelector('#ed-test')!.addEventListener('click', test);
 }
 
 // ---------------------------------------------------------------- play
