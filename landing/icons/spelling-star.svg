@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a1145"/>
+      <stop offset="1" stop-color="#5a2a7a"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset="1" stop-color="#f4a93b"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#ffd166" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffd166" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="100" height="100" rx="20" fill="url(#sky)"/>
+  <!-- tiny stars -->
+  <g fill="#fff">
+    <circle cx="14" cy="16" r="1.2"/><circle cx="84" cy="12" r="1"/><circle cx="90" cy="38" r="1.3"/>
+    <circle cx="10" cy="46" r="1"/><circle cx="30" cy="8" r="0.9"/><circle cx="68" cy="30" r="0.8"/>
+  </g>
+  <!-- constellation -->
+  <polyline points="18,30 34,22 50,34" fill="none" stroke="#ffd166" stroke-width="1.2" stroke-opacity="0.7"/>
+  <g fill="#fff3c4"><circle cx="18" cy="30" r="2"/><circle cx="34" cy="22" r="2"/></g>
+  <!-- big star -->
+  <circle cx="58" cy="30" r="22" fill="url(#glow)"/>
+  <path d="M58 13 62.6 24 74 24.6 65.1 31.6 68.2 42.8 58 36.5 47.8 42.8 50.9 31.6 42 24.6 53.4 24Z" fill="#ffd166" stroke="#fff6d6" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- letter tiles -->
+  <g font-family="Arial Rounded MT Bold,Arial,sans-serif" font-weight="bold" font-size="17" text-anchor="middle" fill="#4a2400">
+    <rect x="10" y="58" width="24" height="28" rx="6" fill="#b8661c"/>
+    <rect x="10" y="56" width="24" height="28" rx="6" fill="url(#tile)"/>
+    <text x="22" y="76">a</text>
+    <rect x="38" y="58" width="24" height="28" rx="6" fill="#b8661c"/>
+    <rect x="38" y="56" width="24" height="28" rx="6" fill="url(#tile)"/>
+    <text x="50" y="76">b</text>
+    <rect x="66" y="58" width="24" height="28" rx="6" fill="#4b2bb0"/>
+    <rect x="66" y="56" width="24" height="28" rx="6" fill="#9b7bff"/>
+    <text x="78" y="76" fill="#fff">c</text>
+  </g>
+</svg>

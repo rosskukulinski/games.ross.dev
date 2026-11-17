@@ -20,6 +20,7 @@ module.exports = [
   'robot-rally',
   'sir-name-alot',
   'skee-ball',
+  'spelling-star',
   'sudoku',
   'tic-tac-toe',
   'treasure-hunt-island',
